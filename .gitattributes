@@ -1,0 +1,10 @@
+# Ensure LF line endings for all Linux scripts and configs
+* text=auto eol=lf
+*.sh text eol=lf
+*.conf text eol=lf
+*.rasi text eol=lf
+*.theme text eol=lf
+*.css text eol=lf
+*.conkyrc text eol=lf
+*.dockitem text eol=lf
+*.desktop text eol=lf
