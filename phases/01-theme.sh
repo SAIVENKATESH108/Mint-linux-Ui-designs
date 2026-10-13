@@ -24,7 +24,11 @@ undo_phase() {
 
     # Replay precise xfconf backup if available
     local latest_backup
-    latest_backup="$(ls -td "${BACKUP_ROOT}"/* 2>/dev/null | head -n1 || true)"
+    latest_backup="$(ls -td "${BACKUP_ROOT}"/*/phase1 2>/dev/null | head -n1 || true)"
+    if [[ -z "${latest_backup}" ]]; then
+        latest_backup="$(ls -td "${BACKUP_ROOT}"/* 2>/dev/null | head -n1 || true)"
+    fi
+
     if [[ -n "${latest_backup}" && -f "${latest_backup}/restore-xfconf.sh" ]]; then
         log_info "Replaying recorded xfconf settings from ${latest_backup}..."
         bash "${latest_backup}/restore-xfconf.sh" || log_warn "Partial xfconf replay warning."
@@ -52,19 +56,9 @@ fi
 log_info "Phase 1: Starting Theme & Assets Installation (Mint 22.3 / XFCE 4.18)"
 
 # ------------------------------------------------------------------------------
-# 1. Back Up Existing xfconf Channels & XML Files First
+# 1. Back Up Existing Configurations First
 # ------------------------------------------------------------------------------
-log_info "Step 1: Backing up xfconf settings..."
-init_backup
-
-# Backup raw channel XML files if they exist
-XFCONF_XML_DIR="${HOME}/.config/xfce4/xfconf/xfce-perchannel-xml"
-if [[ -f "${XFCONF_XML_DIR}/xsettings.xml" ]]; then
-    backup_item "${XFCONF_XML_DIR}/xsettings.xml"
-fi
-if [[ -f "${XFCONF_XML_DIR}/xfwm4.xml" ]]; then
-    backup_item "${XFCONF_XML_DIR}/xfwm4.xml"
-fi
+init_phase_backup 1
 
 # ------------------------------------------------------------------------------
 # 2. Dependency Checks (sassc, glib, engines, fonts)
@@ -80,7 +74,7 @@ REQUIRED_PKGS=(
 check_required_packages "${REQUIRED_PKGS[@]}"
 
 # ------------------------------------------------------------------------------
-# 3. Extract and Install Vendored WhiteSur GTK Theme
+# 3. Extract and Install WhiteSur GTK Theme (Vendor First, Git Clone Fallback)
 # ------------------------------------------------------------------------------
 mkdir -p "${THEME_DEST}"
 BUILD_TMP="$(mktemp -d -t whitesur-build-XXXXXX)"
@@ -94,19 +88,26 @@ if [[ -f "${GTK_TARBALL}" ]]; then
         tar -zxf "${GTK_TARBALL}" -C "${BUILD_TMP}"
         (
             cd "${BUILD_TMP}/WhiteSur-gtk-theme-master"
-            # Compile and install both Dark and Light variants with macOS styling
             ./install.sh -d "${THEME_DEST}" -c Light Dark -t default -N glassy -o normal --normal
         )
         log_success "WhiteSur GTK theme variants installed into ${THEME_DEST}"
     else
         log_success "WhiteSur GTK theme already present in ${THEME_DEST}"
     fi
+elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
+    log_info "Vendored GTK tarball missing. Attempting online git fallback..."
+    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git "${BUILD_TMP}/WhiteSur-gtk-theme"
+    (
+        cd "${BUILD_TMP}/WhiteSur-gtk-theme"
+        ./install.sh -d "${THEME_DEST}" -c Light Dark -t default -N glassy -o normal --normal
+    )
+    log_success "WhiteSur GTK theme cloned and installed."
 else
-    log_warn "Vendored GTK tarball not found at ${GTK_TARBALL}. Using existing themes if present."
+    log_warn "WhiteSur GTK source not available. Proceeding with existing themes if present."
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Extract and Install Vendored WhiteSur Icon Theme
+# 4. Extract and Install WhiteSur Icon Theme (Vendor First, Git Clone Fallback)
 # ------------------------------------------------------------------------------
 mkdir -p "${ICON_DEST}"
 ICON_TARBALL="${VENDOR_DIR}/archives/WhiteSur-icon-theme.tar.gz"
@@ -123,8 +124,16 @@ if [[ -f "${ICON_TARBALL}" ]]; then
     else
         log_success "WhiteSur Icon theme already present in ${ICON_DEST}"
     fi
+elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
+    log_info "Vendored Icon tarball missing. Attempting online git fallback..."
+    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-icon-theme.git "${BUILD_TMP}/WhiteSur-icon-theme"
+    (
+        cd "${BUILD_TMP}/WhiteSur-icon-theme"
+        ./install.sh -d "${ICON_DEST}" -t default -a
+    )
+    log_success "WhiteSur Icon theme cloned and installed."
 else
-    log_warn "Vendored Icon tarball not found at ${ICON_TARBALL}. Using existing icons if present."
+    log_warn "WhiteSur Icon source not available. Proceeding with existing icons if present."
 fi
 
 # ------------------------------------------------------------------------------

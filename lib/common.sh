@@ -2,6 +2,7 @@
 # ==============================================================================
 # Linux Mint XFCE - macOS Sequoia Desktop Transformation Library
 # Common utilities for backups, idempotency, xfconf modification, and logging
+# Target: Linux Mint 22.3 (Ubuntu 24.04 noble base), XFCE 4.18, X11
 # ==============================================================================
 
 set -euo pipefail
@@ -31,27 +32,66 @@ log_error() {
     printf "${C_RED}  ✖ Error:${C_RESET} %s\n" "$1" >&2
 }
 
+log_dry() {
+    printf "${C_CYAN}  [DRY-RUN]${C_RESET} %s\n" "$1"
+}
+
 # Determine repository root
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_DIR="${REPO_ROOT}/config"
 REFERENCE_DIR="${REPO_ROOT}/reference"
 VENDOR_DIR="${REPO_ROOT}/vendor"
+SCRIPTS_DIR="${REPO_ROOT}/scripts"
+
+# Environment Flags (can be set by install.sh)
+DRY_RUN="${DRY_RUN:-0}"
+OFFLINE_MODE="${OFFLINE_MODE:-0}"
+PROFILE_MODE="${PROFILE_MODE:-lite}"
 
 # Global backup tracking
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_ROOT="${HOME}/.mint-sequoia-backup"
 SESSION_BACKUP_DIR="${BACKUP_ROOT}/${TIMESTAMP}"
+CURRENT_PHASE_NUM="0"
+CURRENT_PHASE_DIR="${SESSION_BACKUP_DIR}"
 BACKUP_INITIALIZED=0
 
-init_backup() {
-    if [[ "${BACKUP_INITIALIZED}" -eq 0 ]]; then
-        mkdir -p "${SESSION_BACKUP_DIR}"
-        echo "## Backup Session initialized: ${TIMESTAMP}" > "${SESSION_BACKUP_DIR}/manifest.log"
-        echo "#!/usr/bin/env bash" > "${SESSION_BACKUP_DIR}/restore-xfconf.sh"
-        chmod +x "${SESSION_BACKUP_DIR}/restore-xfconf.sh"
-        BACKUP_INITIALIZED=1
-        log_info "Backup directory initialized at: ${SESSION_BACKUP_DIR}"
+init_phase_backup() {
+    local phase_num="${1:-0}"
+    CURRENT_PHASE_NUM="${phase_num}"
+    CURRENT_PHASE_DIR="${SESSION_BACKUP_DIR}/phase${phase_num}"
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would create backup directory at: ${CURRENT_PHASE_DIR}"
+        return 0
     fi
+
+    mkdir -p "${CURRENT_PHASE_DIR}"
+    echo "## Backup Session initialized: ${TIMESTAMP} for Phase ${phase_num}" > "${CURRENT_PHASE_DIR}/manifest.log"
+    echo "#!/usr/bin/env bash" > "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
+    echo "# Auto-generated rollback script for Phase ${phase_num}" >> "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
+    chmod +x "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
+    BACKUP_INITIALIZED=1
+    log_info "Backup initialized for Phase ${phase_num} at: ${CURRENT_PHASE_DIR}"
+
+    # Dump active xfconf channels if xfconf-query is present
+    if command -v xfconf-query &>/dev/null; then
+        mkdir -p "${CURRENT_PHASE_DIR}/xfconf-dumps"
+        for channel in xsettings xfwm4 xfce4-panel xfce4-desktop xfce4-keyboard-shortcuts xfce4-session; do
+            xfconf-query -c "${channel}" -lv > "${CURRENT_PHASE_DIR}/xfconf-dumps/${channel}.txt" 2>/dev/null || true
+        done
+    fi
+
+    # Backup critical config directories if they exist
+    for dir_to_check in "${HOME}/.config/xfce4" "${HOME}/.config/gtk-3.0" "${HOME}/.config/autostart"; do
+        if [[ -d "${dir_to_check}" ]]; then
+            backup_item "${dir_to_check}"
+        fi
+    done
+}
+
+init_backup() {
+    init_phase_backup "${CURRENT_PHASE_NUM}"
 }
 
 # Ensure execution safety
@@ -62,7 +102,7 @@ verify_environment() {
     fi
 
     if [[ "$OSTYPE" != "linux-gnu"* ]]; then
-        log_error "This script is designed for Linux Mint XFCE, not ${OSTYPE}."
+        log_error "This script is designed for Linux Mint XFCE (Linux X11), not ${OSTYPE}."
         exit 1
     fi
 }
@@ -71,18 +111,21 @@ verify_environment() {
 backup_item() {
     local target="$1"
     if [[ -e "${target}" || -L "${target}" ]]; then
-        init_backup
+        if [[ "${DRY_RUN}" -eq 1 ]]; then
+            log_dry "Would back up: ${target} -> ${CURRENT_PHASE_DIR}/"
+            return 0
+        fi
+
         local rel_path
-        # Normalize relative path under HOME
         if [[ "${target}" == "${HOME}/"* ]]; then
             rel_path="${target#"${HOME}/"}"
         else
             rel_path="$(echo "${target}" | sed 's|^/||')"
         fi
-        local dest="${SESSION_BACKUP_DIR}/${rel_path}"
+        local dest="${CURRENT_PHASE_DIR}/${rel_path}"
         mkdir -p "$(dirname "${dest}")"
         cp -a "${target}" "${dest}"
-        echo "BACKUP:${target}->${dest}" >> "${SESSION_BACKUP_DIR}/manifest.log"
+        echo "BACKUP:${target}->${dest}" >> "${CURRENT_PHASE_DIR}/manifest.log"
     fi
 }
 
@@ -96,7 +139,11 @@ safe_copy() {
         return 1
     fi
 
-    # Check if destination already has identical content
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would copy: ${src} -> ${dest}"
+        return 0
+    fi
+
     if [[ -f "${dest}" ]] && cmp -s "${src}" "${dest}"; then
         log_success "Already up-to-date: ${dest}"
         return 0
@@ -118,6 +165,11 @@ safe_sync_dir() {
         return 1
     fi
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would sync directory: ${src} -> ${dest}"
+        return 0
+    fi
+
     backup_item "${dest}"
     mkdir -p "${dest}"
     cp -a "${src}/." "${dest}/"
@@ -130,6 +182,11 @@ set_xfconf_prop() {
     local property="$2"
     local type="$3"
     local new_val="$4"
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would set xfconf [${channel}] ${property} (${type}) = '${new_val}'"
+        return 0
+    fi
 
     if ! command -v xfconf-query &>/dev/null; then
         log_warn "xfconf-query not found. Skipping xfconf setting: ${channel}:${property}"
@@ -144,12 +201,11 @@ set_xfconf_prop() {
         return 0
     fi
 
-    init_backup
-    # Record previous value in restore script
+    # Record previous value into restore script
     if [[ -n "${current_val}" ]]; then
-        echo "xfconf-query -c \"${channel}\" -p \"${property}\" -s \"${current_val}\"" >> "${SESSION_BACKUP_DIR}/restore-xfconf.sh"
+        echo "xfconf-query -c \"${channel}\" -p \"${property}\" -s \"${current_val}\"" >> "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
     else
-        echo "xfconf-query -c \"${channel}\" -p \"${property}\" -r -R 2>/dev/null || true" >> "${SESSION_BACKUP_DIR}/restore-xfconf.sh"
+        echo "xfconf-query -c \"${channel}\" -p \"${property}\" -r -R 2>/dev/null || true" >> "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
     fi
 
     # Apply new value
@@ -157,7 +213,34 @@ set_xfconf_prop() {
     log_success "xfconf [${channel}] ${property} updated: '${current_val}' -> '${new_val}'"
 }
 
-# Check if packages are installed and prompt if missing
+# Prompt confirmation before any sudo/apt command
+run_sudo_cmd() {
+    local cmd_str="$*"
+    log_warn "Privileged action requested:"
+    printf "      ${C_BOLD}%s${C_RESET}\n" "${cmd_str}"
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would execute: ${cmd_str}"
+        return 0
+    fi
+
+    if [[ "${OFFLINE_MODE}" -eq 1 && "${cmd_str}" =~ apt ]]; then
+        log_warn "Offline mode active: skipping apt network command."
+        return 0
+    fi
+
+    read -p "Do you want to run this command now? [y/N]: " -n 1 -r REPLY
+    echo
+    if [[ "${REPLY}" =~ ^[Yy]$ ]]; then
+        eval "${cmd_str}"
+        log_success "Command completed."
+    else
+        log_warn "Command skipped by user."
+        return 1
+    fi
+}
+
+# Check if packages are installed and prompt with exact command
 check_required_packages() {
     local missing=()
     for pkg in "$@"; do
@@ -167,16 +250,41 @@ check_required_packages() {
     done
 
     if [[ ${#missing[@]} -gt 0 ]]; then
-        log_warn "Missing required packages: ${missing[*]}"
-        log_info "To install them, run:"
-        echo "  sudo apt update && sudo apt install -y ${missing[*]}"
-        read -p "Would you like to install them now with sudo? [y/N] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            sudo apt update && sudo apt install -y "${missing[@]}"
-        else
-            log_error "Required packages missing. Please install them and re-run."
-            exit 1
-        fi
+        log_warn "Missing required package(s): ${missing[*]}"
+        local install_cmd="sudo apt update && sudo apt install -y ${missing[*]}"
+        run_sudo_cmd "${install_cmd}" || {
+            log_warn "Packages not installed. Scripts will attempt fallback or fail gracefully."
+        }
     fi
+}
+
+# Safely install an autostart desktop entry with a 5-second startup delay
+install_delayed_autostart() {
+    local name="$1"
+    local exec_cmd="$2"
+    local comment="$3"
+    local autostart_dir="${HOME}/.config/autostart"
+    local dest_file="${autostart_dir}/${name}.desktop"
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would register autostart with 5s delay: ${dest_file} -> 'sleep 5 && ${exec_cmd}'"
+        return 0
+    fi
+
+    mkdir -p "${autostart_dir}"
+    backup_item "${dest_file}"
+
+    cat > "${dest_file}" <<EOF
+[Desktop Entry]
+Type=Application
+Name=${name}
+Comment=${comment}
+Exec=sh -c "sleep 5 && ${exec_cmd}"
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5
+EOF
+    chmod +x "${dest_file}"
+    log_success "Autostart registered (5s delay): ${dest_file}"
 }
