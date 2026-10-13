@@ -27,7 +27,6 @@ Options:
   --dry-run              Simulate execution without modifying files or xfconf
   --phase, -p <1-8>      Run only a specific phase
   --all                  Run baseline phases [1, 2, 3, 4, 6, 7, 8] (default)
-  --with-sidebar         Include Phase 5 (Left Sidebar; requires GUI calibration)
   --offline              Skip external network downloads, use only local/vendor assets
   --profile <lite|glass> Choose compositor profile (default: lite - no GPU blur)
   -h, --help             Show this help message
@@ -36,26 +35,19 @@ Phases:
   1. Theme & Icons (WhiteSur GTK, icons, Inter font, left window buttons)
   2. Compositor (Picom 10.2 GLX backend, lite default, xfwm4 uncomposited)
   3. Top Menu Bar (xfce4-panel 28px, macOS clock, no battery/BT)
-  4. Dock (Plank Sequoia theme, 10 unified icons, bottom panel hidden)
-  5. Left Sidebar (Opt-in via --with-sidebar; 76px vertical panel)
+  4. Dock (Plank Sequoia theme, 10 unified icons)
+  5. Left Sidebar (Removed per user preference)
   6. Desktop Widgets (3 Conky windows, cached wttr.in weather, update >= 3.5s)
   7. Application Launchers (Rofi Spotlight: Super+Space, Launchpad: Super+A)
   8. System Extras (Mission Control, Control Center, macOS hotkeys)
 EOF
 }
 
-WITH_SIDEBAR=0
-
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dry-run)
             DRY_RUN=1
             export DRY_RUN
-            shift
-            ;;
-        --with-sidebar)
-            WITH_SIDEBAR=1
-            export WITH_SIDEBAR
             shift
             ;;
         --offline)
@@ -98,17 +90,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-export PROFILE_MODE DRY_RUN OFFLINE_MODE WITH_SIDEBAR
+export PROFILE_MODE DRY_RUN OFFLINE_MODE
 
 log_info "=========================================================="
 log_info " macOS Sequoia Transformation Suite for Linux Mint XFCE"
 log_info " Target: HDMI-1 1280x1024 @ 60Hz | Core i3-3220 / GT 610"
 log_info " Profile: [${PROFILE_MODE}] | Target: Phase [${TARGET_PHASE}]"
-if [[ "${WITH_SIDEBAR}" -eq 1 ]]; then
-    log_info " Left Sidebar: [ENABLED (--with-sidebar)]"
-else
-    log_info " Left Sidebar: [DISABLED (Opt-in)]"
-fi
 if [[ "${DRY_RUN}" -eq 1 ]]; then
     log_warn " DRY-RUN MODE ACTIVE: No files or xfconf settings will change."
 fi
@@ -144,11 +131,6 @@ run_phase() {
 
 if [[ "${TARGET_PHASE}" == "all" ]]; then
     PHASES_TO_RUN=(1 2 3 4 6 7 8)
-    if [[ "${WITH_SIDEBAR}" -eq 1 ]]; then
-        PHASES_TO_RUN=(1 2 3 4 5 6 7 8)
-    else
-        log_info "Note: Phase 5 (Left Sidebar) is skipped by default. Pass --with-sidebar to include it."
-    fi
 
     for p in "${PHASES_TO_RUN[@]}"; do
         run_phase "${p}"

@@ -148,6 +148,10 @@ check_item "Modular GTK3 tokens use @define-color (no active var() declarations)
     "[[ \$(grep -E '^[[:space:]]*[a-zA-Z0-9_-]+:[^;]*var\(' '${HOME}/.config/gtk-3.0/sequoia/tokens.css' 2>/dev/null | wc -l | tr -d ' ') -eq 0 ]]" \
     "Active CSS declarations in tokens.css contain unsupported var() property"
 
+check_item "All @import references in gtk.css resolve to existing files on disk" \
+    "bash -c 'gtk_css=\"\${HOME}/.config/gtk-3.0/gtk.css\"; [[ -f \"\${gtk_css}\" ]] || exit 1; base=\"\${HOME}/.config/gtk-3.0\"; while read -r line; do [[ -z \"\${line}\" ]] && continue; rel=\$(echo \"\${line}\" | grep -oE \"[a-zA-Z0-9_/-]+\.css\" | head -1); [[ -n \"\${rel}\" && -f \"\${base}/\${rel}\" ]] || exit 1; done < <(grep -E \"^[[:space:]]*@import\" \"\${gtk_css}\")'" \
+    "One or more @import targets referenced in gtk.css do not exist"
+
 check_item "xfce4-panel panel-1 size set to 28px" \
     "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-1/size 2>/dev/null || true)\" == '28' ]]" \
     "Panel-1 size is not 28px"
@@ -202,35 +206,19 @@ if [[ -n "${DISPLAY:-}" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# Phase 5: Left Sidebar (Opt-In)
+# Phase 5: Left Sidebar (Removed per user preference)
 # ------------------------------------------------------------------------------
 echo ""
-printf "${C_BOLD}Phase 5: Left Sidebar (Opt-In)${C_RESET}\n"
+printf "${C_BOLD}Phase 5: Left Sidebar Status${C_RESET}\n"
 HAS_PANEL2="$(xfconf-query -c xfce4-panel -p /panels 2>/dev/null | grep -q '2' && echo 1 || echo 0)"
-if [[ "${HAS_PANEL2}" -eq 1 ]]; then
-    check_item "xfce4-panel panel-2 configured with size 76px" \
-        "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/size 2>/dev/null || true)\" == '76' ]]" \
-        "panel-2 size is not 76px"
-    check_item "xfce4-panel panel-2 mode is true vertical (mode=1)" \
-        "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/mode 2>/dev/null || true)\" == '1' ]]" \
-        "panel-2 mode is not vertical (1)"
-    check_item "xfce4-panel panel-2 autohide-behavior is disabled (0)" \
-        "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/autohide-behavior 2>/dev/null || true)\" == '0' ]]" \
-        "panel-2 autohide-behavior is enabled (2) instead of 0 (sidebar is hidden)"
-
-    if [[ -n "${DISPLAY:-}" ]]; then
-        if command -v wmctrl &>/dev/null; then
-            check_item "Left sidebar window VISIBLE on left edge (76px width via wmctrl)" \
-                "wmctrl -l -G 2>/dev/null | grep -i 'panel' | awk '\$5 == 76 && \$3 <= 25 { found=1 } END { exit !found }'" \
-                "wmctrl did not detect a visible 76px panel window on the left edge"
-        elif command -v xwininfo &>/dev/null; then
-            check_item "Left sidebar window VISIBLE (76px width via xwininfo)" \
-                "xwininfo -root -tree 2>/dev/null | grep -i 'xfce4-panel' | grep -q '76x'" \
-                "xwininfo did not detect a visible 76px panel window"
-        fi
-    fi
+if [[ "${HAS_PANEL2}" -eq 0 ]]; then
+    check_item "Left sidebar completely removed (no panel-2 configured)" \
+        "true" \
+        ""
 else
-    printf "  ${C_BLUE}[SKIP]${C_RESET} Left sidebar is disabled (opt-in default).\n"
+    check_item "Left sidebar removed (no panel-2 configured)" \
+        "false" \
+        "panel-2 is still registered in xfce4-panel /panels"
 fi
 
 check_item "xfwm4 workspace_count configured to 4 spaces" \

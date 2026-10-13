@@ -22,8 +22,8 @@ Automated, idempotent, defensive, and reversible desktop transformation suite th
 | **01** | Theme & Icons | `phases/01-theme.sh` | WhiteSur GTK (Dark & Light), WhiteSur icons, Inter font, left traffic-lights (`CHM\|`), `toggle-theme.sh` | `./phases/01-theme.sh --undo` |
 | **02** | Compositor | `phases/02-compositor.sh` | Picom 10.2 (glx backend), lite profile default, glass profile optional, xfwm4 uncomposited, `lite-mode.sh` | `./phases/02-compositor.sh --undo` |
 | **03** | Top Menu Bar | `phases/03-top-bar.sh` | `xfce4-panel` (28px height), macOS clock format (`%a %e %b  %l:%M %P`), Apple logo, GTK CSS styling | `./phases/03-top-bar.sh --undo` |
-| **04** | Dock | `phases/04-dock.sh` | Plank with custom Sequoia theme, 10 unified icons, dodge-window autohide, bottom panel hidden | `./phases/04-dock.sh --undo` |
-| **05** | Left Sidebar | `phases/05-left-sidebar.sh` | 76px vertical floating panel (`panel-2`), 4-desktop pager (`Desk 1..4`), 3 quick launchers, power button | `./phases/05-left-sidebar.sh --undo` |
+| **04** | Dock | `phases/04-dock.sh` | Plank with custom Sequoia theme, 10 unified icons, dodge-window autohide | `./phases/04-dock.sh --undo` |
+| **05** | Left Sidebar | *(Removed)* | Deprecated/removed per user preference | *(N/A)* |
 | **06** | Desktop Widgets | `phases/06-widgets.sh` | 3 Conky windows (Clock+Weather, Calendar+Sensors, Media+Storage), update interval 3.5s, cached wttr.in weather | `./phases/06-widgets.sh --undo` |
 | **07** | Launchers | `phases/07-launcher.sh` | Rofi Spotlight (`Super+Space`), 7×5 Launchpad app grid (`Super+A` / `F4`), Sequoia themes | `./phases/07-launcher.sh --undo` |
 | **08** | Extras & Hotkeys | `phases/08-extras.sh` | Mission Control (`Super+Up` / `F3`), interactive Control Center menu (`Super+C`), macOS window shortcuts | `./phases/08-extras.sh --undo` |
@@ -42,9 +42,6 @@ To inspect every change without modifying files or xfconf:
 ```bash
 # Default Lite Profile (Phases 1, 2, 3, 4, 6, 7, 8):
 ./install.sh --all
-
-# Include Phase 5 (Left Workspace Sidebar - Requires GUI positioning):
-./install.sh --all --with-sidebar
 
 # Or explicitly select profile:
 ./install.sh --all --profile lite

@@ -28,11 +28,8 @@ undo_phase() {
     fi
 
     rm -f "${GTK_CONFIG_DIR}/sequoia/panel-top.css"
-    # If sidebar is not installed, also remove tokens.css and gtk.css
-    if [[ ! -f "${GTK_CONFIG_DIR}/sequoia/sidebar.css" ]]; then
-        rm -f "${GTK_CONFIG_DIR}/sequoia/tokens.css"
-        rm -f "${GTK_CONFIG_DIR}/gtk.css"
-    fi
+    rm -f "${GTK_CONFIG_DIR}/sequoia/tokens.css"
+    rm -f "${GTK_CONFIG_DIR}/gtk.css"
 
     # Replay backup if available
     local latest_backup

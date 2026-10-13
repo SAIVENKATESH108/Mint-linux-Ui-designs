@@ -139,6 +139,31 @@ find_desktop_file() {
     return 1
 }
 
+# Fallback helper to search by Categories in desktop files
+find_desktop_by_category() {
+    local category="$1"
+    local search_dirs=(
+        "/usr/share/applications"
+        "${HOME}/.local/share/applications"
+        "/var/lib/flatpak/exports/share/applications"
+        "${HOME}/.local/share/flatpak/exports/share/applications"
+    )
+
+    for sdir in "${search_dirs[@]}"; do
+        [[ -d "${sdir}" ]] || continue
+        while IFS= read -r df; do
+            [[ -f "${df}" ]] || continue
+            if grep -Eq "^Categories=.*${category}" "${df}" 2>/dev/null; then
+                if ! grep -Eq '^NoDisplay=true' "${df}" 2>/dev/null; then
+                    echo "${df}"
+                    return 0
+                fi
+            fi
+        done < <(find "${sdir}" -maxdepth 1 -name "*.desktop" 2>/dev/null)
+    done
+    return 1
+}
+
 DEPLOYED_ITEMS=()
 
 deploy_dockitem() {
@@ -149,6 +174,14 @@ deploy_dockitem() {
 
     local resolved
     resolved="$(find_desktop_file "${candidates[@]}" || true)"
+
+    # Fallback to category search if specific candidate files were not found
+    if [[ -z "${resolved}" && "${name}" == "editor" ]]; then
+        resolved="$(find_desktop_by_category "TextEditor" || true)"
+        if [[ -n "${resolved}" ]]; then
+            log_info "Dock slot [${prefix} ${name}]: matched via Categories=TextEditor fallback: ${resolved}"
+        fi
+    fi
 
     local item_filename="${prefix}-${name}.dockitem"
 
@@ -162,7 +195,7 @@ Launcher=file://${resolved}
 EOF
         fi
         DEPLOYED_ITEMS+=("${item_filename}")
-        log_success "Dock slot [${prefix} ${name}]: ${resolved}"
+        log_success "Dock slot [${prefix} ${name}]: picked ${resolved}"
     else
         log_warn "Dock slot [${prefix} ${name}]: SKIPPED (no candidate installed)."
         local search_dirs=(
@@ -205,8 +238,9 @@ deploy_dockitem "03" "terminal" \
     "org.gnome.Terminal.desktop" \
     "xterm.desktop"
 
-# 04. Text Editor: Xed / Mousepad / Gedit
+# 04. Text Editor: Xed (org.x.editor.desktop / xed.desktop), Mousepad, Gedit, or Category=TextEditor
 deploy_dockitem "04" "editor" \
+    "org.x.editor.desktop" \
     "xed.desktop" \
     "org.xfce.mousepad.desktop" \
     "mousepad.desktop" \
@@ -287,7 +321,7 @@ elif command -v dconf &>/dev/null; then
 
     dconf write "${DCONF_PATH}/theme" "'Sequoia'"
     dconf write "${DCONF_PATH}/icon-size" "48"
-    dconf write "${DCONF_PATH}/offset" "4"
+    dconf write "${DCONF_PATH}/offset" "0"
     dconf write "${DCONF_PATH}/zoom-enabled" "true"
     dconf write "${DCONF_PATH}/zoom-percent" "118"
     dconf write "${DCONF_PATH}/hide-mode" "'dodge-window'"

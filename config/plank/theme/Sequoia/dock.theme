@@ -21,8 +21,8 @@ FillEndColor=35;;35;;40;;179
 # Inner subtle glow stroke (R;;G;;B;;A)
 InnerStrokeColor=255;;255;;255;;25
 
-# Spacing & Padding (reference: dock_item_padding=4px, bottom padding to prevent screen clipping)
-BottomPadding=8
+# Spacing & Padding (balanced 2px padding top/bottom to prevent empty space under icons)
+BottomPadding=2
 TopPadding=2
 ItemPadding=4
 IndicatorSize=4
