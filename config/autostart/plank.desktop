@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Plank Dock
+Comment=macOS Sequoia Style Bottom Dock
+Exec=plank
+OnlyShowIn=XFCE;
+StartupNotify=false
+Terminal=false
+Hidden=false

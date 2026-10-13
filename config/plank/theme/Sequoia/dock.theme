@@ -1,0 +1,32 @@
+# ==============================================================================
+# macOS Sequoia Plank Dock Theme
+# Derived from reference/design-tokens.conf
+# ==============================================================================
+
+[PlankTheme]
+# The roundness of the dock edges (reference: dock_radius=14px)
+TopRoundness=14
+BottomRoundness=14
+
+# The thickness of the dock's border
+LineWidth=1
+
+# The color of the dock's border (reference: dock_border=rgba(255, 255, 255, 0.18))
+LineColor=255;;255;;255;;46
+
+# Background gradient (reference: dock_bg=rgba(35, 35, 40, 0.70))
+FillStart=35;;35;;40;;179
+FillEnd=35;;35;;40;;179
+
+# Inner subtle glow stroke
+InnerStrokeColor=255;;255;;255;;25
+
+# Shadow styling
+ShadowSize=8
+ShadowColor=0;;0;;0;;60
+
+# Spacing & Indicators (reference: dock_item_padding=4px)
+ItemPadding=4
+IndicatorSize=4
+IndicatorOffset=2
+FadeOpacity=1
