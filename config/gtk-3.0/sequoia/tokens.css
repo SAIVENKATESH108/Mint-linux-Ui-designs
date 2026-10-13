@@ -1,8 +1,6 @@
 /* ==============================================================================
  * Design Tokens for GTK 3.0 (@define-color)
- * Target: Linux Mint 22.3 XFCE (GTK 3.24)
- * NOTE: GTK 3 does NOT support CSS custom properties (--var / var()),
- * only @define-color definitions.
+ * GTK 3 tokens use @define-color definitions exclusively.
  * ============================================================================== */
 
 @define-color sequoia_bg_panel rgba(30, 30, 32, 0.85);

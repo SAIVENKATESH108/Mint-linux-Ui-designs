@@ -25,6 +25,24 @@ while IFS= read -r -d '' file; do
         echo "✖ Carriage return (^M) detected: ${file}" >&2
         ERRORS=$((ERRORS + 1))
     fi
+    # If it is a shell script (.sh), ensure it has the executable bit in git and filesystem
+    if [[ "${file}" == *.sh ]]; then
+        # Check git index mode if tracked
+        if command -v git &>/dev/null; then
+            git_mode="$(git ls-files -s "${file}" 2>/dev/null | awk '{print $1}' || true)"
+            if [[ -n "${git_mode}" && "${git_mode}" != "100755" ]]; then
+                echo "✖ Missing executable bit in git index (mode ${git_mode}): ${file}" >&2
+                echo "  Run: git update-index --chmod=+x \"${file}\"" >&2
+                ERRORS=$((ERRORS + 1))
+            fi
+        fi
+        # Check filesystem execute bit on POSIX environments
+        if [[ "$(uname -s)" != *"MINGW"* && "$(uname -s)" != *"CYGWIN"* && "$(uname -s)" != *"MSYS"* && ! -x "${file}" ]]; then
+            echo "✖ Missing execute permission on filesystem: ${file}" >&2
+            echo "  Run: chmod +x \"${file}\"" >&2
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
 done < <(find "${REPO_ROOT}" -type f \
     \( -name "*.sh" -o -name "*.conf" -o -name "*.conkyrc" -o -name "*.rasi" \
        -o -name "*.css" -o -name "*.json" -o -name "*.theme" -o -name "*.dockitem" \
@@ -36,10 +54,9 @@ done < <(find "${REPO_ROOT}" -type f \
 echo "Checked ${CHECKED} files."
 
 if [[ "${ERRORS}" -gt 0 ]]; then
-    echo "✖ FAILED: Found ${ERRORS} file(s) with CRLF line endings!" >&2
-    echo "Run: dos2unix <file> or git checkout-index to fix." >&2
+    echo "✖ FAILED: Found ${ERRORS} error(s) (CRLF line endings or missing execute bits)!" >&2
     exit 1
 else
-    echo "✔ PASSED: All ${CHECKED} files have clean Unix (LF) line endings."
+    echo "✔ PASSED: All ${CHECKED} files have clean Unix (LF) line endings and correct permissions."
     exit 0
 fi

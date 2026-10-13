@@ -94,12 +94,19 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-1/position-locked" "bool" "true"
 set_xfconf_prop "xfce4-panel" "/panels/panel-1/autohide-behavior" "uint" "0"
 set_xfconf_prop "xfce4-panel" "/panels/panel-1/background-style" "uint" "0"
 
+KEEP_TOP_LAUNCHERS="${KEEP_TOP_LAUNCHERS:-0}"
+for arg in "$@"; do
+    case "${arg}" in
+        --keep-top-launchers) KEEP_TOP_LAUNCHERS=1 ;;
+    esac
+done
+
 # ------------------------------------------------------------------------------
-# 5. Remove Tasklist (Window Buttons) from Top Menu Bar (Dock handles open apps)
+# 5. Remove Tasklist & Duplicate Launchers from Top Bar (Dock handles open apps)
 # ------------------------------------------------------------------------------
-log_info "Ensuring tasklist (window buttons) is removed from top bar (dock handles windows)..."
+log_info "Ensuring tasklist and duplicate launchers are removed from top bar..."
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would filter tasklist and windowmenu plugins from panel-1 plugin-ids array"
+    log_dry "Would filter tasklist, windowmenu, and duplicate launcher plugins from panel-1"
 elif command -v xfconf-query &>/dev/null; then
     CURRENT_IDS=($(read_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids"))
     if [[ ${#CURRENT_IDS[@]} -gt 0 ]]; then
@@ -108,6 +115,8 @@ elif command -v xfconf-query &>/dev/null; then
             PTYPE="$(xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" 2>/dev/null || true)"
             if [[ "${PTYPE}" == "tasklist" || "${PTYPE}" == "windowmenu" ]]; then
                 log_info "Identified tasklist/windowmenu plugin-${pid} on panel-1. Removing from top bar..."
+            elif [[ "${PTYPE}" == "launcher" && "${KEEP_TOP_LAUNCHERS}" -eq 0 ]]; then
+                log_info "Identified duplicate stock launcher plugin-${pid} on panel-1. Removing (dock owns apps)..."
             else
                 FILTERED_IDS+=("${pid}")
             fi
@@ -158,10 +167,10 @@ elif command -v xfconf-query &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Verification: Confirm Panel-1 Plugins and Absence of Tasklist
+# 7. Verification: Confirm Panel-1 Plugins (Whisker & Clock mapped, no tasklist/launchers)
 # ------------------------------------------------------------------------------
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would verify panel-1 plugin-ids contain whisker, clock, and zero tasklists"
+    log_dry "Would verify panel-1 plugin-ids contain whisker, clock, zero tasklists, zero duplicate launchers"
 elif command -v xfconf-query &>/dev/null; then
     FINAL_IDS=($(read_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids"))
     log_info "Auditing panel-1 active plugins (${#FINAL_IDS[@]} items):"
@@ -179,6 +188,9 @@ elif command -v xfconf-query &>/dev/null; then
         elif [[ "${PTYPE}" == "tasklist" || "${PTYPE}" == "windowmenu" ]]; then
             log_error "Assertion FAILED: Tasklist/windowmenu plugin-${pid} is still assigned to panel-1!"
             exit 1
+        elif [[ "${PTYPE}" == "launcher" && "${KEEP_TOP_LAUNCHERS}" -eq 0 ]]; then
+            log_error "Assertion FAILED: Duplicate stock launcher plugin-${pid} is still assigned to panel-1! Pass --keep-top-launchers to retain."
+            exit 1
         fi
     done
 
@@ -188,7 +200,7 @@ elif command -v xfconf-query &>/dev/null; then
     if [[ "${HAS_CLOCK}" -eq 0 ]]; then
         log_warn "Clock plugin not detected on panel-1."
     fi
-    log_success "Panel-1 plugins verified: Tasklist absent, Whisker & Clock mapped."
+    log_success "Panel-1 plugins verified: Tasklist & duplicate launchers absent, Whisker & Clock mapped."
 fi
 
 # ------------------------------------------------------------------------------

@@ -18,13 +18,13 @@ LOCAL_BIN="${HOME}/.local/bin"
 DCONF_PATH="/net/launchpad/plank/docks/dock1"
 
 # ------------------------------------------------------------------------------
-# Undo Functionality for Phase 4
+# Undo Functionality for Phase 4 (Plank Only - Never touches panels)
 # ------------------------------------------------------------------------------
 undo_phase() {
-    log_info "==> Reverting Phase 4: Stopping Plank & Restoring Bottom Panel..."
+    log_info "==> Reverting Phase 4: Stopping Plank & Restoring Dock Settings..."
 
     if [[ "${DRY_RUN}" -eq 1 ]]; then
-        log_dry "Would stop Plank and remove dock config files"
+        log_dry "Would stop Plank and remove dock config files and themes"
         return 0
     fi
 
@@ -37,12 +37,9 @@ undo_phase() {
     rm -rf "${PLANK_THEME_DEST}"
     rm -rf "${PLANK_LAUNCHERS_DIR}"
 
-    # Replay backup if available
-    local latest_backup
-    latest_backup="$(ls -td "${BACKUP_ROOT}"/*/phase4 2>/dev/null | head -n1 || true)"
-    if [[ -n "${latest_backup}" && -f "${latest_backup}/restore-xfconf.sh" ]]; then
-        log_info "Replaying recorded settings from ${latest_backup}..."
-        bash "${latest_backup}/restore-xfconf.sh" || log_warn "Partial restore warning."
+    # Reset dconf to Default theme if dconf available
+    if command -v dconf &>/dev/null; then
+        dconf write "${DCONF_PATH}/theme" "'Default'" 2>/dev/null || true
     fi
 
     log_success "Phase 4 successfully reverted."
@@ -60,11 +57,26 @@ log_info "Phase 4: Starting Plank Dock Configuration (10 Launchers & Sequoia The
 # ------------------------------------------------------------------------------
 init_phase_backup 4
 
+# Self-healing: if panel-2 was accidentally autohidden by previous run, heal it back
+if command -v xfconf-query &>/dev/null; then
+    P2_AUTOHIDE="$(xfconf-query -c xfce4-panel -p /panels/panel-2/autohide-behavior 2>/dev/null || true)"
+    if [[ "${P2_AUTOHIDE}" == "2" ]]; then
+        log_info "Self-healing: restoring panel-2 autohide-behavior to 0..."
+        set_xfconf_prop "xfce4-panel" "/panels/panel-2/autohide-behavior" "uint" "0"
+    fi
+fi
+
 # ------------------------------------------------------------------------------
 # 2. Dependency Checks (plank, dconf-cli)
 # ------------------------------------------------------------------------------
 REQUIRED_PKGS=("plank" "dconf-cli")
 check_required_packages "${REQUIRED_PKGS[@]}"
+
+# Stop any running Plank instance so it does not overwrite files/dconf on exit
+if [[ "${DRY_RUN}" -eq 0 ]] && command -v pkill &>/dev/null; then
+    pkill -x plank 2>/dev/null || true
+    sleep 0.5
+fi
 
 # ------------------------------------------------------------------------------
 # 3. Deploy Custom Sequoia Dock Theme (Strictly Validated against system template)
@@ -100,97 +112,178 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Deploy Unified 10-Item Dock Launchers (With Installed Equivalents & Trash Last)
+# 4. Multi-Directory Search & Deploy 10 Unified Dock Launchers
 # ------------------------------------------------------------------------------
 run mkdir -p "${PLANK_LAUNCHERS_DIR}"
 backup_item "${PLANK_LAUNCHERS_DIR}"
 
-if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would clean stale launchers and deploy 10 ordered dockitems with Trash last"
-else
-    rm -f "${PLANK_LAUNCHERS_DIR}/"*.dockitem
+# Multi-directory search helper matching .desktop IDs
+find_desktop_file() {
+    local desktop_ids=("$@")
+    local search_dirs=(
+        "/usr/share/applications"
+        "${HOME}/.local/share/applications"
+        "/var/lib/flatpak/exports/share/applications"
+        "${HOME}/.local/share/flatpak/exports/share/applications"
+    )
 
-    find_best_desktop() {
-        for cand in "$@"; do
-            if [[ -f "${cand}" ]]; then
-                echo "${cand}"
+    for id in "${desktop_ids[@]}"; do
+        for sdir in "${search_dirs[@]}"; do
+            local candidate="${sdir}/${id}"
+            if [[ -f "${candidate}" ]]; then
+                echo "${candidate}"
                 return 0
             fi
         done
-        return 1
-    }
+    done
+    return 1
+}
 
-    deploy_dockitem() {
-        local prefix="$1"
-        local name="$2"
-        local desktop_path="$3"
-        local candidates_desc="$4"
+DEPLOYED_ITEMS=()
 
-        if [[ -n "${desktop_path}" && -f "${desktop_path}" ]]; then
-            cat << EOF > "${PLANK_LAUNCHERS_DIR}/${prefix}-${name}.dockitem"
-[PlankDockItemPreferences]
-Launcher=file://${desktop_path}
-EOF
-            log_success "Dock slot [${prefix} ${name}]: ${desktop_path}"
+deploy_dockitem() {
+    local prefix="$1"
+    local name="$2"
+    shift 2
+    local candidates=("$@")
+
+    local resolved
+    resolved="$(find_desktop_file "${candidates[@]}" || true)"
+
+    local item_filename="${prefix}-${name}.dockitem"
+
+    if [[ -n "${resolved}" && -f "${resolved}" ]]; then
+        if [[ "${DRY_RUN}" -eq 1 ]]; then
+            log_dry "Would create ${item_filename} -> ${resolved}"
         else
-            log_warn "Dock slot [${prefix} ${name}]: SKIPPED. None of candidate paths installed: ${candidates_desc}"
+            cat << EOF > "${PLANK_LAUNCHERS_DIR}/${item_filename}"
+[PlankDockItemPreferences]
+Launcher=file://${resolved}
+EOF
         fi
-    }
+        DEPLOYED_ITEMS+=("${item_filename}")
+        log_success "Dock slot [${prefix} ${name}]: ${resolved}"
+    else
+        log_warn "Dock slot [${prefix} ${name}]: SKIPPED (no candidate installed)."
+        local search_dirs=(
+            "/usr/share/applications"
+            "${HOME}/.local/share/applications"
+            "/var/lib/flatpak/exports/share/applications"
+            "${HOME}/.local/share/flatpak/exports/share/applications"
+        )
+        log_warn "  Checked candidate paths:"
+        for id in "${candidates[@]}"; do
+            for sdir in "${search_dirs[@]}"; do
+                log_warn "    - ${sdir}/${id} (missing)"
+            done
+        done
+    fi
+}
 
-    # 01. Files
-    D_FILES="$(find_best_desktop "/usr/share/applications/thunar.desktop" "/usr/share/applications/nemo.desktop" "/usr/share/applications/org.gnome.Nautilus.desktop" || true)"
-    deploy_dockitem "01" "files" "${D_FILES}" "thunar, nemo, nautilus"
+if [[ "${DRY_RUN}" -eq 0 ]]; then
+    rm -f "${PLANK_LAUNCHERS_DIR}/"*.dockitem
+fi
 
-    # 02. Browser
-    D_BROWSER="$(find_best_desktop "/usr/share/applications/firefox.desktop" "/usr/share/applications/brave-browser.desktop" "/usr/share/applications/google-chrome.desktop" || true)"
-    deploy_dockitem "02" "browser" "${D_BROWSER}" "firefox, brave-browser, chrome"
+# 01. Files: Thunar / Nemo / Nautilus
+deploy_dockitem "01" "files" \
+    "thunar.desktop" \
+    "nemo.desktop" \
+    "org.gnome.Nautilus.desktop"
 
-    # 03. Terminal
-    D_TERM="$(find_best_desktop "/usr/share/applications/xfce4-terminal.desktop" "/usr/share/applications/gnome-terminal.desktop" "/usr/share/applications/xterm.desktop" || true)"
-    deploy_dockitem "03" "terminal" "${D_TERM}" "xfce4-terminal, gnome-terminal, xterm"
+# 02. Browser: Firefox / Brave / Chrome / Chromium
+deploy_dockitem "02" "browser" \
+    "firefox.desktop" \
+    "brave-browser.desktop" \
+    "google-chrome.desktop" \
+    "chromium.desktop" \
+    "chromium-browser.desktop"
 
-    # 04. Text Editor
-    D_EDIT="$(find_best_desktop "/usr/share/applications/xed.desktop" "/usr/share/applications/mousepad.desktop" "/usr/share/applications/gedit.desktop" || true)"
-    deploy_dockitem "04" "editor" "${D_EDIT}" "xed, mousepad, gedit"
+# 03. Terminal: XFCE Terminal / GNOME Terminal / xterm
+deploy_dockitem "03" "terminal" \
+    "xfce4-terminal.desktop" \
+    "gnome-terminal.desktop" \
+    "org.gnome.Terminal.desktop" \
+    "xterm.desktop"
 
-    # 05. Music
-    D_MUSIC="$(find_best_desktop "/usr/share/applications/rhythmbox.desktop" "/usr/share/applications/hypnotix.desktop" "/usr/share/applications/org.gnome.Music.desktop" "/usr/share/applications/celluloid.desktop" || true)"
-    deploy_dockitem "05" "music" "${D_MUSIC}" "rhythmbox, hypnotix, gnome-music, celluloid"
+# 04. Text Editor: Xed / Mousepad / Gedit
+deploy_dockitem "04" "editor" \
+    "xed.desktop" \
+    "org.xfce.mousepad.desktop" \
+    "mousepad.desktop" \
+    "gedit.desktop" \
+    "org.gnome.gedit.desktop"
 
-    # 06. Photos
-    D_PHOTOS="$(find_best_desktop "/usr/share/applications/pix.desktop" "/usr/share/applications/xviewer.desktop" "/usr/share/applications/ristretto.desktop" "/usr/share/applications/org.gnome.eog.desktop" || true)"
-    deploy_dockitem "06" "photos" "${D_PHOTOS}" "pix, xviewer, ristretto, eog"
+# 05. Music: Rhythmbox / Celluloid / GNOME Music (Explicitly NOT Hypnotix)
+deploy_dockitem "05" "music" \
+    "org.gnome.Rhythmbox3.desktop" \
+    "rhythmbox.desktop" \
+    "io.github.celluloid_player.Celluloid.desktop" \
+    "celluloid.desktop" \
+    "org.gnome.Music.desktop"
 
-    # 07. Calendar
-    D_CAL="$(find_best_desktop "/usr/share/applications/org.gnome.Calendar.desktop" "/usr/share/applications/orage.desktop" "/usr/share/applications/xfce4-datetime-plugin.desktop" "/usr/share/applications/thunderbird.desktop" || true)"
-    deploy_dockitem "07" "calendar" "${D_CAL}" "gnome-calendar, orage, xfce4-datetime, thunderbird"
+# 06. Photos: Pix / Ristretto / Xviewer / Eye of GNOME
+deploy_dockitem "06" "photos" \
+    "pix.desktop" \
+    "ristretto.desktop" \
+    "xviewer.desktop" \
+    "org.gnome.eog.desktop"
 
-    # 08. Settings
-    D_SETTINGS="$(find_best_desktop "/usr/share/applications/xfce4-settings-manager.desktop" "/usr/share/applications/gnome-control-center.desktop" || true)"
-    deploy_dockitem "08" "settings" "${D_SETTINGS}" "xfce4-settings-manager, gnome-control-center"
+# 07. Calendar: GNOME Calendar / Orage / Datetime plugin / Thunderbird
+deploy_dockitem "07" "calendar" \
+    "org.gnome.Calendar.desktop" \
+    "orage.desktop" \
+    "xfce4-datetime-plugin.desktop" \
+    "thunderbird.desktop"
 
-    # 09. Software Manager
-    D_SOFTWARE="$(find_best_desktop "/usr/share/applications/mintinstall.desktop" "/usr/share/applications/gnome-software.desktop" || true)"
-    deploy_dockitem "09" "software" "${D_SOFTWARE}" "mintinstall, gnome-software"
+# 08. Settings: XFCE Settings Manager / GNOME Control Center
+deploy_dockitem "08" "settings" \
+    "xfce-settings-manager.desktop" \
+    "xfce4-settings-manager.desktop" \
+    "gnome-control-center.desktop"
 
-    # 10. Trash (Always Last!)
-    cat << EOF > "${PLANK_LAUNCHERS_DIR}/10-trash.dockitem"
+# 09. Software Manager: Mintinstall / GNOME Software
+deploy_dockitem "09" "software" \
+    "mintinstall.desktop" \
+    "gnome-software.desktop"
+
+# 10. Trash Docklet (Always Last!)
+TRASH_ITEM="10-trash.dockitem"
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would create ${TRASH_ITEM} -> docklet://trash"
+else
+    cat << EOF > "${PLANK_LAUNCHERS_DIR}/${TRASH_ITEM}"
 [PlankDockItemPreferences]
 Launcher=docklet://trash
 EOF
-    log_success "Dock slot [10 trash]: docklet://trash (Ordered last)"
 fi
+DEPLOYED_ITEMS+=("${TRASH_ITEM}")
+log_success "Dock slot [10 trash]: docklet://trash (Trash locked at far right)"
 
 # ------------------------------------------------------------------------------
-# 5. Configure Plank via dconf & Verify
+# 5. Configure Plank via dconf (Sync dock-items array directly)
 # ------------------------------------------------------------------------------
 log_info "Configuring Plank dock geometry (48px icon, zoom 118%, offset 4, dodge-window)..."
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would configure Plank preferences via dconf (theme: Sequoia, icon-size: 48, offset: 4, zoom: 118%, hide-mode: dodge-window)"
+    log_dry "Would configure Plank preferences via dconf with dock-items: (${DEPLOYED_ITEMS[*]})"
 elif command -v dconf &>/dev/null; then
     mkdir -p "${CURRENT_PHASE_DIR}"
     dconf dump "${DCONF_PATH}/" > "${CURRENT_PHASE_DIR}/plank-dconf-backup.txt" 2>/dev/null || true
+
+    # Format GVariant string array: "['01-files.dockitem', '02-browser.dockitem', ...]"
+    DCONF_ARRAY_ELEMS=()
+    for it in "${DEPLOYED_ITEMS[@]}"; do
+        DCONF_ARRAY_ELEMS+=("'${it}'")
+    done
+    joined=""
+    for elem in "${DCONF_ARRAY_ELEMS[@]}"; do
+        if [[ -z "${joined}" ]]; then
+            joined="${elem}"
+        else
+            joined="${joined}, ${elem}"
+        fi
+    done
+    DCONF_ITEMS_VAL="[${joined}]"
 
     dconf write "${DCONF_PATH}/theme" "'Sequoia'"
     dconf write "${DCONF_PATH}/icon-size" "48"
@@ -202,38 +295,23 @@ elif command -v dconf &>/dev/null; then
     dconf write "${DCONF_PATH}/alignment" "'center'"
     dconf write "${DCONF_PATH}/show-dock-item" "false"
     dconf write "${DCONF_PATH}/pinned-only" "false"
+    dconf write "${DCONF_PATH}/dock-items" "${DCONF_ITEMS_VAL}"
 
     # Verify dconf configuration
     ACTUAL_THEME="$(dconf read "${DCONF_PATH}/theme" 2>/dev/null || true)"
-    ACTUAL_OFFSET="$(dconf read "${DCONF_PATH}/offset" 2>/dev/null || true)"
-    if [[ "${ACTUAL_THEME}" == "'Sequoia'" ]]; then
-        log_success "Plank preferences verified via dconf (theme: ${ACTUAL_THEME}, offset: ${ACTUAL_OFFSET})."
-    else
-        log_warn "dconf verification: expected 'Sequoia', got '${ACTUAL_THEME}'"
-    fi
+    ACTUAL_ITEMS="$(dconf read "${DCONF_PATH}/dock-items" 2>/dev/null || true)"
+    log_success "Plank preferences verified via dconf (theme: ${ACTUAL_THEME}, pinned items: ${#DEPLOYED_ITEMS[@]})."
 fi
 
 # ------------------------------------------------------------------------------
-# 6. Hide Any Existing Stock Bottom Panel (panel-2)
-# ------------------------------------------------------------------------------
-if command -v xfconf-query &>/dev/null; then
-    # If panel-2 is currently positioned at the bottom, set autohide or remove bottom conflict
-    PANEL2_POS="$(xfconf-query -c xfce4-panel -p /panels/panel-2/position 2>/dev/null || true)"
-    if [[ "${PANEL2_POS}" =~ p=[1-3] || "${PANEL2_POS}" =~ p=8 ]]; then
-        log_info "Hiding legacy bottom XFCE panel-2 to yield bottom edge to Plank..."
-        set_xfconf_prop "xfce4-panel" "/panels/panel-2/autohide-behavior" "uint" "2" # Intelligently autohide
-    fi
-fi
-
-# ------------------------------------------------------------------------------
-# 7. Deploy Safe Plank Launcher Utility
+# 6. Deploy Safe Plank Launcher Utility
 # ------------------------------------------------------------------------------
 run mkdir -p "${LOCAL_BIN}"
 safe_copy "${SCRIPTS_DIR}/start-plank.sh" "${LOCAL_BIN}/start-plank.sh"
 run chmod +x "${LOCAL_BIN}/start-plank.sh"
 
 # ------------------------------------------------------------------------------
-# 8. Safety Test & Register Delayed Autostart
+# 7. Safety Test & Register Delayed Autostart
 # ------------------------------------------------------------------------------
 TEST_PASSED=0
 if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -248,12 +326,24 @@ if [[ "${TEST_PASSED}" -eq 1 ]]; then
     install_delayed_autostart "plank" "${LOCAL_BIN}/start-plank.sh" "macOS Sequoia Floating Dock"
 fi
 
-# Reload in active X11 session if present
+# Restart Plank in active X11 session if present
 if [[ "${DRY_RUN}" -eq 1 ]]; then
     log_dry "Would start Plank dock via start-plank.sh"
 elif [[ -n "${DISPLAY:-}" ]] && command -v plank &>/dev/null; then
+    log_info "Starting Plank dock process..."
     bash "${LOCAL_BIN}/start-plank.sh" || log_warn "Plank launch deferred."
+    sleep 2
+
+    # Post-start verification of pinned items count
+    if [[ -d "${PLANK_LAUNCHERS_DIR}" ]]; then
+        ACTUAL_FILE_COUNT="$(find "${PLANK_LAUNCHERS_DIR}" -maxdepth 1 -name '*.dockitem' | wc -l | tr -d ' ')"
+        log_info "Active dock launchers on disk: ${ACTUAL_FILE_COUNT} files."
+        if (( ACTUAL_FILE_COUNT < ${#DEPLOYED_ITEMS[@]} )); then
+            log_warn "Discrepancy: Deployed ${#DEPLOYED_ITEMS[@]} items, but only ${ACTUAL_FILE_COUNT} remain on disk."
+        fi
+    fi
 fi
 
-log_success "Phase 4 Complete: Plank dock configured with 10 unified icons."
+log_success "Phase 4 Complete: Plank dock configured with ${#DEPLOYED_ITEMS[@]} unified icons."
+log_info "Inspect dock state anytime with: ./scripts/plank-state.sh"
 log_info "Undo this phase anytime with: ./phases/04-dock.sh --undo (or ./uninstall.sh -p 4)"

@@ -125,6 +125,14 @@ if [[ -n "${DISPLAY:-}" ]]; then
     check_item "Picom compositor process currently running" \
         "pgrep -x picom &>/dev/null" \
         "No picom process detected in process table"
+
+    if pgrep -x picom &>/dev/null; then
+        PICOM_PID="$(pgrep -x picom | head -1)"
+        PICOM_UPTIME="$(ps -p "${PICOM_PID}" -o etimes= 2>/dev/null | tr -d ' ' || echo 0)"
+        check_item "Picom process running stably (uptime > 60s)" \
+            "[[ ${PICOM_UPTIME} -ge 60 ]]" \
+            "Picom process uptime is only ${PICOM_UPTIME}s (expected >60s to ensure stability on nouveau)"
+    fi
 fi
 
 # ------------------------------------------------------------------------------
@@ -136,9 +144,9 @@ check_item "Custom GTK3 stylesheet exists at ~/.config/gtk-3.0/gtk.css" \
     "[[ -f '${HOME}/.config/gtk-3.0/gtk.css' ]]" \
     "~/.config/gtk-3.0/gtk.css missing"
 
-check_item "Modular GTK3 tokens use @define-color (no GTK3 unsupported var())" \
-    "[[ \$(count_matches 'var(' '${HOME}/.config/gtk-3.0/sequoia/tokens.css') -eq 0 ]]" \
-    "Tokens file contains unsupported var() syntax"
+check_item "Modular GTK3 tokens use @define-color (no active var() declarations)" \
+    "[[ \$(grep -E '^[[:space:]]*[a-zA-Z0-9_-]+:[^;]*var\(' '${HOME}/.config/gtk-3.0/sequoia/tokens.css' 2>/dev/null | wc -l | tr -d ' ') -eq 0 ]]" \
+    "Active CSS declarations in tokens.css contain unsupported var() property"
 
 check_item "xfce4-panel panel-1 size set to 28px" \
     "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-1/size 2>/dev/null || true)\" == '28' ]]" \
@@ -153,9 +161,9 @@ if [[ -n "${DISPLAY:-}" ]]; then
         "[[ -n \"\$(xfconf-query -c xfce4-panel -p /panels/panel-1/position 2>/dev/null || true)\" ]]" \
         "panel-1 position property missing in xfce4-panel channel"
 
-    check_item "Tasklist/window-buttons absent from panel-1 plugins" \
-        "for pid in \$(xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids 2>/dev/null | grep -E '^[0-9]+$' || true); do [[ \"\$(xfconf-query -c xfce4-panel -p /plugins/plugin-\${pid} 2>/dev/null || true)\" =~ (tasklist|windowmenu) ]] && exit 1; done; true" \
-        "Tasklist or window buttons plugin is still present on panel-1"
+    check_item "Tasklist and duplicate stock launchers absent from panel-1" \
+        "for pid in \$(xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids 2>/dev/null | grep -E '^[0-9]+$' || true); do ptype=\$(xfconf-query -c xfce4-panel -p /plugins/plugin-\${pid} 2>/dev/null || true); [[ \"\${ptype}\" =~ (tasklist|windowmenu|launcher) ]] && exit 1; done; true" \
+        "Tasklist or duplicate stock launcher plugin is still present on panel-1"
 fi
 
 # ------------------------------------------------------------------------------
@@ -178,6 +186,10 @@ check_item "Sequoia dock theme has standard keys (OuterStrokeColor, FillStartCol
 check_item "10 dock launchers present in ~/.config/plank/dock1/launchers/" \
     "[[ \$(count_files '${HOME}/.config/plank/dock1/launchers' '*.dockitem') -ge 10 ]]" \
     "Fewer than 10 dockitems found in launchers directory"
+
+check_item "All Plank dockitem launcher targets exist on disk" \
+    "for df in '${HOME}/.config/plank/dock1/launchers/'*.dockitem; do [[ -f \"\${df}\" ]] || continue; tgt=\$(grep -E '^Launcher=' \"\${df}\" | cut -d= -f2-); [[ \"\${tgt}\" =~ ^docklet:// ]] && continue; cln=\$(echo \"\${tgt}\" | sed 's#^file://##'); [[ -f \"\${cln}\" ]] || exit 1; done; true" \
+    "One or more .dockitem files point to missing desktop targets"
 
 check_item "Trash docklet ordered as final launcher (10-trash.dockitem)" \
     "[[ -f '${HOME}/.config/plank/dock1/launchers/10-trash.dockitem' ]]" \
@@ -202,8 +214,23 @@ if [[ "${HAS_PANEL2}" -eq 1 ]]; then
     check_item "xfce4-panel panel-2 mode is true vertical (mode=1)" \
         "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/mode 2>/dev/null || true)\" == '1' ]]" \
         "panel-2 mode is not vertical (1)"
+    check_item "xfce4-panel panel-2 autohide-behavior is disabled (0)" \
+        "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/autohide-behavior 2>/dev/null || true)\" == '0' ]]" \
+        "panel-2 autohide-behavior is enabled (2) instead of 0 (sidebar is hidden)"
+
+    if [[ -n "${DISPLAY:-}" ]]; then
+        if command -v wmctrl &>/dev/null; then
+            check_item "Left sidebar window VISIBLE on left edge (76px width via wmctrl)" \
+                "wmctrl -l -G 2>/dev/null | grep -i 'panel' | awk '\$5 == 76 && \$3 <= 25 { found=1 } END { exit !found }'" \
+                "wmctrl did not detect a visible 76px panel window on the left edge"
+        elif command -v xwininfo &>/dev/null; then
+            check_item "Left sidebar window VISIBLE (76px width via xwininfo)" \
+                "xwininfo -root -tree 2>/dev/null | grep -i 'xfce4-panel' | grep -q '76x'" \
+                "xwininfo did not detect a visible 76px panel window"
+        fi
+    fi
 else
-    printf "  ${C_BLUE}[INFO]${C_RESET} Left sidebar (panel-2) is not currently installed (Opt-In default).\n"
+    printf "  ${C_BLUE}[SKIP]${C_RESET} Left sidebar is disabled (opt-in default).\n"
 fi
 
 check_item "xfwm4 workspace_count configured to 4 spaces" \
