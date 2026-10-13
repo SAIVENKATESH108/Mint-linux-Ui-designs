@@ -59,7 +59,7 @@ entry {
 listview {
     background-color:           transparent;
     columns:                    7;
-    lines:                      4;
+    lines:                      5;
     cycle:                      false;
     dynamic:                    true;
     layout:                     vertical;
