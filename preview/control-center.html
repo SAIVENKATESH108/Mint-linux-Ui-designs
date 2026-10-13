@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" class="mode-lite">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Control Center (macOS Sequoia XFCE)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css">
+</head>
+<body class="bg-slate-950 flex flex-col items-center justify-start min-h-screen p-4 overflow-x-hidden font-sans">
+
+  <!-- ================= TOP HUD CONTROLS ================= -->
+  <header class="w-full max-w-5xl mb-3 py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 flex flex-wrap items-center justify-between text-xs gap-3 shadow-xl">
+    <div class="flex items-center space-x-3">
+      <span class="font-bold text-white uppercase tracking-wider text-[11px] flex items-center">
+        <i class="fa-solid fa-sliders mr-1.5 text-blue-400"></i> Control Center (Top-Right Popover)
+      </span>
+      <div class="h-4 w-[1px] bg-slate-700"></div>
+      <span id="badge-mode" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500">
+        Lite Profile (Old PC)
+      </span>
+      <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400">
+        1280×1024 (5:4 Default)
+      </span>
+    </div>
+
+    <div class="flex items-center space-x-2.5">
+      <button onclick="toggleProfile()" id="btn-profile" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+        Enable Glass Mode
+      </button>
+      <button onclick="toggleTheme()" id="btn-theme" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+        🌓 Dark Mode
+      </button>
+      <a href="index.html" class="px-3 py-1 rounded-lg text-[11px] bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition">
+        ← Gallery
+      </a>
+    </div>
+  </header>
+
+  <!-- ================= CANVAS (1280x1024 VIEWPORT) ================= -->
+  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1280px] h-[1024px] max-w-full origin-top flex flex-col justify-between p-0 select-none">
+
+    <!-- Desktop Wallpaper Background -->
+    <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 -z-20"></div>
+
+    <!-- Top Menu Bar (28px) with Control Center toggle active -->
+    <div class="w-full h-7 bg-white/20 dark:bg-black/40 border-b border-black/10 dark:border-white/10 px-4 flex items-center justify-between text-xs text-slate-800 dark:text-slate-200 z-10 backdrop-blur-md">
+      <div class="flex items-center space-x-4">
+        <i class="fa-solid fa-leaf text-emerald-500"></i>
+        <span class="font-bold text-slate-900 dark:text-white">Finder</span>
+        <span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span>
+      </div>
+      <div class="flex items-center space-x-3 text-[11px]">
+        <span>34°C</span>
+        <i class="fa-solid fa-wifi"></i>
+        <i class="fa-solid fa-volume-high"></i>
+        <!-- Active Control Center Icon -->
+        <div class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold" title="Control Center Active">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+        </div>
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Mon 12 Oct 10:45 AM</span>
+      </div>
+    </div>
+
+    <!-- ================= CONTROL CENTER POPOVER (320px WIDE, TOP-RIGHT) ================= -->
+    <div class="absolute top-[36px] right-[14px] w-[320px] ui-card p-3 rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col space-y-2.5 z-30 transition-all text-xs">
+
+      <!-- TOP ROW: Wi-Fi & Do Not Disturb (No Bluetooth!) -->
+      <div class="grid grid-cols-2 gap-2">
+
+        <!-- Wi-Fi Module -->
+        <div class="p-2.5 rounded-xl bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-center space-x-2.5 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition">
+          <div class="w-8 h-8 rounded-full bg-[#0a84ff] text-white flex items-center justify-center text-sm shadow-sm">
+            <i class="fa-solid fa-wifi"></i>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-semibold text-slate-800 dark:text-slate-100 leading-tight">Wi-Fi</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">HomeNet-5G</span>
+          </div>
+        </div>
+
+        <!-- Do Not Disturb Module -->
+        <div class="p-2.5 rounded-xl bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-center space-x-2.5 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition">
+          <div class="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center text-sm shadow-sm">
+            <i class="fa-solid fa-moon"></i>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-semibold text-slate-800 dark:text-slate-100 leading-tight">Focus</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Off</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- DISPLAY BRIGHTNESS SLIDER -->
+      <div class="p-3 rounded-xl bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col space-y-1.5">
+        <div class="flex items-center justify-between text-[11px] font-medium text-slate-700 dark:text-slate-200">
+          <span class="flex items-center"><i class="fa-regular fa-sun mr-1.5 text-amber-500"></i> Display</span>
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold">85%</span>
+        </div>
+        <!-- macOS Style Pill Slider -->
+        <div class="w-full h-6 bg-black/10 dark:bg-white/10 rounded-full p-0.5 relative cursor-pointer overflow-hidden">
+          <div class="h-full bg-white dark:bg-white/90 rounded-full w-[85%] shadow-sm flex items-center justify-end pr-2 text-slate-800 text-[9px] font-bold">
+            <i class="fa-solid fa-sun text-[10px] text-amber-500 mr-1"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- SOUND VOLUME SLIDER -->
+      <div class="p-3 rounded-xl bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col space-y-1.5">
+        <div class="flex items-center justify-between text-[11px] font-medium text-slate-700 dark:text-slate-200">
+          <span class="flex items-center"><i class="fa-solid fa-volume-high mr-1.5 text-blue-500"></i> Sound</span>
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold">65%</span>
+        </div>
+        <!-- macOS Style Pill Slider -->
+        <div class="w-full h-6 bg-black/10 dark:bg-white/10 rounded-full p-0.5 relative cursor-pointer overflow-hidden">
+          <div class="h-full bg-white dark:bg-white/90 rounded-full w-[65%] shadow-sm flex items-center justify-end pr-2 text-slate-800 text-[9px] font-bold">
+            <i class="fa-solid fa-volume-high text-[10px] text-blue-500 mr-1"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOW PLAYING TILE -->
+      <div class="p-3 rounded-xl bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/5 flex flex-col space-y-2">
+        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span>Now Playing</span>
+          <i class="fa-solid fa-music text-rose-500"></i>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-700 flex items-center justify-center text-white shadow-md flex-shrink-0">
+            <i class="fa-solid fa-compact-disc text-xl animate-spin" style="animation-duration: 8s;"></i>
+          </div>
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="font-semibold text-slate-800 dark:text-white truncate leading-tight">Blinding Lights</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 truncate">The Weeknd — After Hours</span>
+          </div>
+        </div>
+
+        <!-- Progress bar and playback controls -->
+        <div class="w-full bg-black/10 dark:bg-white/10 h-1 rounded-full overflow-hidden">
+          <div class="bg-rose-500 h-full w-[45%]"></div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1 text-slate-700 dark:text-slate-300">
+          <span class="text-[9px] text-slate-400 font-mono">1:42</span>
+          <div class="flex items-center space-x-4 text-xs">
+            <i class="fa-solid fa-backward-step cursor-pointer hover:text-black dark:hover:text-white"></i>
+            <div class="w-6 h-6 rounded-full bg-slate-800 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-[10px] cursor-pointer shadow-sm">
+              <i class="fa-solid fa-pause"></i>
+            </div>
+            <i class="fa-solid fa-forward-step cursor-pointer hover:text-black dark:hover:text-white"></i>
+          </div>
+          <span class="text-[9px] text-slate-400 font-mono">3:20</span>
+        </div>
+      </div>
+
+      <!-- SYSTEM SENSORS FOOTER (DESKTOP NO BATTERY) -->
+      <div class="p-2 rounded-xl bg-black/5 dark:bg-white/5 flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400">
+        <span class="flex items-center font-medium">
+          <i class="fa-solid fa-temperature-half text-amber-500 mr-1"></i> CPU Temp: 34°C
+        </span>
+        <span class="font-mono">RAM: 5.2 / 12 GB</span>
+      </div>
+
+    </div>
+
+    <!-- Desktop Background Filler -->
+    <div class="p-8 text-white/30 text-xs">
+      <div>macOS Sequoia Desktop Canvas • 1280×1024</div>
+    </div>
+
+  </div>
+
+  <!-- ================= REALITY PANEL & XFCE MAPPING ================= -->
+  <div class="w-full max-w-5xl mt-6 p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 text-xs shadow-xl">
+    <div class="flex items-center justify-between font-bold text-slate-200 border-b border-slate-800 pb-2 mb-3">
+      <span class="flex items-center">
+        <i class="fa-solid fa-microchip text-blue-400 mr-2"></i> Reality Check: Control Center on Linux Mint XFCE
+      </span>
+      <span class="text-[10px] text-slate-400">Target Tool: xfce4-panel plugins vs unified yad/python popover</span>
+    </div>
+
+    <table class="w-full text-left text-[11px]">
+      <thead>
+        <tr class="text-slate-400 border-b border-slate-800">
+          <th class="py-1">macOS Feature</th>
+          <th>XFCE Implementation Mapping</th>
+          <th>Limitations & Alternatives</th>
+          <th class="text-right">Hardware Cost</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 text-slate-300">
+        <tr>
+          <td class="py-2 font-medium">Unified Popover Window</td>
+          <td>GTK3 / Python popup or lightweight <code>yad</code> script</td>
+          <td>XFCE standard defaults split this into separate tray applets (pulseaudio plugin, xfce4-power-manager, nm-applet). A unified popover requires a dedicated script/applet.</td>
+          <td class="text-right text-emerald-400 font-bold">Low (< 25MB RAM)</td>
+        </tr>
+        <tr>
+          <td class="py-2 font-medium">Hardware Targeting (No Bluetooth)</td>
+          <td>Omitted from config and panel</td>
+          <td>Fully adheres to desktop PC hardware profile in <code>reference/system-info.txt</code>. No dormant BT daemons.</td>
+          <td class="text-right text-emerald-400 font-bold">Zero Overhead</td>
+        </tr>
+        <tr>
+          <td class="py-2 font-medium">Sliders & Media Controls</td>
+          <td><code>pactl</code> (volume) + <code>xrandr</code>/<code>brightnessctl</code> + <code>playerctl</code> (MPRIS)</td>
+          <td>Standard Linux CLI tools integrate seamlessly into GTK sliders and MPRIS media listeners.</td>
+          <td class="text-right text-emerald-400 font-bold">Low (< 1% CPU)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    let isDark = true;
+    let isGlass = false;
+
+    document.documentElement.classList.add('dark');
+
+    function toggleTheme() {
+      isDark = !isDark;
+      document.documentElement.classList.toggle('dark', isDark);
+      document.getElementById('btn-theme').innerText = isDark ? '☀️ Light Mode' : '🌓 Dark Mode';
+    }
+
+    function toggleProfile() {
+      isGlass = !isGlass;
+      const html = document.documentElement;
+      const btn = document.getElementById('btn-profile');
+      const badge = document.getElementById('badge-mode');
+
+      if (isGlass) {
+        html.classList.remove('mode-lite');
+        html.classList.add('mode-glass');
+        btn.innerText = 'Switch to Lite Mode (No Blur)';
+        badge.innerText = 'Glass Profile (Blur)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500';
+      } else {
+        html.classList.remove('mode-glass');
+        html.classList.add('mode-lite');
+        btn.innerText = 'Enable Glass Mode';
+        badge.innerText = 'Lite Profile (Old PC)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500';
+      }
+    }
+  </script>
+
+</body>
+</html>

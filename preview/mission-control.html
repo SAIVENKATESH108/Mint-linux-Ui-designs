@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en" class="mode-lite">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Mission Control (macOS Sequoia XFCE)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css">
+</head>
+<body class="bg-slate-950 flex flex-col items-center justify-start min-h-screen p-4 overflow-x-hidden font-sans">
+
+  <!-- ================= TOP HUD CONTROLS ================= -->
+  <header class="w-full max-w-5xl mb-3 py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 flex flex-wrap items-center justify-between text-xs gap-3 shadow-xl">
+    <div class="flex items-center space-x-3">
+      <span class="font-bold text-white uppercase tracking-wider text-[11px] flex items-center">
+        <i class="fa-solid fa-table-cells-large mr-1.5 text-blue-400"></i> Mission Control (Spaces & Windows)
+      </span>
+      <div class="h-4 w-[1px] bg-slate-700"></div>
+      <span id="badge-mode" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500">
+        Lite Profile (Old PC)
+      </span>
+      <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400">
+        1280×1024 (5:4 Default)
+      </span>
+    </div>
+
+    <div class="flex items-center space-x-2.5">
+      <button onclick="toggleProfile()" id="btn-profile" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+        Enable Glass Mode
+      </button>
+      <button onclick="toggleTheme()" id="btn-theme" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+        🌓 Dark Mode
+      </button>
+      <a href="index.html" class="px-3 py-1 rounded-lg text-[11px] bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition">
+        ← Gallery
+      </a>
+    </div>
+  </header>
+
+  <!-- ================= CANVAS (1280x1024 VIEWPORT) ================= -->
+  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1280px] h-[1024px] max-w-full origin-top flex flex-col justify-between p-6 select-none">
+
+    <!-- Dimmed Desktop Wallpaper Background -->
+    <div class="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-950/90 to-slate-950 -z-20"></div>
+    <div class="absolute inset-0 bg-black/50 -z-10 backdrop-blur-sm"></div>
+
+    <!-- ================= 1. TOP SPACES BAR (4 DESKTOP THUMBNAILS) ================= -->
+    <div class="w-full max-w-4xl mx-auto flex flex-col items-center z-20">
+      <div class="px-6 py-3 rounded-2xl ui-card shadow-2xl flex items-center space-x-6 border border-white/20 dark:border-white/10">
+
+        <!-- Desk 1 (Active) -->
+        <div class="flex flex-col items-center cursor-pointer group">
+          <div class="w-32 h-20 rounded-xl bg-gradient-to-br from-blue-900 to-indigo-950 border-2 border-[#0a84ff] shadow-lg flex flex-col justify-between p-1.5 transform group-hover:scale-105 transition">
+            <div class="flex justify-between items-center text-[9px] text-white font-bold">
+              <span>Desk 1</span>
+              <span class="w-2 h-2 rounded-full bg-[#0a84ff]"></span>
+            </div>
+            <!-- Miniature Window Wireframes -->
+            <div class="grid grid-cols-2 gap-1 w-full h-10">
+              <div class="bg-black/60 rounded border border-white/20"></div>
+              <div class="bg-white/20 rounded border border-white/20"></div>
+            </div>
+          </div>
+          <span class="text-[11px] font-semibold text-[#0a84ff] mt-1">Desktop 1 (Active)</span>
+        </div>
+
+        <!-- Desk 2 -->
+        <div class="flex flex-col items-center cursor-pointer group">
+          <div class="w-32 h-20 rounded-xl bg-white/30 dark:bg-black/40 border border-white/40 dark:border-white/10 shadow-md flex flex-col justify-between p-1.5 transform group-hover:scale-105 transition">
+            <div class="flex justify-between items-center text-[9px] text-slate-700 dark:text-slate-300 font-medium">
+              <span>Desk 2</span>
+            </div>
+            <div class="w-full h-10 bg-slate-200/40 dark:bg-white/5 rounded border border-white/10"></div>
+          </div>
+          <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300 mt-1">Desktop 2</span>
+        </div>
+
+        <!-- Desk 3 -->
+        <div class="flex flex-col items-center cursor-pointer group">
+          <div class="w-32 h-20 rounded-xl bg-white/30 dark:bg-black/40 border border-white/40 dark:border-white/10 shadow-md flex flex-col justify-between p-1.5 transform group-hover:scale-105 transition">
+            <div class="flex justify-between items-center text-[9px] text-slate-700 dark:text-slate-300 font-medium">
+              <span>Desk 3</span>
+            </div>
+            <div class="w-full h-10 bg-slate-200/40 dark:bg-white/5 rounded border border-white/10"></div>
+          </div>
+          <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300 mt-1">Desktop 3</span>
+        </div>
+
+        <!-- Desk 4 -->
+        <div class="flex flex-col items-center cursor-pointer group">
+          <div class="w-32 h-20 rounded-xl bg-white/30 dark:bg-black/40 border border-white/40 dark:border-white/10 shadow-md flex flex-col justify-between p-1.5 transform group-hover:scale-105 transition">
+            <div class="flex justify-between items-center text-[9px] text-slate-700 dark:text-slate-300 font-medium">
+              <span>Desk 4</span>
+            </div>
+            <div class="w-full h-10 bg-slate-200/40 dark:bg-white/5 rounded border border-white/10"></div>
+          </div>
+          <span class="text-[11px] font-medium text-slate-700 dark:text-slate-300 mt-1">Desktop 4</span>
+        </div>
+
+        <!-- Add Desktop Button -->
+        <div class="w-8 h-8 rounded-full border border-dashed border-white/40 text-slate-400 hover:text-white hover:border-white flex items-center justify-center cursor-pointer transition">
+          <i class="fa-solid fa-plus text-xs"></i>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= 2. MAIN WINDOW SPREAD GRID (5 WINDOWS) ================= -->
+    <div class="flex-1 my-auto w-full max-w-5xl mx-auto grid grid-cols-6 gap-6 items-center py-6 z-20">
+
+      <!-- WINDOW 1: Terminal (span 2 cols) -->
+      <div class="col-span-2 group cursor-pointer transform hover:scale-105 transition duration-200">
+        <div class="rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-950 flex flex-col h-56">
+          <div class="h-6 bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></span>
+            </div>
+            <span class="text-[10px] font-mono text-slate-400">Terminal — bash — 80×24</span>
+            <div class="w-6"></div>
+          </div>
+          <div class="p-3 text-[10px] font-mono text-emerald-400 space-y-1 overflow-hidden leading-relaxed">
+            <div>mint@sequoia:~$ git status</div>
+            <div class="text-slate-400">On branch master</div>
+            <div class="text-slate-400">Your branch is up to date with 'origin/master'.</div>
+            <div class="text-blue-400">nothing to commit, working tree clean</div>
+            <div>mint@sequoia:~$ <span class="animate-pulse">_</span></div>
+          </div>
+        </div>
+        <div class="flex items-center justify-center space-x-1.5 mt-2">
+          <i class="fa-solid fa-terminal text-emerald-400 text-xs"></i>
+          <span class="text-xs font-semibold text-white drop-shadow">Terminal</span>
+        </div>
+      </div>
+
+      <!-- WINDOW 2: Files / Thunar (span 2 cols) -->
+      <div class="col-span-2 group cursor-pointer transform hover:scale-105 transition duration-200">
+        <div class="rounded-xl overflow-hidden shadow-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 flex flex-col h-56">
+          <div class="h-6 bg-slate-100 dark:bg-slate-800 border-b border-black/10 dark:border-white/10 px-3 flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></span>
+            </div>
+            <span class="text-[10px] font-semibold text-slate-800 dark:text-white">Files — Projects</span>
+            <div class="w-6"></div>
+          </div>
+          <div class="p-3 grid grid-cols-3 gap-2 overflow-hidden text-center text-[10px]">
+            <div class="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 flex flex-col items-center">
+              <i class="fa-regular fa-folder-open text-blue-500 text-2xl mb-1"></i>
+              <span class="text-slate-800 dark:text-slate-200 truncate w-full">Documents</span>
+            </div>
+            <div class="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 flex flex-col items-center">
+              <i class="fa-solid fa-download text-emerald-500 text-2xl mb-1"></i>
+              <span class="text-slate-800 dark:text-slate-200 truncate w-full">Downloads</span>
+            </div>
+            <div class="p-1 rounded bg-blue-500/10 border border-blue-500/30 flex flex-col items-center">
+              <i class="fa-solid fa-code-branch text-purple-500 text-2xl mb-1"></i>
+              <span class="text-[#0a84ff] font-semibold truncate w-full">linux-mint</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-center space-x-1.5 mt-2">
+          <i class="fa-regular fa-folder text-blue-400 text-xs"></i>
+          <span class="text-xs font-semibold text-white drop-shadow">Files</span>
+        </div>
+      </div>
+
+      <!-- WINDOW 3: Firefox Browser (span 2 cols) -->
+      <div class="col-span-2 group cursor-pointer transform hover:scale-105 transition duration-200">
+        <div class="rounded-xl overflow-hidden shadow-2xl border border-black/10 dark:border-white/10 bg-slate-900 flex flex-col h-56">
+          <div class="h-6 bg-slate-800 border-b border-slate-700 px-3 flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></span>
+            </div>
+            <span class="text-[10px] text-slate-300">Linux Mint Forums</span>
+            <div class="w-6"></div>
+          </div>
+          <div class="p-2.5 flex flex-col space-y-2 text-[10px] text-slate-300">
+            <div class="bg-slate-800 p-1.5 rounded text-slate-400 font-mono text-[9px] flex items-center">
+              <i class="fa-solid fa-lock text-emerald-400 mr-1.5"></i> forums.linuxmint.com
+            </div>
+            <div class="text-xs font-bold text-white">XFCE 4.18 Desktop Customization</div>
+            <p class="text-slate-400 line-clamp-2">Guide for styling xfce4-panel and plank dock with modern macOS themes...</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-center space-x-1.5 mt-2">
+          <i class="fa-brands fa-firefox-browser text-orange-400 text-xs"></i>
+          <span class="text-xs font-semibold text-white drop-shadow">Firefox</span>
+        </div>
+      </div>
+
+      <!-- ROW 2: 2 WINDOWS CENTERED (span 3 cols each) -->
+      <!-- WINDOW 4: VS Code (span 3 cols) -->
+      <div class="col-span-3 group cursor-pointer transform hover:scale-105 transition duration-200">
+        <div class="rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-[#1e1e1e] flex flex-col h-52">
+          <div class="h-6 bg-[#2d2d2d] px-3 flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></span>
+            </div>
+            <span class="text-[10px] font-mono text-slate-300">01-theme.sh — VS Code</span>
+            <div class="w-6"></div>
+          </div>
+          <div class="p-3 text-[10px] font-mono text-blue-300 space-y-0.5 overflow-hidden">
+            <div><span class="text-purple-400">set</span> -euo pipefail</div>
+            <div><span class="text-emerald-400"># Apply xfwm4 left window control buttons</span></div>
+            <div>xfconf-query -c xfwm4 -p /general/button_layout -s <span class="text-amber-300">"CHM|"</span></div>
+          </div>
+        </div>
+        <div class="flex items-center justify-center space-x-1.5 mt-2">
+          <i class="fa-solid fa-code text-blue-400 text-xs"></i>
+          <span class="text-xs font-semibold text-white drop-shadow">VS Code</span>
+        </div>
+      </div>
+
+      <!-- WINDOW 5: Appearance / System Settings (span 3 cols) -->
+      <div class="col-span-3 group cursor-pointer transform hover:scale-105 transition duration-200">
+        <div class="rounded-xl overflow-hidden shadow-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-900 flex flex-col h-52">
+          <div class="h-6 bg-slate-100 dark:bg-slate-800 px-3 flex items-center justify-between">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FF5F56]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></span>
+            </div>
+            <span class="text-[10px] font-semibold text-slate-800 dark:text-white">System Settings — Appearance</span>
+            <div class="w-6"></div>
+          </div>
+          <div class="p-3 flex items-center space-x-3 text-xs">
+            <div class="p-2 rounded-lg bg-[#0a84ff]/20 text-[#0a84ff] border border-[#0a84ff]/40">
+              <i class="fa-solid fa-paint-roller text-lg"></i>
+            </div>
+            <div>
+              <div class="font-bold text-slate-800 dark:text-white">WhiteSur-Dark</div>
+              <div class="text-[10px] text-slate-500">Active Theme • macOS Sequoia</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-center space-x-1.5 mt-2">
+          <i class="fa-solid fa-gear text-slate-300 text-xs"></i>
+          <span class="text-xs font-semibold text-white drop-shadow">System Settings</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Status Text -->
+    <div class="w-full flex items-center justify-center text-xs text-white/50">
+      Click any window to focus • Press ESC or Super+Up to exit Mission Control
+    </div>
+
+  </div>
+
+  <!-- ================= REALITY PANEL & XFCE MAPPING ================= -->
+  <div class="w-full max-w-5xl mt-6 p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 text-xs shadow-xl">
+    <div class="flex items-center justify-between font-bold text-slate-200 border-b border-slate-800 pb-2 mb-3">
+      <span class="flex items-center">
+        <i class="fa-solid fa-microchip text-blue-400 mr-2"></i> Reality Check: Mission Control on Linux Mint XFCE
+      </span>
+      <span class="text-[10px] text-slate-400">Target Tool: xfdashboard or skippy-xd</span>
+    </div>
+
+    <table class="w-full text-left text-[11px]">
+      <thead>
+        <tr class="text-slate-400 border-b border-slate-800">
+          <th class="py-1">macOS Feature</th>
+          <th>XFCE Implementation Mapping</th>
+          <th>Limitations & Alternatives</th>
+          <th class="text-right">Hardware Cost</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 text-slate-300">
+        <tr>
+          <td class="py-2 font-medium">Desktop Spaces Bar (4 Desktops)</td>
+          <td><code>xfdashboard</code> top workspace bar or XFCE workspace switcher</td>
+          <td>Directly reproduces desktop thumbnails and workspace switching via Super+Up / F3.</td>
+          <td class="text-right text-emerald-400 font-bold">Low (< 5% CPU)</td>
+        </tr>
+        <tr>
+          <td class="py-2 font-medium">Interactive Window Spread (5 Windows)</td>
+          <td><code>skippy-xd</code> (standalone X11 window expose) or <code>xfdashboard</code></td>
+          <td>Displays live window representations. XFCE's native window manager (xfwm4) doesn't have built-in expose without helper tools.</td>
+          <td class="text-right text-amber-400 font-bold">Moderate (X11 composite)</td>
+        </tr>
+        <tr>
+          <td class="py-2 font-medium">Lite Mode Fallback</td>
+          <td><code>rofi -show window</code> (Fast window switcher)</td>
+          <td>Instant keyboard-navigable list of all open windows across all workspaces with zero GPU strain.</td>
+          <td class="text-right text-emerald-400 font-bold">Zero GPU Load</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    let isDark = true;
+    let isGlass = false;
+
+    document.documentElement.classList.add('dark');
+
+    function toggleTheme() {
+      isDark = !isDark;
+      document.documentElement.classList.toggle('dark', isDark);
+      document.getElementById('btn-theme').innerText = isDark ? '☀️ Light Mode' : '🌓 Dark Mode';
+    }
+
+    function toggleProfile() {
+      isGlass = !isGlass;
+      const html = document.documentElement;
+      const btn = document.getElementById('btn-profile');
+      const badge = document.getElementById('badge-mode');
+
+      if (isGlass) {
+        html.classList.remove('mode-lite');
+        html.classList.add('mode-glass');
+        btn.innerText = 'Switch to Lite Mode (No Blur)';
+        badge.innerText = 'Glass Profile (Blur)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500';
+      } else {
+        html.classList.remove('mode-glass');
+        html.classList.add('mode-lite');
+        btn.innerText = 'Enable Glass Mode';
+        badge.innerText = 'Lite Profile (Old PC)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500';
+      }
+    }
+  </script>
+
+</body>
+</html>

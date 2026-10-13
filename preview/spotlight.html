@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" class="mode-lite">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Spotlight Search (macOS Sequoia XFCE)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css">
+</head>
+<body class="bg-slate-950 flex flex-col items-center justify-start min-h-screen p-4 overflow-x-hidden font-sans">
+
+  <!-- ================= TOP HUD CONTROLS ================= -->
+  <header class="w-full max-w-5xl mb-3 py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 flex flex-wrap items-center justify-between text-xs gap-3 shadow-xl">
+    <div class="flex items-center space-x-3">
+      <span class="font-bold text-white uppercase tracking-wider text-[11px] flex items-center">
+        <i class="fa-solid fa-magnifying-glass mr-1.5 text-blue-400"></i> Spotlight Search
+      </span>
+      <div class="h-4 w-[1px] bg-slate-700"></div>
+      <span id="badge-mode" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500">
+        Lite Profile (Old PC)
+      </span>
+      <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400">
+        1280×1024 (5:4 Default)
+      </span>
+    </div>
+
+    <div class="flex items-center space-x-2.5">
+      <button onclick="toggleProfile()" id="btn-profile" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+        Enable Glass Mode
+      </button>
+      <button onclick="toggleTheme()" id="btn-theme" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+        🌓 Dark Mode
+      </button>
+      <a href="index.html" class="px-3 py-1 rounded-lg text-[11px] bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition">
+        ← Gallery
+      </a>
+    </div>
+  </header>
+
+  <!-- ================= CANVAS (1280x1024 VIEWPORT) ================= -->
+  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1280px] h-[1024px] max-w-full origin-top flex flex-col justify-start items-center p-8 select-none">
+
+    <!-- Desktop Background with Dimmed Overlay -->
+    <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 -z-20"></div>
+    <div class="absolute inset-0 bg-black/40 -z-10 backdrop-blur-sm"></div>
+
+    <!-- Top simulated menu bar (28px) for spatial context -->
+    <div class="w-full h-7 absolute top-0 left-0 bg-black/20 border-b border-white/10 px-4 flex items-center justify-between text-xs text-white/70">
+      <div class="flex items-center space-x-4">
+        <i class="fa-solid fa-leaf text-emerald-400"></i>
+        <span class="font-bold text-white">Finder</span>
+        <span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span>
+      </div>
+      <div class="flex items-center space-x-3 text-[11px]">
+        <span>34°C</span>
+        <i class="fa-solid fa-wifi"></i>
+        <i class="fa-solid fa-volume-high"></i>
+        <i class="fa-solid fa-magnifying-glass text-white font-bold"></i>
+        <span>Mon 12 Oct 10:45 AM</span>
+      </div>
+    </div>
+
+    <!-- ================= SPOTLIGHT WINDOW (CENTERED, 600px WIDE) ================= -->
+    <div class="mt-28 w-[600px] ui-card rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 overflow-hidden flex flex-col z-30 transition-all">
+
+      <!-- Search Input Header (macOS Sequoia Style) -->
+      <div class="flex items-center px-4 py-3.5 border-b border-black/10 dark:border-white/10 bg-white/40 dark:bg-black/20">
+        <i class="fa-solid fa-magnifying-glass text-slate-400 dark:text-slate-300 text-lg mr-3.5"></i>
+        <input type="text" value="Terminal" placeholder="Spotlight Search" class="w-full bg-transparent text-xl font-normal text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none">
+        <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+          ESC to cancel
+        </span>
+      </div>
+
+      <!-- Results Body -->
+      <div class="p-2 space-y-3 max-h-[500px] overflow-y-auto text-xs">
+
+        <!-- CATEGORY 1: TOP HIT -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-3 py-1">
+            Top Hit
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#0a84ff] text-white shadow-sm cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center border border-white/20 shadow-inner">
+                <i class="fa-solid fa-terminal text-emerald-400 text-base"></i>
+              </div>
+              <div class="flex flex-col">
+                <span class="font-semibold text-sm leading-tight text-white">Terminal</span>
+                <span class="text-[11px] text-blue-100 opacity-90">Developer Tools • /usr/bin/xfce4-terminal</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 text-[10px]">
+              <span class="px-1.5 py-0.5 rounded bg-white/20 font-medium">Return to Open</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CATEGORY 2: APPLICATIONS -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-3 py-1">
+            Applications
+          </div>
+          <div class="space-y-0.5">
+            <div class="flex items-center justify-between p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-slate-800 dark:text-slate-200 transition">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-sm">
+                  <i class="fa-solid fa-pen-nib text-sm"></i>
+                </div>
+                <div class="flex flex-col">
+                  <span class="font-medium text-xs">Text Editor (Xed)</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Applications • Utilities</span>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-400">App</span>
+            </div>
+
+            <div class="flex items-center justify-between p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-slate-800 dark:text-slate-200 transition">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-sm">
+                  <i class="fa-solid fa-bag-shopping text-sm"></i>
+                </div>
+                <div class="flex flex-col">
+                  <span class="font-medium text-xs">Software Manager</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">System • Package Management</span>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-400">App</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CATEGORY 3: DOCUMENTS & FILES -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-3 py-1">
+            Documents & Files
+          </div>
+          <div class="space-y-0.5">
+            <div class="flex items-center justify-between p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-slate-800 dark:text-slate-200 transition">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center text-sm border border-blue-500/20">
+                  <i class="fa-regular fa-file-code"></i>
+                </div>
+                <div class="flex flex-col">
+                  <span class="font-medium text-xs">design-tokens.md</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">~/linux-mint-design/reference/</span>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-400">10:42 AM</span>
+            </div>
+
+            <div class="flex items-center justify-between p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-slate-800 dark:text-slate-200 transition">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-sm border border-emerald-500/20">
+                  <i class="fa-regular fa-file-lines"></i>
+                </div>
+                <div class="flex flex-col">
+                  <span class="font-medium text-xs">system-info.txt</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">~/linux-mint-design/reference/</span>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-400">Yesterday</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Spotlight Footer Summary -->
+      <div class="px-4 py-2 border-t border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-bolt text-amber-500"></i>
+          <span>Super+Space trigger</span>
+        </div>
+        <div class="flex items-center space-x-3">
+          <span>5 Results</span>
+          <span>•</span>
+          <span>Tab to cycle</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ================= REALITY PANEL & XFCE MAPPING ================= -->
+  <div class="w-full max-w-5xl mt-6 p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 text-xs shadow-xl">
+    <div class="flex items-center justify-between font-bold text-slate-200 border-b border-slate-800 pb-2 mb-3">
+      <span class="flex items-center">
+        <i class="fa-solid fa-microchip text-blue-400 mr-2"></i> Reality Check: Spotlight on Linux Mint XFCE
+      </span>
+      <span class="text-[10px] text-slate-400">Target Tool: Rofi combi or Ulauncher / Albert</span>
+    </div>
+
+    <table class="w-full text-left text-[11px]">
+      <thead>
+        <tr class="text-slate-400 border-b border-slate-800">
+          <th class="py-1">macOS Feature</th>
+          <th>XFCE Implementation Mapping</th>
+          <th>Limitations & Alternatives</th>
+          <th class="text-right">Hardware Cost</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60 text-slate-300">
+        <tr>
+          <td class="py-2 font-medium">Centered Search Bar (600px)</td>
+          <td><code>rofi -show combi -theme spotlight.rasi</code></td>
+          <td>Exact macOS geometry (width 600px, rounded-2xl, centered overlay, Super+Space keybind).</td>
+          <td class="text-right text-emerald-400 font-bold">Low (0% idle)</td>
+        </tr>
+        <tr>
+          <td class="py-2 font-medium">Combined Apps + Files Results</td>
+          <td>Rofi combi mode: <code>combi-modes: [drun, run, filebrowser]</code></td>
+          <td>Searches applications and files. Lacks macOS metadata content indexing (full-text search inside PDFs).</td>
+          <td class="text-right text-emerald-400 font-bold">Low</td>
+        </tr>
+        <tr>
+          <td class="py-2 font-medium">Translucent Glass Window</td>
+          <td>Rofi window with Picom compositor</td>
+          <td><strong>Lite mode</strong> uses translucent flat rgba background (instant render). <strong>Glass mode</strong> blurs behind the search box.</td>
+          <td class="text-right text-emerald-400 font-bold">Lite: 0% / Glass: Med</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    let isDark = true;
+    let isGlass = false;
+
+    document.documentElement.classList.add('dark');
+
+    function toggleTheme() {
+      isDark = !isDark;
+      document.documentElement.classList.toggle('dark', isDark);
+      document.getElementById('btn-theme').innerText = isDark ? '☀️ Light Mode' : '🌓 Dark Mode';
+    }
+
+    function toggleProfile() {
+      isGlass = !isGlass;
+      const html = document.documentElement;
+      const btn = document.getElementById('btn-profile');
+      const badge = document.getElementById('badge-mode');
+
+      if (isGlass) {
+        html.classList.remove('mode-lite');
+        html.classList.add('mode-glass');
+        btn.innerText = 'Switch to Lite Mode (No Blur)';
+        badge.innerText = 'Glass Profile (Blur)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500';
+      } else {
+        html.classList.remove('mode-glass');
+        html.classList.add('mode-lite');
+        btn.innerText = 'Enable Glass Mode';
+        badge.innerText = 'Lite Profile (Old PC)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500';
+      }
+    }
+  </script>
+
+</body>
+</html>
