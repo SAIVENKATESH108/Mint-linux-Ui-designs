@@ -1,220 +1,183 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mode-lite">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview: Left Sidebar (Workspace & App Switcher)</title>
+  <title>Preview: Left Sidebar (76px Workspace & App Switcher)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
-
-    :root {
-      --sidebar-width: 92px;
-      --sidebar-radius: 16px;
-      --sidebar-blur: 32px;
-      --light-sidebar-bg: rgba(255, 255, 255, 0.45);
-      --light-sidebar-border: rgba(255, 255, 255, 0.45);
-      --dark-sidebar-bg: rgba(18, 20, 31, 0.72);
-      --dark-sidebar-border: rgba(255, 255, 255, 0.08);
-    }
-
-    .desktop-bg-light {
-      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
-    }
-
-    .desktop-bg-dark {
-      background: linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
-    }
-
-    .sidebar-glass-light {
-      background: var(--light-sidebar-bg);
-      backdrop-filter: blur(var(--sidebar-blur)) saturate(190%);
-      -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(190%);
-      border: 1px solid var(--light-sidebar-border);
-      box-shadow: 0 16px 38px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(255, 255, 255, 0.5) inset;
-    }
-
-    .sidebar-glass-dark {
-      background: var(--dark-sidebar-bg);
-      backdrop-filter: blur(var(--sidebar-blur)) saturate(180%);
-      -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(180%);
-      border: 1px solid var(--dark-sidebar-border);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 1px 1px rgba(255, 255, 255, 0.08) inset;
-    }
-  </style>
+  <link rel="stylesheet" href="tokens.css">
 </head>
-<body id="body" class="desktop-bg-light min-h-screen text-slate-800 p-8 flex items-start gap-10 transition-colors duration-300">
+<body class="min-h-screen p-8 flex items-start gap-10">
 
-  <!-- ================= LEFT SIDEBAR COMPONENT ================= -->
-  <aside id="sidebar" class="sidebar-glass-light w-[92px] h-[640px] rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all">
+  <!-- ================= LEFT SIDEBAR COMPONENT (76px UNIFIED) ================= -->
+  <aside id="sidebar" class="ui-sidebar h-[640px] flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all">
     <!-- Top: 4 Virtual Desktops with Text Labels -->
-    <div class="flex flex-col items-center space-y-3.5 w-full">
-      <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Desktops</div>
+    <div class="flex flex-col items-center space-y-3 w-full px-1">
+      <div class="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Desktops</div>
 
       <!-- Desk 1 (Active) -->
-      <div class="flex flex-col items-center group cursor-pointer">
-        <div class="w-14 h-10 rounded-lg bg-white/75 dark:bg-blue-900/30 border-2 border-[#0A84FF] shadow-sm flex flex-col justify-between p-1 transition transform group-hover:scale-105">
-          <div class="flex justify-between items-center text-[8px] text-slate-500 dark:text-blue-200 font-bold">
+      <div class="flex flex-col items-center group cursor-pointer w-full">
+        <div class="w-14 h-9 rounded-lg bg-white/75 dark:bg-blue-900/40 border-2 border-[#0a84ff] shadow-sm flex flex-col justify-between p-1 transition transform group-hover:scale-105">
+          <div class="flex justify-between items-center text-[7px] text-slate-500 dark:text-blue-200 font-bold">
             <span>1</span>
-            <span class="w-1.5 h-1.5 rounded-full bg-[#0A84FF]"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0a84ff]"></span>
           </div>
-          <div class="w-full h-3.5 bg-blue-100 dark:bg-blue-500/30 rounded-[3px] border border-blue-200 dark:border-blue-400/40"></div>
+          <div class="w-full h-3 bg-blue-100 dark:bg-blue-500/30 rounded-[3px] border border-blue-200 dark:border-blue-400/40"></div>
         </div>
-        <span class="text-[11px] font-semibold text-[#0A84FF] mt-1">Desk 1</span>
+        <span class="text-[10px] font-semibold text-[#0a84ff] mt-0.5">Desk 1</span>
       </div>
 
       <!-- Desk 2 -->
-      <div class="flex flex-col items-center group cursor-pointer">
-        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
-          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">2</span>
-          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+      <div class="flex flex-col items-center group cursor-pointer w-full">
+        <div class="w-14 h-9 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
+          <span class="text-[7px] text-slate-500 dark:text-slate-400 font-bold">2</span>
+          <div class="w-full h-3 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
         </div>
-        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 2</span>
+        <span class="text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">Desk 2</span>
       </div>
 
       <!-- Desk 3 -->
-      <div class="flex flex-col items-center group cursor-pointer">
-        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
-          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">3</span>
-          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+      <div class="flex flex-col items-center group cursor-pointer w-full">
+        <div class="w-14 h-9 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
+          <span class="text-[7px] text-slate-500 dark:text-slate-400 font-bold">3</span>
+          <div class="w-full h-3 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
         </div>
-        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 3</span>
+        <span class="text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">Desk 3</span>
       </div>
 
       <!-- Desk 4 -->
-      <div class="flex flex-col items-center group cursor-pointer">
-        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
-          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">4</span>
-          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+      <div class="flex flex-col items-center group cursor-pointer w-full">
+        <div class="w-14 h-9 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
+          <span class="text-[7px] text-slate-500 dark:text-slate-400 font-bold">4</span>
+          <div class="w-full h-3 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
         </div>
-        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 4</span>
+        <span class="text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">Desk 4</span>
       </div>
 
       <div class="w-10 h-[1px] bg-slate-300/60 dark:bg-white/10 my-1"></div>
 
-      <!-- Quick Launch Favorites (44px x 44px buttons) -->
+      <!-- Quick Launch Favorites (42px buttons) -->
       <div class="flex flex-col space-y-2.5">
-        <div class="relative group flex justify-center">
-          <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 flex items-center justify-center text-slate-800 dark:text-slate-200 shadow-sm transition transform hover:scale-105">
-            <i class="fa-solid fa-terminal text-sm font-bold text-slate-900 dark:text-emerald-400"></i>
-          </button>
-          <div class="absolute left-14 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
-            Terminal
-          </div>
-        </div>
-
-        <div class="relative group flex justify-center">
-          <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm transition transform hover:scale-105">
-            <i class="fa-solid fa-code text-sm"></i>
-          </button>
-          <div class="absolute left-14 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
-            VS Code
-          </div>
-        </div>
-
-        <div class="relative group flex justify-center">
-          <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 flex items-center justify-center text-emerald-600 dark:text-teal-400 shadow-sm transition transform hover:scale-105">
-            <i class="fa-solid fa-bag-shopping text-sm"></i>
-          </button>
-          <div class="absolute left-14 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
-            Software Manager
-          </div>
-        </div>
+        <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-slate-800 dark:text-slate-200 shadow-sm transition hover:scale-105" title="Terminal">
+          <i class="fa-solid fa-terminal text-sm text-emerald-500"></i>
+        </button>
+        <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm transition hover:scale-105" title="VS Code">
+          <i class="fa-solid fa-code text-sm"></i>
+        </button>
+        <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-emerald-600 dark:text-teal-400 shadow-sm transition hover:scale-105" title="Software Manager">
+          <i class="fa-solid fa-bag-shopping text-sm"></i>
+        </button>
       </div>
     </div>
 
     <!-- Bottom: User & Power Profile -->
     <div class="flex flex-col items-center space-y-2.5">
-      <div class="relative group flex justify-center">
-        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer">
-          <div class="w-full h-full rounded-full bg-white dark:bg-[#161828] flex items-center justify-center font-bold text-xs text-indigo-700 dark:text-indigo-300">
-            LM
-          </div>
-        </div>
-        <div class="absolute left-12 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
-          Mint User
+      <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer" title="Mint User">
+        <div class="w-full h-full rounded-full bg-white dark:bg-[#161828] flex items-center justify-center font-bold text-xs text-indigo-700 dark:text-indigo-300">
+          LM
         </div>
       </div>
-
-      <div class="relative group flex justify-center">
-        <button class="w-9 h-9 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition">
-          <i class="fa-solid fa-power-off text-xs"></i>
-        </button>
-        <div class="absolute left-12 top-1.5 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
-          Power Off
-        </div>
-      </div>
+      <button class="w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition" title="Power Off">
+        <i class="fa-solid fa-power-off text-xs"></i>
+      </button>
     </div>
   </aside>
 
-  <!-- ================= LEVEL 1 INSPECTOR PANEL ================= -->
-  <div class="max-w-md w-full p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-white/40 dark:border-white/10 text-slate-900 dark:text-slate-100">
+  <!-- ================= LEVEL 1 INSPECTOR & REALITY PANEL ================= -->
+  <div class="max-w-md w-full p-5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl shadow-2xl border border-white/50 dark:border-white/10 text-slate-900 dark:text-slate-100">
     <div class="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
       <div>
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Level 1 Inspector</h2>
-        <p class="text-xs text-slate-500">Component: <code>sidebar.html</code> (XFCE Panel 2)</p>
+        <div class="flex items-center space-x-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500">Level 1 Inspector</span>
+          <span id="badge-mode" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500">Lite Profile</span>
+        </div>
+        <h2 class="text-sm font-bold mt-1 text-slate-800 dark:text-slate-100">Component: <code>sidebar.html</code> (76px Workspace Bar)</h2>
       </div>
       <div class="flex space-x-2">
-        <button onclick="toggleTheme()" class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
-          Toggle Light / Dark
+        <button onclick="toggleTheme()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+          🌓
         </button>
-        <a href="index.html" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+        <button onclick="toggleProfile()" id="btn-profile" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
+          Glass Mode
+        </button>
+        <a href="index.html" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
           ← Gallery
         </a>
       </div>
     </div>
 
-    <div class="mt-4 space-y-4 text-xs">
+    <div class="mt-4 space-y-3 text-xs">
       <div>
-        <label class="block font-semibold mb-1">Sidebar Width: <span id="val-width">92px</span></label>
-        <input type="range" min="70" max="110" value="92" class="w-full" oninput="updateWidth(this.value)">
-      </div>
-      <div>
-        <label class="block font-semibold mb-1">Border Radius: <span id="val-radius">16px</span></label>
-        <input type="range" min="8" max="24" value="16" class="w-full" oninput="updateRadius(this.value)">
-      </div>
-      <div>
-        <label class="block font-semibold mb-1">Blur: <span id="val-blur">32px</span></label>
-        <input type="range" min="0" max="50" value="32" class="w-full" oninput="updateBlur(this.value)">
+        <label class="block font-semibold mb-1">Sidebar Width: <span id="val-width">76px</span></label>
+        <input type="range" min="70" max="92" value="76" class="w-full" oninput="updateWidth(this.value)">
       </div>
     </div>
 
-    <div class="mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 space-y-1">
-      <div>Mapped Tool: Secondary vertical autohide <code>xfce4-panel</code></div>
-      <div>Plugins: <code>xfce4-pager-plugin</code> (Desktops) + Custom Launchers</div>
+    <!-- Reality Panel -->
+    <div class="mt-5 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs">
+      <div class="font-bold flex items-center justify-between text-slate-700 dark:text-slate-200 mb-2">
+        <span>⚡ XFCE Reality & Implementation</span>
+        <span class="text-[10px] text-slate-500">Panel 2 Mapping</span>
+      </div>
+      <table class="w-full text-left text-[11px]">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+            <th class="py-1">Feature</th>
+            <th>XFCE Implementation</th>
+            <th class="text-right">Cost</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700/40 text-slate-600 dark:text-slate-300">
+          <tr>
+            <td class="py-1.5 font-medium">Vertical Sidebar</td>
+            <td>Secondary vertical autohiding <code>xfce4-panel</code> (Panel 2).</td>
+            <td class="text-right text-emerald-500 font-bold">Low (Native)</td>
+          </tr>
+          <tr>
+            <td class="py-1.5 font-medium">Workspace Thumbnails</td>
+            <td>Uses <code>xfce4-pager-plugin</code> configured for 4 desktops.</td>
+            <td class="text-right text-emerald-500 font-bold">Low</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
   <script>
     let isDark = false;
+    let isGlass = false;
+
     function toggleTheme() {
       isDark = !isDark;
-      const body = document.getElementById('body');
-      const sidebar = document.getElementById('sidebar');
-      if (isDark) {
-        body.className = "desktop-bg-dark min-h-screen text-slate-100 p-8 flex items-start gap-10 transition-colors duration-300";
-        sidebar.className = "sidebar-glass-dark w-[92px] h-[640px] rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all";
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+
+    function toggleProfile() {
+      isGlass = !isGlass;
+      const html = document.documentElement;
+      const btn = document.getElementById('btn-profile');
+      const badge = document.getElementById('badge-mode');
+
+      if (isGlass) {
+        html.classList.remove('mode-lite');
+        html.classList.add('mode-glass');
+        btn.innerText = 'Lite Mode';
+        badge.innerText = 'Glass Profile (Blur)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500';
       } else {
-        body.className = "desktop-bg-light min-h-screen text-slate-800 p-8 flex items-start gap-10 transition-colors duration-300";
-        sidebar.className = "sidebar-glass-light w-[92px] h-[640px] rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all";
+        html.classList.remove('mode-glass');
+        html.classList.add('mode-lite');
+        btn.innerText = 'Glass Mode';
+        badge.innerText = 'Lite Profile (Old PC)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500';
       }
     }
 
     function updateWidth(val) {
-      document.getElementById('sidebar').style.width = val + 'px';
+      document.documentElement.style.setProperty('--width-sidebar', val + 'px');
       document.getElementById('val-width').innerText = val + 'px';
-    }
-
-    function updateRadius(val) {
-      document.getElementById('sidebar').style.borderRadius = val + 'px';
-      document.getElementById('val-radius').innerText = val + 'px';
-    }
-
-    function updateBlur(val) {
-      document.documentElement.style.setProperty('--sidebar-blur', val + 'px');
-      document.getElementById('val-blur').innerText = val + 'px';
     }
   </script>
 </body>

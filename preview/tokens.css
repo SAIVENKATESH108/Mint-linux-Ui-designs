@@ -1,0 +1,215 @@
+/* ==============================================================================
+ * macOS Sequoia Preview Design Tokens (tokens.css)
+ * Central shared stylesheet for Level 1 HTML Preview Suite
+ * Supports Light & Dark modes, plus Lite (old PC) vs Glass (GPU blur) modes
+ * ============================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* System Accents */
+  --accent-blue: #0a84ff;
+  --accent-mint: #10b981;
+  --traffic-close: #ff5f56;
+  --traffic-close-border: #e0443e;
+  --traffic-minimize: #ffbd2e;
+  --traffic-minimize-border: #dea123;
+  --traffic-maximize: #27c93f;
+  --traffic-maximize-border: #1aab29;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Geometry & Dimensions */
+  --height-menubar: 28px;
+  --width-sidebar: 76px;
+  --size-dock-icon: 48px;
+  --zoom-dock-icon: 1.18;
+  --width-widget-grid: 456px;
+  --gap-widgets: 16px;
+
+  /* Radii */
+  --radius-traffic: 9999px;
+  --radius-button: 6px;
+  --radius-menu: 8px;
+  --radius-window: 12px;
+  --radius-card: 16px;
+  --radius-sidebar: 16px;
+  --radius-app-icon: 18px;
+  --radius-dock: 22px;
+
+  /* LIGHT MODE (Default) - Glass Tokens */
+  --bg-menubar: rgba(255, 255, 255, 0.45);
+  --border-menubar: rgba(255, 255, 255, 0.45);
+  --bg-sidebar: rgba(255, 255, 255, 0.45);
+  --border-sidebar: rgba(255, 255, 255, 0.45);
+  --bg-window: rgba(255, 255, 255, 0.65);
+  --border-window: rgba(255, 255, 255, 0.55);
+  --bg-dock: rgba(255, 255, 255, 0.40);
+  --border-dock: rgba(255, 255, 255, 0.45);
+  --bg-card: rgba(255, 255, 255, 0.52);
+  --border-card: rgba(255, 255, 255, 0.40);
+
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+
+  /* Wallpapers */
+  --wallpaper-gradient: radial-gradient(at 10% 20%, rgba(138, 180, 248, 0.9) 0px, transparent 50%),
+                        radial-gradient(at 85% 15%, rgba(192, 132, 252, 0.85) 0px, transparent 50%),
+                        radial-gradient(at 80% 80%, rgba(244, 114, 182, 0.8) 0px, transparent 55%),
+                        radial-gradient(at 25% 85%, rgba(167, 139, 250, 0.75) 0px, transparent 50%),
+                        linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
+
+  /* Default Profile: LITE (No blur, subtle shadow, old PC friendly) */
+  --filter-blur: none;
+  --box-shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --box-shadow-window: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --box-shadow-dock: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --box-shadow-card: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* DARK MODE */
+html.dark {
+  --bg-menubar: rgba(18, 20, 31, 0.72);
+  --border-menubar: rgba(255, 255, 255, 0.08);
+  --bg-sidebar: rgba(18, 20, 31, 0.72);
+  --border-sidebar: rgba(255, 255, 255, 0.08);
+  --bg-window: rgba(17, 20, 30, 0.82);
+  --border-window: rgba(255, 255, 255, 0.10);
+  --bg-dock: rgba(15, 17, 26, 0.75);
+  --border-dock: rgba(255, 255, 255, 0.12);
+  --bg-card: rgba(22, 25, 38, 0.72);
+  --border-card: rgba(255, 255, 255, 0.08);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --wallpaper-gradient: radial-gradient(circle at 18% 22%, rgba(99, 102, 241, 0.22), transparent 45%),
+                        radial-gradient(circle at 82% 18%, rgba(168, 85, 247, 0.24), transparent 42%),
+                        radial-gradient(circle at 45% 82%, rgba(59, 130, 246, 0.2), transparent 50%),
+                        radial-gradient(circle at 88% 78%, rgba(236, 72, 153, 0.16), transparent 45%),
+                        linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
+
+  --box-shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --box-shadow-window: 0 12px 36px rgba(0, 0, 0, 0.50);
+  --box-shadow-dock: 0 8px 24px rgba(0, 0, 0, 0.40);
+  --box-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.30);
+}
+
+/* GLASS MODE (Optional high-effect profile) */
+html.mode-glass {
+  --filter-blur: blur(28px) saturate(190%);
+  --box-shadow-panel: 0 16px 38px rgba(0, 0, 0, 0.08);
+  --box-shadow-window: 0 24px 60px rgba(15, 23, 42, 0.16);
+  --box-shadow-dock: 0 20px 45px rgba(0, 0, 0, 0.14);
+  --box-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+html.dark.mode-glass {
+  --filter-blur: blur(36px) saturate(180%);
+  --box-shadow-panel: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --box-shadow-window: 0 28px 70px rgba(0, 0, 0, 0.60);
+  --box-shadow-dock: 0 22px 50px rgba(0, 0, 0, 0.55);
+  --box-shadow-card: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* LITE MODE (Default Old PC Profile: opaque-ish flat translucent, NO blur) */
+html.mode-lite {
+  --filter-blur: none;
+  --bg-menubar: rgba(245, 245, 247, 0.90);
+  --border-menubar: rgba(0, 0, 0, 0.12);
+  --bg-sidebar: rgba(245, 245, 247, 0.90);
+  --border-sidebar: rgba(0, 0, 0, 0.12);
+  --bg-window: rgba(255, 255, 255, 0.96);
+  --border-window: rgba(0, 0, 0, 0.15);
+  --bg-dock: rgba(240, 240, 245, 0.90);
+  --border-dock: rgba(0, 0, 0, 0.12);
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --border-card: rgba(0, 0, 0, 0.10);
+}
+
+html.dark.mode-lite {
+  --filter-blur: none;
+  --bg-menubar: rgba(24, 26, 36, 0.94);
+  --border-menubar: rgba(255, 255, 255, 0.10);
+  --bg-sidebar: rgba(24, 26, 36, 0.94);
+  --border-sidebar: rgba(255, 255, 255, 0.10);
+  --bg-window: rgba(20, 22, 32, 0.96);
+  --border-window: rgba(255, 255, 255, 0.12);
+  --bg-dock: rgba(20, 22, 32, 0.92);
+  --border-dock: rgba(255, 255, 255, 0.12);
+  --bg-card: rgba(28, 31, 46, 0.92);
+  --border-card: rgba(255, 255, 255, 0.10);
+}
+
+/* Universal Base Styles */
+* {
+  font-family: var(--font-sans);
+  user-select: none;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--wallpaper-gradient);
+  background-size: cover;
+  background-position: center;
+  color: var(--text-primary);
+  transition: background 300ms ease, color 200ms ease;
+}
+
+/* Component Classes */
+.ui-menubar {
+  height: var(--height-menubar);
+  background: var(--bg-menubar);
+  border-bottom: 1px solid var(--border-menubar);
+  backdrop-filter: var(--filter-blur);
+  -webkit-backdrop-filter: var(--filter-blur);
+  box-shadow: var(--box-shadow-panel);
+}
+
+.ui-sidebar {
+  width: var(--width-sidebar);
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-sidebar);
+  border-radius: var(--radius-sidebar);
+  backdrop-filter: var(--filter-blur);
+  -webkit-backdrop-filter: var(--filter-blur);
+  box-shadow: var(--box-shadow-panel);
+}
+
+.ui-window {
+  background: var(--bg-window);
+  border: 1px solid var(--border-window);
+  border-radius: var(--radius-window);
+  backdrop-filter: var(--filter-blur);
+  -webkit-backdrop-filter: var(--filter-blur);
+  box-shadow: var(--box-shadow-window);
+}
+
+.ui-dock {
+  background: var(--bg-dock);
+  border: 1px solid var(--border-dock);
+  border-radius: var(--radius-dock);
+  backdrop-filter: var(--filter-blur);
+  -webkit-backdrop-filter: var(--filter-blur);
+  box-shadow: var(--box-shadow-dock);
+}
+
+.ui-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  backdrop-filter: var(--filter-blur);
+  -webkit-backdrop-filter: var(--filter-blur);
+  box-shadow: var(--box-shadow-card);
+}
+
+.traffic-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-traffic);
+  display: inline-flex;
+}

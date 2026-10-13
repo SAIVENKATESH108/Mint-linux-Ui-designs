@@ -1,59 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mode-lite">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview: Desktop Widget Grid (macOS Sequoia Conky)</title>
+  <title>Preview: Desktop Widget Grid (macOS Sequoia Conky 3-Card Group)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
-
-    :root {
-      --card-radius: 16px;
-      --card-blur: 24px;
-      --light-card-bg: rgba(255, 255, 255, 0.52);
-      --light-card-border: rgba(255, 255, 255, 0.40);
-      --dark-card-bg: rgba(22, 25, 38, 0.72);
-      --dark-card-border: rgba(255, 255, 255, 0.08);
-    }
-
-    .desktop-bg-light {
-      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
-    }
-
-    .desktop-bg-dark {
-      background: linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
-    }
-
-    .glass-card-light {
-      background: var(--light-card-bg);
-      backdrop-filter: blur(var(--card-blur)) saturate(180%);
-      -webkit-backdrop-filter: blur(var(--card-blur)) saturate(180%);
-      border: 1px solid var(--light-card-border);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-      border-radius: var(--card-radius);
-    }
-
-    .glass-card-dark {
-      background: var(--dark-card-bg);
-      backdrop-filter: blur(var(--card-blur)) saturate(180%);
-      -webkit-backdrop-filter: blur(var(--card-blur)) saturate(180%);
-      border: 1px solid var(--dark-card-border);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-      border-radius: var(--card-radius);
-    }
-  </style>
+  <link rel="stylesheet" href="tokens.css">
 </head>
-<body id="body" class="desktop-bg-light min-h-screen text-slate-800 p-8 flex flex-col md:flex-row gap-8 justify-center items-start transition-colors duration-300">
+<body class="min-h-screen p-8 flex flex-col md:flex-row gap-8 justify-center items-start">
 
-  <!-- ================= LEVEL 1 INSPECTOR PANEL ================= -->
-  <div class="w-full md:w-80 p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-white/40 dark:border-white/10 text-slate-900 dark:text-slate-100 shrink-0">
+  <!-- ================= LEVEL 1 INSPECTOR & REALITY PANEL ================= -->
+  <div class="w-full md:w-80 p-5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl shadow-2xl border border-white/50 dark:border-white/10 text-slate-900 dark:text-slate-100 shrink-0">
     <div class="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
       <div>
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Level 1 Inspector</h2>
-        <p class="text-xs text-slate-500">Component: <code>widgets.html</code> (Conky)</p>
+        <div class="flex items-center space-x-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500">Level 1 Inspector</span>
+          <span id="badge-mode" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500">Lite Profile</span>
+        </div>
+        <h2 class="text-sm font-bold mt-1 text-slate-800 dark:text-slate-100">Component: <code>widgets.html</code> (3 Conky Cards)</h2>
       </div>
       <a href="index.html" class="px-2.5 py-1 rounded text-xs bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
         ← Gallery
@@ -61,205 +27,264 @@
     </div>
 
     <div class="mt-4 space-y-3 text-xs">
-      <button onclick="toggleTheme()" class="w-full py-2 rounded-lg font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
-        Toggle Light / Dark Mode
-      </button>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="toggleTheme()" class="py-2 rounded-lg font-semibold bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+          🌓 Light / Dark
+        </button>
+        <button onclick="toggleProfile()" id="btn-profile" class="py-2 rounded-lg font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
+          Glass Mode
+        </button>
+      </div>
 
       <div>
         <label class="block font-semibold mb-1">Card Radius: <span id="val-radius">16px</span></label>
         <input type="range" min="8" max="24" value="16" class="w-full" oninput="updateRadius(this.value)">
       </div>
-
-      <div>
-        <label class="block font-semibold mb-1">Blur: <span id="val-blur">24px</span></label>
-        <input type="range" min="0" max="40" value="24" class="w-full" oninput="updateBlur(this.value)">
-      </div>
     </div>
 
-    <div class="mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 space-y-1">
-      <div>Mapped Tool: <code>Conky</code> (Desktop overlay)</div>
-      <div>Grid Size: <code>456px width × 16px gaps</code></div>
-      <div>Target Hardware: <code>update_interval = 3.0s</code> (Lite)</div>
+    <!-- Reality Panel -->
+    <div class="mt-5 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs">
+      <div class="font-bold flex items-center justify-between text-slate-700 dark:text-slate-200 mb-2">
+        <span>⚡ Conky Reality & Hardware Limits</span>
+        <span class="text-[10px] text-slate-500">Target: Core i3-3220</span>
+      </div>
+      <table class="w-full text-left text-[11px]">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+            <th class="py-1">Constraint</th>
+            <th>XFCE / Conky Reality</th>
+            <th class="text-right">Cost</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700/40 text-slate-600 dark:text-slate-300">
+          <tr>
+            <td class="py-1.5 font-medium">Window Count</td>
+            <td>7 individual windows choke CPU. Reduced to 3 grouped Conky windows.</td>
+            <td class="text-right text-emerald-500 font-bold">Optimized</td>
+          </tr>
+          <tr>
+            <td class="py-1.5 font-medium">Update Interval</td>
+            <td>Set to <code>3.0s - 4.0s</code> (avoid 1s to save i3-3220 cycles).</td>
+            <td class="text-right text-emerald-500 font-bold">Low CPU</td>
+          </tr>
+          <tr>
+            <td class="py-1.5 font-medium">Hardware Sensors</td>
+            <td>Removed battery/BT. Displays CPU Temp (34°C) & NVMe Storage.</td>
+            <td class="text-right text-emerald-500 font-bold">Accurate</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- ================= WIDGET GRID COMPONENT (456px width) ================= -->
+  <!-- ================= GROUPED WIDGET GRID (3 CONKY WINDOWS) ================= -->
   <aside id="widget-grid" class="w-[456px] flex flex-col space-y-4 shrink-0 transition-all">
 
-    <!-- ROW 1: Analog Clock (1x1) + Weather Forecast (2x1) -->
-    <div class="grid grid-cols-3 gap-4 h-[155px]">
-      <!-- 1. Analog Clock -->
-      <div class="glass-card-light p-3 flex flex-col items-center justify-center relative shadow-lg">
-        <div class="w-20 h-20 rounded-full border-2 border-slate-700/20 relative flex items-center justify-center bg-white/40 shadow-inner">
-          <div class="w-1.5 h-1.5 rounded-full bg-slate-800 z-10"></div>
-          <div class="absolute w-[2px] h-6 bg-slate-800 top-4 origin-bottom transform rotate-45 rounded"></div>
-          <div class="absolute w-[1.5px] h-8 bg-slate-600 top-2 origin-bottom transform -rotate-45 rounded"></div>
-          <div class="absolute w-[1px] h-9 bg-rose-500 top-1.5 origin-bottom transform rotate-180 rounded"></div>
-          <span class="absolute top-1 text-[8px] font-bold text-slate-400">12</span>
-          <span class="absolute bottom-1 text-[8px] font-bold text-slate-400">6</span>
-        </div>
-        <span class="text-[10px] font-semibold text-slate-800 dark:text-slate-200 mt-2">Mint / Sequoia</span>
+    <!-- ================= CARD 1: CLOCK & WEATHER (Conky Window 1) ================= -->
+    <div class="ui-card p-4 shadow-lg flex flex-col space-y-3">
+      <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-2">
+        <span class="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400">Glance • Time & Weather</span>
+        <span class="text-[10px] text-slate-400">Window 1</span>
       </div>
 
-      <!-- 2. Weather Widget -->
-      <div class="col-span-2 glass-card-light p-3.5 flex flex-col justify-between shadow-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-xs font-bold text-slate-800 dark:text-slate-100">San Francisco</div>
-            <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center space-x-1">
-              <span>Mostly Sunny</span>
-              <span class="text-[10px]">• H:74° L:58°</span>
+      <div class="grid grid-cols-3 gap-3 items-center">
+        <!-- Analog Clock -->
+        <div class="flex flex-col items-center justify-center">
+          <div class="w-20 h-20 rounded-full border-2 border-slate-700/20 relative flex items-center justify-center bg-white/40 dark:bg-white/5 shadow-inner">
+            <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white z-10"></div>
+            <div class="absolute w-[2px] h-6 bg-slate-800 dark:bg-slate-200 top-4 origin-bottom rotate-45 rounded"></div>
+            <div class="absolute w-[1.5px] h-8 bg-slate-600 dark:bg-slate-300 top-2 origin-bottom -rotate-45 rounded"></div>
+            <div class="absolute w-[1px] h-9 bg-rose-500 top-1.5 origin-bottom rotate-180 rounded"></div>
+            <span class="absolute top-1 text-[8px] font-bold text-slate-400">12</span>
+            <span class="absolute bottom-1 text-[8px] font-bold text-slate-400">6</span>
+          </div>
+          <span class="text-[10px] font-semibold text-slate-800 dark:text-slate-200 mt-1.5">10:45 AM</span>
+        </div>
+
+        <!-- Weather Forecast (Spans 2 cols) -->
+        <div class="col-span-2 flex flex-col justify-between h-full pl-1">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-slate-800 dark:text-slate-100">San Francisco</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center space-x-1">
+                <span>Mostly Sunny</span>
+                <span class="text-[10px]">• H:74° L:58°</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <i class="fa-solid fa-sun text-amber-500 text-2xl"></i>
+              <div class="text-2xl font-light text-slate-900 dark:text-white tracking-tighter">72°</div>
             </div>
           </div>
-          <div class="flex items-center space-x-2">
-            <i class="fa-solid fa-sun text-amber-500 text-2xl"></i>
-            <div class="text-3xl font-light text-slate-900 dark:text-white tracking-tighter">72°</div>
+          <div class="grid grid-cols-5 gap-1 pt-2 border-t border-black/5 dark:border-white/10 text-center">
+            <div><div class="text-[9px] text-slate-500 font-semibold">Today</div><i class="fa-solid fa-sun text-amber-500 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">72°</div></div>
+            <div><div class="text-[9px] text-slate-500 font-semibold">Tue</div><i class="fa-solid fa-cloud-sun text-amber-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">68°</div></div>
+            <div><div class="text-[9px] text-slate-500 font-semibold">Wed</div><i class="fa-solid fa-cloud text-slate-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">64°</div></div>
+            <div><div class="text-[9px] text-slate-500 font-semibold">Thu</div><i class="fa-solid fa-cloud-rain text-blue-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">60°</div></div>
+            <div><div class="text-[9px] text-slate-500 font-semibold">Fri</div><i class="fa-solid fa-cloud-bolt text-indigo-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">59°</div></div>
           </div>
-        </div>
-        <div class="grid grid-cols-5 gap-1 pt-2 border-t border-white/50 dark:border-white/10 text-center">
-          <div><div class="text-[9px] text-slate-500 font-semibold">Today</div><i class="fa-solid fa-sun text-amber-500 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">72°</div></div>
-          <div><div class="text-[9px] text-slate-500 font-semibold">Tue</div><i class="fa-solid fa-cloud-sun text-amber-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">68°</div></div>
-          <div><div class="text-[9px] text-slate-500 font-semibold">Wed</div><i class="fa-solid fa-cloud text-slate-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">64°</div></div>
-          <div><div class="text-[9px] text-slate-500 font-semibold">Thu</div><i class="fa-solid fa-cloud-rain text-blue-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">60°</div></div>
-          <div><div class="text-[9px] text-slate-500 font-semibold">Fri</div><i class="fa-solid fa-cloud-bolt text-indigo-400 text-xs my-0.5"></i><div class="text-[10px] font-semibold text-slate-700 dark:text-slate-300">59°</div></div>
         </div>
       </div>
     </div>
 
-    <!-- ROW 2: Calendar Month (2 cols) + Hardware Rings (1 col) -->
-    <div class="grid grid-cols-3 gap-4 h-[190px]">
-      <!-- 3. Calendar Month -->
-      <div class="col-span-2 glass-card-light p-3.5 flex flex-col justify-between shadow-lg">
-        <div class="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-100">
-          <span class="tracking-tight font-bold">October 2024</span>
-          <span class="text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full text-[10px]">MON 12</span>
-        </div>
-        <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-400 border-b border-white/40 dark:border-white/10 pb-1">
-          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
-        </div>
-        <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-700 dark:text-slate-300 font-medium">
-          <span class="text-slate-300 dark:text-slate-600">29</span><span class="text-slate-300 dark:text-slate-600">30</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
-          <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span>
-          <span class="w-5 h-5 bg-[#0A84FF] text-white rounded-full mx-auto flex items-center justify-center font-bold shadow-sm">12</span>
-          <span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span>
-          <span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span>
-        </div>
-        <div class="text-[10px] text-[#0A84FF] font-semibold flex items-center space-x-1.5 pt-1 border-t border-white/50 dark:border-white/10">
-          <i class="fa-solid fa-circle text-[6px]"></i>
-          <span class="truncate">11:30 AM • Sprint Review &amp; UI Polish</span>
-        </div>
+    <!-- ================= CARD 2: CALENDAR & HARDWARE METRICS (Conky Window 2) ================= -->
+    <div class="ui-card p-4 shadow-lg flex flex-col space-y-3">
+      <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-2">
+        <span class="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400">Calendar & System Status</span>
+        <span class="text-[10px] text-slate-400">Window 2</span>
       </div>
 
-      <!-- 4. Hardware Rings -->
-      <div class="glass-card-light p-2.5 flex flex-col justify-between shadow-lg">
-        <div class="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-slate-100">
-          <span>System</span>
-          <i class="fa-solid fa-microchip text-slate-400 text-xs"></i>
+      <div class="grid grid-cols-5 gap-4">
+        <!-- Calendar Month View: October 2026 (Mon 12 is Today, 1 Oct = Thursday) -->
+        <div class="col-span-3 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1">
+            <span class="tracking-tight font-bold">October 2026</span>
+            <span class="text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full text-[10px]">MON 12</span>
+          </div>
+          <!-- Days of Week Headers (S M T W T F S) -->
+          <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-400 border-b border-black/5 dark:border-white/10 pb-1">
+            <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+          </div>
+          <!-- Accurate October 2026 Dates -->
+          <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-700 dark:text-slate-300 font-medium py-1">
+            <!-- Row 1: 1 Oct 2026 is Thursday (prev dates: 27 28 29 30) -->
+            <span class="text-slate-300 dark:text-slate-600">27</span>
+            <span class="text-slate-300 dark:text-slate-600">28</span>
+            <span class="text-slate-300 dark:text-slate-600">29</span>
+            <span class="text-slate-300 dark:text-slate-600">30</span>
+            <span>1</span><span>2</span><span>3</span>
+            <!-- Row 2 -->
+            <span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+            <!-- Row 3: 12 Oct sits directly under M (Monday) -->
+            <span>11</span>
+            <span class="w-5 h-5 bg-[#0a84ff] text-white rounded-full mx-auto flex items-center justify-center font-bold shadow-sm">12</span>
+            <span>13</span><span>14</span><span>15</span><span>16</span><span>17</span>
+            <!-- Row 4 -->
+            <span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span>
+            <!-- Row 5 -->
+            <span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span>
+          </div>
+          <div class="text-[10px] text-[#0a84ff] font-semibold flex items-center space-x-1.5 pt-1 border-t border-black/5 dark:border-white/10">
+            <i class="fa-solid fa-circle text-[6px]"></i>
+            <span class="truncate">11:30 AM • Mint XFCE Verification</span>
+          </div>
         </div>
-        <div class="flex items-center justify-around py-0.5">
-          <!-- CPU Ring -->
-          <div class="flex flex-col items-center">
-            <div class="relative w-11 h-11 flex items-center justify-center">
-              <svg class="w-11 h-11 transform -rotate-90">
-                <circle cx="22" cy="22" fill="none" r="16" stroke="rgba(0,0,0,0.08)" stroke-width="3.5"></circle>
-                <circle cx="22" cy="22" fill="none" r="16" stroke="#0A84FF" stroke-dasharray="100" stroke-dashoffset="68" stroke-linecap="round" stroke-width="3.5"></circle>
-              </svg>
-              <span class="absolute text-[9px] font-bold text-slate-800 dark:text-slate-100">32%</span>
+
+        <!-- Hardware System Stats (Core i3-3220, 12GB RAM, GT 610, NVMe/SSD) -->
+        <div class="col-span-2 flex flex-col justify-between pl-2 border-l border-black/5 dark:border-white/10">
+          <div class="text-[11px] font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
+            <span>Hardware</span>
+            <i class="fa-solid fa-microchip text-slate-400 text-xs"></i>
+          </div>
+
+          <div class="flex items-center justify-around py-1">
+            <!-- CPU Ring -->
+            <div class="flex flex-col items-center">
+              <div class="relative w-10 h-10 flex items-center justify-center">
+                <svg class="w-10 h-10 transform -rotate-90">
+                  <circle cx="20" cy="20" fill="none" r="15" stroke="rgba(0,0,0,0.08)" stroke-width="3"></circle>
+                  <circle cx="20" cy="20" fill="none" r="15" stroke="#0a84ff" stroke-dasharray="94" stroke-dashoffset="64" stroke-linecap="round" stroke-width="3"></circle>
+                </svg>
+                <span class="absolute text-[9px] font-bold text-slate-800 dark:text-slate-100">32%</span>
+              </div>
+              <span class="text-[8px] font-bold text-slate-500 mt-0.5">CPU</span>
             </div>
-            <span class="text-[8px] font-bold text-slate-500 mt-0.5">CPU</span>
-          </div>
-          <!-- RAM Ring -->
-          <div class="flex flex-col items-center">
-            <div class="relative w-11 h-11 flex items-center justify-center">
-              <svg class="w-11 h-11 transform -rotate-90">
-                <circle cx="22" cy="22" fill="none" r="16" stroke="rgba(0,0,0,0.08)" stroke-width="3.5"></circle>
-                <circle cx="22" cy="22" fill="none" r="16" stroke="#34C759" stroke-dasharray="100" stroke-dashoffset="46" stroke-linecap="round" stroke-width="3.5"></circle>
-              </svg>
-              <span class="absolute text-[9px] font-bold text-slate-800 dark:text-slate-100">54%</span>
+            <!-- RAM Ring -->
+            <div class="flex flex-col items-center">
+              <div class="relative w-10 h-10 flex items-center justify-center">
+                <svg class="w-10 h-10 transform -rotate-90">
+                  <circle cx="20" cy="20" fill="none" r="15" stroke="rgba(0,0,0,0.08)" stroke-width="3"></circle>
+                  <circle cx="20" cy="20" fill="none" r="15" stroke="#10b981" stroke-dasharray="94" stroke-dashoffset="43" stroke-linecap="round" stroke-width="3"></circle>
+                </svg>
+                <span class="absolute text-[9px] font-bold text-slate-800 dark:text-slate-100">54%</span>
+              </div>
+              <span class="text-[8px] font-bold text-slate-500 mt-0.5">12GB RAM</span>
             </div>
-            <span class="text-[8px] font-bold text-slate-500 mt-0.5">RAM</span>
           </div>
-        </div>
-        <div class="bg-white/45 dark:bg-white/10 rounded-lg p-1.5 border border-white/60 dark:border-white/10 flex items-center justify-between">
-          <div class="flex items-center space-x-1.5">
-            <i class="fa-solid fa-bolt text-emerald-500 text-[10px]"></i>
-            <span class="text-[9px] font-bold text-slate-700 dark:text-slate-200">94%</span>
+
+          <!-- Sensors (No battery - replaced with Temp & Uptime) -->
+          <div class="space-y-1 text-[9px] bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">CPU Temp:</span>
+              <span class="font-bold text-amber-500">34.0 °C</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">GPU Temp:</span>
+              <span class="font-bold text-slate-700 dark:text-slate-300">38.0 °C</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Uptime:</span>
+              <span class="font-bold text-emerald-600 dark:text-emerald-400">3h 42m</span>
+            </div>
           </div>
-          <span class="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">Normal</span>
         </div>
       </div>
     </div>
 
-    <!-- ROW 3: Full Width Music Player (3 cols) -->
-    <div class="glass-card-light p-3.5 flex items-center space-x-3.5 shadow-lg h-[92px]">
-      <div class="w-14 h-14 rounded-xl bg-gradient-to-tr from-pink-500 to-indigo-600 shadow-md flex items-center justify-center text-white text-xl shrink-0">
-        <i class="fa-solid fa-music"></i>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="text-xs font-bold text-slate-900 dark:text-white truncate">Midnight In Monterey</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">Sequoia Ambient Collective</div>
-        <div class="w-full h-1 bg-slate-300/60 dark:bg-slate-700 rounded-full mt-2 relative overflow-hidden cursor-pointer">
-          <div class="h-full bg-slate-800 dark:bg-white w-[62%] rounded-full"></div>
-        </div>
-      </div>
-      <div class="flex items-center space-x-2 text-slate-700 dark:text-slate-300 text-sm shrink-0">
-        <button class="w-7 h-7 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition"><i class="fa-solid fa-backward-step"></i></button>
-        <button class="w-8 h-8 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-xs hover:scale-105 transition shadow"><i class="fa-solid fa-pause"></i></button>
-        <button class="w-7 h-7 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition"><i class="fa-solid fa-forward-step"></i></button>
-      </div>
-    </div>
-
-    <!-- ROW 4: Notes (1x1) + Network (1x1) + Storage (1x1) -->
-    <div class="grid grid-cols-3 gap-4 h-[135px]">
-      <!-- 5. Notes -->
-      <div class="glass-card-light p-2.5 flex flex-col justify-between shadow-lg">
-        <div class="text-[11px] font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
-          <span>Pinned Note</span>
-          <i class="fa-solid fa-thumbtack text-amber-500 text-[9px]"></i>
-        </div>
-        <p class="text-[10px] text-slate-700 dark:text-slate-300 leading-tight space-y-0.5 my-0.5 font-normal">
-          • Compile XFCE blur<br>
-          • Sequoia icon pack<br>
-          • Plank dock theme
-        </p>
-        <span class="text-[8px] text-slate-400">Edited 20m ago</span>
+    <!-- ================= CARD 3: MEDIA, NOTES & STORAGE/NET (Conky Window 3) ================= -->
+    <div class="ui-card p-4 shadow-lg flex flex-col space-y-3">
+      <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-2">
+        <span class="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400">Media, Storage & Network</span>
+        <span class="text-[10px] text-slate-400">Window 3</span>
       </div>
 
-      <!-- 6. Network -->
-      <div class="glass-card-light p-2.5 flex flex-col justify-between shadow-lg">
-        <div class="text-[11px] font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
-          <span>Network</span>
-          <i class="fa-solid fa-arrow-right-arrow-left text-blue-500 text-[9px]"></i>
+      <!-- Music Player Row -->
+      <div class="flex items-center space-x-3 bg-black/5 dark:bg-white/5 p-2 rounded-xl">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white text-base shrink-0 shadow">
+          <i class="fa-solid fa-music"></i>
         </div>
-        <div class="space-y-1 my-0.5">
-          <div class="flex justify-between items-center text-[10px]">
-            <span class="text-slate-500"><i class="fa-solid fa-arrow-down text-emerald-500 mr-1 text-[8px]"></i>Down</span>
-            <span class="font-bold text-slate-800 dark:text-slate-200">124 MB/s</span>
-          </div>
-          <div class="flex justify-between items-center text-[10px]">
-            <span class="text-slate-500"><i class="fa-solid fa-arrow-up text-blue-500 mr-1 text-[8px]"></i>Up</span>
-            <span class="font-bold text-slate-800 dark:text-slate-200">42 MB/s</span>
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-bold text-slate-900 dark:text-white truncate">Midnight In Monterey</div>
+          <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">Sequoia Ambient Collective</div>
+          <div class="w-full h-1 bg-slate-300/60 dark:bg-slate-700 rounded-full mt-1.5 relative overflow-hidden">
+            <div class="h-full bg-slate-800 dark:bg-white w-[62%] rounded-full"></div>
           </div>
         </div>
-        <span class="text-[8px] text-emerald-600 dark:text-emerald-400 font-medium">Wi-Fi 6E</span>
+        <button class="w-7 h-7 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-xs shadow"><i class="fa-solid fa-pause"></i></button>
       </div>
 
-      <!-- 7. Storage -->
-      <div class="glass-card-light p-2.5 flex flex-col justify-between shadow-lg">
-        <div class="text-[11px] font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
-          <span>Storage</span>
-          <i class="fa-solid fa-hard-drive text-slate-500 text-[9px]"></i>
-        </div>
-        <div class="my-0.5">
-          <div class="text-[10px] font-bold text-slate-800 dark:text-slate-200">384 GB free</div>
-          <div class="text-[8px] text-slate-500">240 GB SSD</div>
-          <div class="w-full h-2 bg-slate-200/80 dark:bg-slate-700 rounded-full flex overflow-hidden mt-1.5">
-            <div class="h-full bg-blue-500 w-[35%]"></div>
-            <div class="h-full bg-emerald-400 w-[20%]"></div>
-            <div class="h-full bg-amber-400 w-[15%]"></div>
+      <!-- Subgrid: Notes + Network + Storage -->
+      <div class="grid grid-cols-3 gap-2.5 pt-1 text-[10px]">
+        <!-- Pinned Note -->
+        <div class="p-2 rounded-xl bg-black/5 dark:bg-white/5 flex flex-col justify-between">
+          <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+            <span>Note</span>
+            <i class="fa-solid fa-thumbtack text-amber-500 text-[8px]"></i>
           </div>
+          <p class="text-slate-600 dark:text-slate-400 my-1 leading-tight">
+            • Lite mode active<br>
+            • 3 Conky cards
+          </p>
+          <span class="text-[8px] text-slate-400">Edited 20m ago</span>
         </div>
-        <span class="text-[8px] text-slate-500">System / Apps / Free</span>
+
+        <!-- Network -->
+        <div class="p-2 rounded-xl bg-black/5 dark:bg-white/5 flex flex-col justify-between">
+          <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+            <span>Network</span>
+            <i class="fa-solid fa-wifi text-blue-500 text-[8px]"></i>
+          </div>
+          <div class="my-1 space-y-0.5">
+            <div class="flex justify-between"><span>↓ Down</span><span class="font-bold text-slate-800 dark:text-slate-200">124 MB/s</span></div>
+            <div class="flex justify-between"><span>↑ Up</span><span class="font-bold text-slate-800 dark:text-slate-200">42 MB/s</span></div>
+          </div>
+          <span class="text-[8px] text-emerald-600 dark:text-emerald-400">WLAN0</span>
+        </div>
+
+        <!-- Storage -->
+        <div class="p-2 rounded-xl bg-black/5 dark:bg-white/5 flex flex-col justify-between">
+          <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+            <span>Storage</span>
+            <i class="fa-solid fa-hard-drive text-slate-400 text-[8px]"></i>
+          </div>
+          <div class="my-1">
+            <div class="font-bold text-slate-800 dark:text-slate-200">163 GB free</div>
+            <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full flex overflow-hidden mt-1">
+              <div class="h-full bg-blue-500 w-[24%]"></div>
+            </div>
+          </div>
+          <span class="text-[8px] text-slate-400">240GB SSD</span>
+        </div>
       </div>
     </div>
 
@@ -267,33 +292,37 @@
 
   <script>
     let isDark = false;
+    let isGlass = false;
+
     function toggleTheme() {
       isDark = !isDark;
-      const body = document.getElementById('body');
-      const cards = document.querySelectorAll('#widget-grid .glass-card-light, #widget-grid .glass-card-dark');
-      if (isDark) {
-        body.className = "desktop-bg-dark min-h-screen text-slate-100 p-8 flex flex-col md:flex-row gap-8 justify-center items-start transition-colors duration-300";
-        cards.forEach(c => {
-          c.classList.remove('glass-card-light');
-          c.classList.add('glass-card-dark');
-        });
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+
+    function toggleProfile() {
+      isGlass = !isGlass;
+      const html = document.documentElement;
+      const btn = document.getElementById('btn-profile');
+      const badge = document.getElementById('badge-mode');
+
+      if (isGlass) {
+        html.classList.remove('mode-lite');
+        html.classList.add('mode-glass');
+        btn.innerText = 'Lite Mode';
+        badge.innerText = 'Glass Profile (Blur)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500';
       } else {
-        body.className = "desktop-bg-light min-h-screen text-slate-800 p-8 flex flex-col md:flex-row gap-8 justify-center items-start transition-colors duration-300";
-        cards.forEach(c => {
-          c.classList.remove('glass-card-dark');
-          c.classList.add('glass-card-light');
-        });
+        html.classList.remove('mode-glass');
+        html.classList.add('mode-lite');
+        btn.innerText = 'Glass Mode';
+        badge.innerText = 'Lite Profile (Old PC)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500';
       }
     }
 
     function updateRadius(val) {
-      document.documentElement.style.setProperty('--card-radius', val + 'px');
+      document.documentElement.style.setProperty('--radius-card', val + 'px');
       document.getElementById('val-radius').innerText = val + 'px';
-    }
-
-    function updateBlur(val) {
-      document.documentElement.style.setProperty('--card-blur', val + 'px');
-      document.getElementById('val-blur').innerText = val + 'px';
     }
   </script>
 </body>

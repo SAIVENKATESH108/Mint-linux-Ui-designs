@@ -20,5 +20,18 @@
 - Every phase must include: a reload command (added to scripts/reload.sh), a screenshot step (scripts/snap.sh), and a list of differences versus the reference image.
 - Say clearly which differences are XFCE limitations and which are fixable.
 
+## Target hardware (from reference/system-info.txt)
+- Linux Mint 22.3 (Ubuntu 24.04 base), XFCE 4.18, X11.
+- Desktop PC, no battery. i3-3220 (2C/4T), 12 GB RAM, GeForce GT 610 on nouveau (weak GPU).
+- Screen: 1280x1024 (5:4). Design and test at this resolution as well as 1920x1080.
+- Picom is not installed.
+
+## Performance rules
+- Default profile is "lite": rounded corners + shadows + fade, NO blur, translucent flat colors for glass.
+- "Glass" profile (optional): Picom blur (kawase, low strength) only for panel, dock, and widgets. Must be switchable with ./lite-mode.sh.
+- No battery or Bluetooth elements unless detected at install time.
+- Conky: max 3 windows, update_interval >= 3.
+- Do not compile or install forks of Picom.
+
 ## Toolchain
 WhiteSur GTK + icons (vendored), xfwm4 + Picom, xfce4-panel styled via CSS, Plank dock, Conky widgets, Rofi (Launchpad/Spotlight), xfdashboard for overview.

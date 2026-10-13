@@ -1,73 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mode-lite">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview: Bottom Dock (macOS Sequoia Plank)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
-
-    :root {
-      --dock-radius: 22px;
-      --icon-size: 48px;
-      --zoom-size: 60px;
-      --dock-blur: 35px;
-      --light-dock-bg: rgba(255, 255, 255, 0.40);
-      --light-dock-border: rgba(255, 255, 255, 0.45);
-      --dark-dock-bg: rgba(15, 17, 26, 0.75);
-      --dark-dock-border: rgba(255, 255, 255, 0.12);
-    }
-
-    .desktop-bg-light {
-      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
-    }
-
-    .desktop-bg-dark {
-      background: linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
-    }
-
-    .dock-glass-light {
-      background: var(--light-dock-bg);
-      backdrop-filter: blur(var(--dock-blur)) saturate(200%);
-      -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(200%);
-      border: 1px solid var(--light-dock-border);
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14), 0 1px 1px rgba(255, 255, 255, 0.8) inset;
-    }
-
-    .dock-glass-dark {
-      background: var(--dark-dock-bg);
-      backdrop-filter: blur(var(--dock-blur)) saturate(200%);
-      -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(200%);
-      border: 1px solid var(--dark-dock-border);
-      box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55), 0 1px 1px rgba(255, 255, 255, 0.15) inset;
-    }
-
     .dock-item {
-      transition: transform 150ms cubic-bezier(0.2, 0, 0.1, 1), margin 150ms ease;
+      transition: transform 140ms cubic-bezier(0.2, 0, 0.1, 1);
     }
-
     .dock-item:hover {
-      transform: translateY(-8px) scale(1.18);
+      transform: translateY(-8px) scale(var(--zoom-dock-icon));
     }
   </style>
 </head>
-<body id="body" class="desktop-bg-light min-h-screen text-slate-800 flex flex-col justify-between p-6 transition-colors duration-300">
+<body class="min-h-screen flex flex-col justify-between p-6">
 
-  <!-- ================= TOP CONTROLS & INSPECTOR ================= -->
-  <div class="max-w-2xl mx-auto w-full p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-white/40 dark:border-white/10 text-slate-900 dark:text-slate-100">
+  <!-- ================= TOP CONTROLS & REALITY PANEL ================= -->
+  <div class="max-w-2xl mx-auto w-full p-5 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl shadow-2xl border border-white/50 dark:border-white/10 text-slate-900 dark:text-slate-100">
     <div class="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
       <div>
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Level 1 Preview Inspector</h2>
-        <p class="text-xs text-slate-500">Component: <code>dock.html</code> (Plank Sequoia Theme)</p>
+        <div class="flex items-center space-x-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500">Level 1 Inspector</span>
+          <span id="badge-mode" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500">Lite Profile</span>
+        </div>
+        <h2 class="text-sm font-bold mt-1 text-slate-800 dark:text-slate-100">Component: <code>dock.html</code> (Plank 10-Icon Dock)</h2>
       </div>
       <div class="flex space-x-2">
-        <button onclick="toggleTheme()" class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
-          Toggle Light / Dark
+        <button onclick="toggleTheme()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+          🌓 Light / Dark
         </button>
-        <a href="index.html" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+        <button onclick="toggleProfile()" id="btn-profile" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
+          Enable Glass Mode
+        </button>
+        <a href="index.html" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
           ← Gallery
         </a>
       </div>
@@ -76,29 +45,58 @@
     <div class="grid grid-cols-3 gap-4 mt-4 text-xs">
       <div>
         <label class="block font-semibold mb-1">Corner Radius: <span id="val-radius">22px</span></label>
-        <input type="range" min="10" max="32" value="22" class="w-full" oninput="updateRadius(this.value)">
-      </div>
-      <div>
-        <label class="block font-semibold mb-1">Blur: <span id="val-blur">35px</span></label>
-        <input type="range" min="0" max="50" value="35" class="w-full" oninput="updateBlur(this.value)">
+        <input type="range" min="12" max="32" value="22" class="w-full" oninput="updateRadius(this.value)">
       </div>
       <div>
         <label class="block font-semibold mb-1">Icon Size: <span id="val-size">48px</span></label>
         <input type="range" min="36" max="64" value="48" class="w-full" oninput="updateIconSize(this.value)">
       </div>
+      <div>
+        <label class="block font-semibold mb-1">Zoom: <span id="val-zoom">120%</span></label>
+        <input type="range" min="105" max="140" value="118" class="w-full" oninput="updateZoom(this.value)">
+      </div>
     </div>
 
-    <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 flex justify-between">
-      <span>Mapped X11 Tool: <code>Plank</code> (dodge-window, zoom-enabled)</span>
-      <span>Config File: <code>~/.local/share/plank/themes/Sequoia/dock.theme</code></span>
+    <!-- Reality Panel -->
+    <div class="mt-5 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs">
+      <div class="font-bold flex items-center justify-between text-slate-700 dark:text-slate-200 mb-2">
+        <span>⚡ Plank Reality & Target PC Cost Check</span>
+        <span class="text-[10px] text-slate-500">Target: Core i3-3220 / GT 610 nouveau</span>
+      </div>
+      <table class="w-full text-left text-[11px]">
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500">
+            <th class="py-1">Feature</th>
+            <th>XFCE / Plank Reproduction Limit</th>
+            <th class="text-right">GPU/CPU Cost</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 dark:divide-slate-700/40 text-slate-600 dark:text-slate-300">
+          <tr>
+            <td class="py-1.5 font-medium">Plank Zoom Physics</td>
+            <td>Plank has smooth X11 zoom, but macOS spring bounce is not available.</td>
+            <td class="text-right text-emerald-500 font-bold">Low (at 120%)</td>
+          </tr>
+          <tr>
+            <td class="py-1.5 font-medium">Dock Glass Blur</td>
+            <td>Requires Picom glx backend. In Lite mode, solid translucent RGBA is used.</td>
+            <td class="text-right text-rose-500 font-bold">High (if blur on)</td>
+          </tr>
+          <tr>
+            <td class="py-1.5 font-medium">Running Indicators</td>
+            <td>Plank supports indicator dots below running items via <code>dock.theme</code>.</td>
+            <td class="text-right text-emerald-500 font-bold">Zero</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- ================= DOCK COMPONENT ================= -->
+  <!-- ================= DOCK COMPONENT (EXACT 10-ICON LIST) ================= -->
   <footer class="w-full flex justify-center pb-2">
-    <div id="dock" class="dock-glass-light px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative transition-all">
+    <div id="dock" class="ui-dock px-3.5 py-2.5 flex items-end space-x-2.5 relative transition-all">
 
-      <!-- 1. Files / Thunar -->
+      <!-- 1. Files -->
       <div class="flex flex-col items-center group relative cursor-pointer dock-item">
         <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
           Files
@@ -142,7 +140,7 @@
         <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
       </div>
 
-      <!-- 5. Music Player -->
+      <!-- 5. Music -->
       <div class="flex flex-col items-center group relative cursor-pointer dock-item">
         <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
           Music
@@ -153,7 +151,23 @@
         <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white mt-1"></div>
       </div>
 
-      <!-- 6. Calendar -->
+      <!-- 6. Photos (Included per unification list) -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Photos
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-white shadow-md flex items-center justify-center border-t border-slate-200">
+          <div class="grid grid-cols-2 gap-0.5 p-1">
+            <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+          </div>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+      <!-- 7. Calendar -->
       <div class="flex flex-col items-center group relative cursor-pointer dock-item">
         <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
           Calendar
@@ -165,7 +179,7 @@
         <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
       </div>
 
-      <!-- 7. Settings -->
+      <!-- 8. Settings -->
       <div class="flex flex-col items-center group relative cursor-pointer dock-item">
         <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
           Settings
@@ -176,7 +190,7 @@
         <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
       </div>
 
-      <!-- 8. Software Manager -->
+      <!-- 9. Software Manager -->
       <div class="flex flex-col items-center group relative cursor-pointer dock-item">
         <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
           Software Manager
@@ -189,17 +203,6 @@
 
       <!-- Divider -->
       <div class="w-[1px] h-10 bg-slate-400/50 my-auto mx-1 self-center"></div>
-
-      <!-- 9. Downloads Stack -->
-      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
-        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
-          Downloads
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-300 to-blue-500 shadow-md flex items-center justify-center border-t border-white/60">
-          <i class="fa-solid fa-inbox text-white text-xl drop-shadow"></i>
-        </div>
-        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
-      </div>
 
       <!-- 10. Trash -->
       <div class="flex flex-col items-center group relative cursor-pointer dock-item">
@@ -217,35 +220,54 @@
 
   <script>
     let isDark = false;
+    let isGlass = false;
+
     function toggleTheme() {
       isDark = !isDark;
-      const body = document.getElementById('body');
-      const dock = document.getElementById('dock');
-      if (isDark) {
-        body.className = "desktop-bg-dark min-h-screen text-slate-100 flex flex-col justify-between p-6 transition-colors duration-300";
-        dock.className = "dock-glass-dark px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative transition-all";
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+
+    function toggleProfile() {
+      isGlass = !isGlass;
+      const html = document.documentElement;
+      const btn = document.getElementById('btn-profile');
+      const badge = document.getElementById('badge-mode');
+
+      if (isGlass) {
+        html.classList.remove('mode-lite');
+        html.classList.add('mode-glass');
+        btn.innerText = 'Switch to Lite Mode';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white shadow hover:bg-emerald-700 transition';
+        badge.innerText = 'Glass Profile (Blur)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500';
       } else {
-        body.className = "desktop-bg-light min-h-screen text-slate-800 flex flex-col justify-between p-6 transition-colors duration-300";
-        dock.className = "dock-glass-light px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative transition-all";
+        html.classList.remove('mode-glass');
+        html.classList.add('mode-lite');
+        btn.innerText = 'Enable Glass Mode';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition';
+        badge.innerText = 'Lite Profile (Old PC)';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-500';
       }
     }
 
     function updateRadius(val) {
-      document.getElementById('dock').style.borderRadius = val + 'px';
+      document.documentElement.style.setProperty('--radius-dock', val + 'px');
       document.getElementById('val-radius').innerText = val + 'px';
     }
 
-    function updateBlur(val) {
-      document.documentElement.style.setProperty('--dock-blur', val + 'px');
-      document.getElementById('val-blur').innerText = val + 'px';
-    }
-
     function updateIconSize(val) {
+      document.documentElement.style.setProperty('--size-dock-icon', val + 'px');
       document.querySelectorAll('.dock-item > div:nth-child(2)').forEach(el => {
         el.style.width = val + 'px';
         el.style.height = val + 'px';
       });
       document.getElementById('val-size').innerText = val + 'px';
+    }
+
+    function updateZoom(val) {
+      const scale = (val / 100).toFixed(2);
+      document.documentElement.style.setProperty('--zoom-dock-icon', scale);
+      document.getElementById('val-zoom').innerText = val + '%';
     }
   </script>
 </body>

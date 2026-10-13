@@ -1,118 +1,145 @@
 # macOS Sequoia Design Tokens Specification
 
-Derived from Apple macOS Sequoia guidelines and the Stitch project reference screens (`projects/12494559196641412690`).
-Optimized for **Linux Mint 22.3 XFCE (X11)** on target legacy hardware (Intel Core i3-3220, 12GB RAM, NVIDIA GT 610, 1280x1024).
+Derived directly from [`preview/tokens.css`](../preview/tokens.css) and calibrated for **Linux Mint 22.3 XFCE (X11)** on target desktop hardware:
+- **CPU**: Intel Core i3-3220 (2C/4T @ 3.3GHz)
+- **RAM**: 12 GB
+- **GPU**: NVIDIA GeForce GT 610 (Fermi GF119, nouveau driver, OpenGL 4.3 Mesa)
+- **Display**: 1280×1024 @ 60Hz (5:4 aspect ratio; also tested at 1920×1080)
+- **Chassis**: Desktop PC (No battery, No Bluetooth)
 
 ---
 
-## 1. Color Palette
+## 1. Unified Token Matrix (Lite vs Glass, Light vs Dark)
 
-### 1.1 Brand & System Accents
-| Token | Light Mode | Dark Mode | Usage |
-|---|---|---|---|
-| `accent-primary` | `#0A84FF` / `#007AFF` | `#0A84FF` / `#3E90FF` | Selection, active links, primary buttons |
-| `accent-emerald` (Mint) | `#10B981` / `#059669` | `#34D399` / `#4AE183` | Mint leaf logo, success indicators, battery |
-| `traffic-close` | `#FF5F56` (Border: `#E0443E`) | `#FF5F56` (Border: `#E0443E`) | Window Close button |
-| `traffic-minimize` | `#FFBD2E` (Border: `#DEA123`) | `#FFBD2E` (Border: `#DEA123`) | Window Minimize button |
-| `traffic-maximize` | `#27C93F` (Border: `#1AAB29`) | `#27C93F` (Border: `#1AAB29`) | Window Maximize button |
-
-### 1.2 Surface Colors & Glass Translucency
-| Token | Light Mode (Glass Edition) | Dark Mode (Smoked Edition) |
-|---|---|---|
-| `menu-bar-bg` | `rgba(255, 255, 255, 0.45)` | `rgba(18, 20, 31, 0.72)` |
-| `menu-bar-border` | `rgba(255, 255, 255, 0.45)` | `rgba(255, 255, 255, 0.08)` |
-| `window-bg` | `rgba(255, 255, 255, 0.65)` | `rgba(17, 20, 30, 0.82)` |
-| `window-border` | `rgba(255, 255, 255, 0.55)` | `rgba(255, 255, 255, 0.10)` |
-| `dock-bg` | `rgba(255, 255, 255, 0.40)` | `rgba(15, 17, 26, 0.75)` |
-| `dock-border` | `rgba(255, 255, 255, 0.45)` | `rgba(255, 255, 255, 0.12)` |
-| `card-bg` (Widgets) | `rgba(255, 255, 255, 0.52)` | `rgba(22, 25, 38, 0.72)` |
-| `card-border` | `rgba(255, 255, 255, 0.40)` | `rgba(255, 255, 255, 0.08)` |
-| `control-center-bg` | `rgba(255, 255, 255, 0.75)` | `rgba(22, 25, 38, 0.82)` |
-| `control-center-border` | `rgba(255, 255, 255, 0.50)` | `rgba(255, 255, 255, 0.16)` |
-| `popover-item-bg` | `rgba(0, 0, 0, 0.05)` | `rgba(255, 255, 255, 0.06)` |
-
-### 1.3 Typography Colors
-| Token | Light Mode | Dark Mode |
-|---|---|---|
-| `text-primary` | `#0F172A` (Slate 900) / `#1E293B` (Slate 800) | `#F8FAFC` (Slate 50) / `#E2E8F0` (Slate 200) |
-| `text-secondary` | `#475569` (Slate 600) / `#64748B` (Slate 500) | `#94A3B8` (Slate 400) / `#64748B` (Slate 500) |
-| `text-muted` | `#94A3B8` (Slate 400) | `#475569` (Slate 600) |
-| `text-accent` | `#0A84FF` | `#3E90FF` |
+| Token Name | Light (Lite - Default) | Light (Glass) | Dark (Lite - Default) | Dark (Glass) | XFCE Target File / Key |
+|---|---|---|---|---|---|
+| **Menu Bar Background** | `rgba(245, 245, 247, 0.90)` | `rgba(255, 255, 255, 0.45)` | `rgba(24, 26, 36, 0.94)` | `rgba(18, 20, 31, 0.72)` | `gtk.css` (`.xfce4-panel.background`) |
+| **Menu Bar Border** | `rgba(0, 0, 0, 0.12)` | `rgba(255, 255, 255, 0.45)` | `rgba(255, 255, 255, 0.10)` | `rgba(255, 255, 255, 0.08)` | `gtk.css` (`border-bottom`) |
+| **Menu Bar Height** | `28px` | `28px` | `28px` | `28px` | `xfce4-panel.xml` (`/panels/panel-1/size`) |
+| **Sidebar Width** | `76px` | `76px` | `76px` | `76px` | `xfce4-panel.xml` (`/panels/panel-2/size`) |
+| **Sidebar Background** | `rgba(245, 245, 247, 0.90)` | `rgba(255, 255, 255, 0.45)` | `rgba(24, 26, 36, 0.94)` | `rgba(18, 20, 31, 0.72)` | `gtk.css` (`#panel-2`) |
+| **Window Background** | `rgba(255, 255, 255, 0.96)` | `rgba(255, 255, 255, 0.65)` | `rgba(20, 22, 32, 0.96)` | `rgba(17, 20, 30, 0.82)` | `gtk.css` (`window.background`) |
+| **Window Border** | `rgba(0, 0, 0, 0.15)` | `rgba(255, 255, 255, 0.55)` | `rgba(255, 255, 255, 0.12)` | `rgba(255, 255, 255, 0.10)` | `gtk.css` (`window decoration`) |
+| **Window Radius** | `12px` | `12px` | `12px` | `12px` | `xfwm4/themerc` |
+| **Dock Background** | `rgba(240, 240, 245, 0.90)` | `rgba(255, 255, 255, 0.40)` | `rgba(20, 22, 32, 0.92)` | `rgba(15, 17, 26, 0.75)` | `dock.theme` (`FillStart`, `FillEnd`) |
+| **Dock Border** | `rgba(0, 0, 0, 0.12)` | `rgba(255, 255, 255, 0.45)` | `rgba(255, 255, 255, 0.12)` | `rgba(255, 255, 255, 0.12)` | `dock.theme` (`LineColor`) |
+| **Dock Radius** | `22px` | `22px` | `22px` | `22px` | `dock.theme` (`TopRoundness`, `BottomRoundness`) |
+| **Dock Icon Size** | `48px` | `48px` | `48px` | `48px` | `dconf` (`/net/launchpad/plank/docks/dock1/icon-size`) |
+| **Dock Zoom Scale** | `118%` | `118%` | `118%` | `118%` | `dconf` (`zoom-enabled=true`, `zoom-percent=118`) |
+| **Conky Card Background** | `rgba(255, 255, 255, 0.92)` | `rgba(255, 255, 255, 0.52)` | `rgba(28, 31, 46, 0.92)` | `rgba(22, 25, 38, 0.72)` | `*.conkyrc` (`own_window_colour`) |
+| **Conky Card Radius** | `16px` | `16px` | `16px` | `16px` | `*.conkyrc` (Cairo rounded rectangle) |
+| **Conky Update Rate** | `3.5s` | `3.0s` | `3.5s` | `3.0s` | `*.conkyrc` (`update_interval = 3.5`) |
+| **Text Primary** | `#1e293b` | `#1e293b` | `#f8fafc` | `#f8fafc` | `gtk.css`, `*.conkyrc` (`default_color`) |
+| **Text Secondary** | `#64748b` | `#64748b` | `#94a3b8` | `#94a3b8` | `gtk.css`, `*.conkyrc` (`color2`) |
+| **Accent Blue** | `#0a84ff` | `#0a84ff` | `#0a84ff` | `#0a84ff` | `gtk.css` (`@define-color theme_selected_bg_color`), `dock.theme` |
+| **Accent Mint (Logo)** | `#10b981` | `#10b981` | `#10b981` | `#10b981` | `assets/icons/apple-logo.svg` |
+| **Traffic Close** | `#ff5f56` | `#ff5f56` | `#ff5f56` | `#ff5f56` | `xfwm4/close-active.xpm` |
+| **Traffic Minimize** | `#ffbd2e` | `#ffbd2e` | `#ffbd2e` | `#ffbd2e` | `xfwm4/hide-active.xpm` |
+| **Traffic Maximize** | `#27c93f` | `#27c93f` | `#27c93f` | `#27c93f` | `xfwm4/maximize-active.xpm` |
 
 ---
 
-## 2. Blur & Compositing Specifications
+## 2. Planned Picom Compositor Configurations
 
-### 2.1 Ideal Target Specifications (Modern GPU / Reference UI)
-| Surface | Backdrop Filter Blur | Saturation | Inset Highlights | Drop Shadow |
-|---|---|---|---|---|
-| **Top Menu Bar** | `blur(28px)` | `saturate(190%)` | `0 1px 1px rgba(255,255,255,0.2)` | `0 16px 38px rgba(0,0,0,0.08)` |
-| **Window Body** | `blur(40px - 44px)` | `saturate(190% - 210%)` | `0 0 0 1px rgba(255,255,255,0.08)` | `0 28px 70px rgba(0,0,0,0.60)` |
-| **Plank Dock** | `blur(35px - 38px)` | `saturate(200%)` | `0 1px 1px rgba(255,255,255,0.15)` | `0 22px 50px rgba(0,0,0,0.55)` |
-| **Widget Cards** | `blur(24px - 28px)` | `saturate(180%)` | `0 1px 1px rgba(255,255,255,0.05)` | `0 12px 30px rgba(0,0,0,0.35)` |
-| **Control Center** | `blur(48px)` | `saturate(190%)` | `0 0 0 1px rgba(255,255,255,0.08)` | `0 28px 60px rgba(0,0,0,0.60)` |
+The target machine uses a GeForce GT 610 with Mesa 25.2.8 nouveau driver. OpenGL 4.3 works, but shader-based blur stalls the GPU pipeline.
 
-### 2.2 Target Hardware Optimization (GT 610 / nouveau X11)
-> [!IMPORTANT]
-> Real-time OpenGL 40px dual-kawase blur across fullscreen causes severe GPU pipeline stall on the NVIDIA GT 610. The compositor provides two profiles:
+### Profile A: `picom-lite.conf` (Default for Target PC)
+```ini
+# Performance-focused profile: NO GPU blur, smooth vsync, subtle drop shadows
+backend = "xrender";            # or "glx" with zero blur shaders
+vsync = true;
+use-damage = true;
+mark-wmwin-focused = true;
+mark-ovld-focused = true;
+detect-rounded-corners = true;
+detect-client-opacity = true;
+detect-transient = true;
 
-- **Picom Lite Profile (Default for Old PC)**:
-  - Backend: `xrender` (or minimal `glx` with no blur shaders).
-  - Blur: `blur-background = false;`.
-  - Shadows: Subtle radius 8, opacity 0.35.
-  - Appearance: Translucency simulated via solid alpha tinting + crisp 1px borders.
-- **Picom Full Profile (For VM with 3D Accel / Capable GPU)**:
-  - Backend: `glx`.
-  - Blur: `dual_kawase`, strength 4.
-  - Shadows: Radius 16, opacity 0.45.
+# Subtle macOS drop shadows (low radius, low overhead)
+shadow = true;
+shadow-radius = 8;
+shadow-opacity = 0.30;
+shadow-offset-x = -8;
+shadow-offset-y = -8;
+shadow-exclude = [
+  "name = 'Notification'",
+  "class_g = 'Conky'",
+  "class_g = 'Plank'",
+  "class_g = 'xfce4-panel'",
+  "_GTK_FRAME_EXTENTS@:c"
+];
+
+# Fading
+fading = true;
+fade-in-step = 0.05;
+fade-out-step = 0.05;
+fade-delta = 10;
+
+# Blur: DISABLED completely in Lite mode
+blur-background = false;
+
+# Window Types
+wintypes:
+{
+  tooltip = { fade = true; shadow = true; opacity = 0.95; focus = true; };
+  dock = { shadow = false; clip-shadow-above = true; };
+  dropdown_menu = { opacity = 0.98; shadow = true; };
+  popup_menu = { opacity = 0.98; shadow = true; };
+};
+```
+
+### Profile B: `picom-glass.conf` (Optional for VM with 3D Accel / Capable GPU)
+```ini
+# Visual-fidelity profile: dual-kawase blur, rounded corners, deeper shadows
+backend = "glx";
+glx-no-stencil = true;
+glx-copy-from-front = false;
+vsync = true;
+use-damage = true;
+
+corner-radius = 12;
+rounded-corners-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+  "class_g = 'xfce4-panel'"
+];
+
+shadow = true;
+shadow-radius = 16;
+shadow-opacity = 0.45;
+shadow-offset-x = -16;
+shadow-offset-y = -16;
+
+fading = true;
+fade-in-step = 0.03;
+fade-out-step = 0.03;
+
+# Dual-kawase blur restricted to panel, dock, and popup surfaces
+blur-method = "dual_kawase";
+blur-strength = 4;
+blur-background = true;
+blur-background-exclude = [
+  "window_type = 'desktop'",
+  "class_g = 'slop'",
+  "class_g = 'Conky'",
+  "_GTK_FRAME_EXTENTS@:c"
+];
+```
 
 ---
 
-## 3. Border Radii
+## 3. Element Structure & Hardware Adaptations
 
-| Element | Radius | CSS / Config Value |
-|---|---|---|
-| **Traffic Light Dots** | 100% circle (12px × 12px) | `border-radius: 9999px;` |
-| **Menu Buttons / Applet Pills** | 6px | `border-radius: 6px;` |
-| **Context Menus / Dropdowns** | 8px - 10px | `border-radius: 8px;` |
-| **Window Frame (xfwm4)** | 10px - 12px | `border-radius: 12px;` |
-| **Left Sidebar (Desktops)** | 16px | `border-radius: 16px;` |
-| **Desktop Widget Cards** | 16px | `border-radius: 16px;` |
-| **Control Center Modal** | 20px | `border-radius: 20px;` |
-| **Plank Dock** | 22px (`TopRoundness=22`) | `border-radius: 22px;` |
-| **Launchpad Grid App Icons** | 18px (72px × 72px icon) | `border-radius: 18px;` |
-| **Spotlight Window** | 14px | `border-radius: 14px;` |
-
----
-
-## 4. Spacing & Geometry
-
-| Element | Dimension / Spacing | Reference Source |
-|---|---|---|
-| **Menu Bar Height** | `28px` (display density 1280x1024 / 1920x1080) | Stitch Header |
-| **Menu Bar Font Size** | `13px` medium | Stitch Header |
-| **Left Sidebar Width** | `74px` (collapsed/dark) to `92px` (standard) | Stitch Left Sidebar |
-| **Left Sidebar Desktop Item** | `w: 48px - 56px`, `h: 36px - 40px` | Stitch Virtual Desktops |
-| **Plank Dock Height & Icon** | Icon size: `44px - 48px`, zoom: `120%` | Stitch Glass Dock |
-| **Plank Bottom Margin** | `14px` from bottom screen edge | Stitch Glass Dock |
-| **Right Widget Grid Width** | `456px` | Stitch Widget Aside |
-| **Widget Grid Top Margin** | `112px` (leaves gap under top bar & notifications) | Stitch Widget Aside |
-| **Widget Grid Gaps** | `16px` | Stitch Grid Gap |
-| **Control Center Dropdown** | `w: 330px`, `top: 34px`, `right: 14px` | Stitch Control Center |
-| **Spotlight Modal** | `w: 600px`, centered | Stitch Spotlight |
-| **Launchpad Grid** | 7 columns × 4-5 rows, 72px icons | Stitch Launchpad |
-
----
-
-## 5. Typography
-
-- **Primary UI Font**: `Inter` (Fallback: `-apple-system`, `BlinkMacSystemFont`, `Ubuntu`, `Segoe UI`)
-- **Display / Headers**: `Geist` or `Inter SemiBold`
-- **Monospace / Code**: `JetBrains Mono` or `Ubuntu Mono`
-
-### Type Scale
-- **Display Clock**: 28px - 32px Bold
-- **Window Headers**: 13px SemiBold
-- **Menu Bar Items**: 13px Medium
-- **Body & App Labels**: 11px - 12px Regular/Medium
-- **Micro Labels / Badges**: 9px - 10px Bold (Uppercase tracking)
+1. **Top Menu Bar (28px)**:
+   - Panel 1 in `xfce4-panel.xml`.
+   - Hardware: Removed battery and Bluetooth icons. Added CPU Temperature readout (34°C) and uptime.
+2. **Left Workspace Sidebar (76px)**:
+   - Panel 2 in `xfce4-panel.xml` pinned to the left edge with autohide.
+   - Contains 4 desktop workspaces (`Desk 1..4`), Terminal, VS Code, Software Manager, and Power menu.
+3. **Plank Dock (Bottom, 48px icons, 22px radius)**:
+   - Exactly 10 unified icons: Files, Firefox, Terminal, Text Editor, Music, Photos, Calendar, Settings, Software Manager, separator, Trash.
+4. **Desktop Widgets (Conky, 3 Windows)**:
+   - Grouped into 3 standalone Conky configs (`window 1: Clock/Weather`, `window 2: Calendar Oct 2026/Hardware`, `window 3: Media/Notes/Storage`).
+   - `update_interval = 3.5s` to protect the Core i3-3220 from CPU wakeups.
+5. **Resolution Handling (1280×1024 vs 1920×1080)**:
+   - At 1280×1024 (5:4 aspect ratio), the widget grid width compacts to 320px and center windows scale to 530px so that sidebar (76px), window, and widgets never collide or overlap.
