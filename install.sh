@@ -76,7 +76,7 @@ run_phase() {
     local phase_num="$1"
     local script_name=""
     case "${phase_num}" in
-        1) script_name="01-theme-assets.sh" ;;
+        1) script_name="01-theme.sh" ;;
         2) script_name="02-wm-compositor.sh" ;;
         3) script_name="03-top-panel.sh" ;;
         4) script_name="04-plank-dock.sh" ;;

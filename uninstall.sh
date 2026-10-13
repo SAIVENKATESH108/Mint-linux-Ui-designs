@@ -43,12 +43,16 @@ restore_latest_xfconf() {
 }
 
 undo_phase_1() {
-    log_info "Undoing Phase 1: Resetting Themes to Linux Mint Defaults..."
+    log_info "Undoing Phase 1: Resetting Themes & Window Controls to Linux Mint Defaults..."
     set_xfconf_prop "xsettings" "/Net/ThemeName" "string" "Mint-Y-Dark"
     set_xfconf_prop "xsettings" "/Net/IconThemeName" "string" "Mint-Y"
     set_xfconf_prop "xfwm4" "/general/theme" "string" "Mint-Y-Dark"
     set_xfconf_prop "xsettings" "/Gtk/CursorThemeName" "string" "DMZ-White"
     set_xfconf_prop "xsettings" "/Gtk/FontName" "string" "Ubuntu 10"
+    set_xfconf_prop "xfwm4" "/general/title_font" "string" "Ubuntu Bold 9"
+    set_xfconf_prop "xfwm4" "/general/button_layout" "string" "O|HMC"
+    set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
+    rm -f "${HOME}/.local/bin/toggle-theme.sh"
     log_success "Phase 1 undone."
 }
 
