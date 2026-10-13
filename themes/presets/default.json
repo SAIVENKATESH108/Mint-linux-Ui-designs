@@ -1,0 +1,40 @@
+{
+  "name": "default",
+  "description": "macOS Sequoia Clean Glass - Transparent Topbar & Floating Widgets",
+  "profile": "lite",
+  "theme_gtk": "WhiteSur-Dark",
+  "accent": "#007AFF",
+  "topbar": {
+    "transparent": true,
+    "bg_color": "rgba(22, 24, 32, 0.45)",
+    "border_color": "rgba(255, 255, 255, 0.14)",
+    "fg_color": "#FFFFFF",
+    "accent_color": "#0A84FF",
+    "height": 28,
+    "icon_size": 16,
+    "clock_format": "%a %e %b  %l:%M %P"
+  },
+  "widgets": {
+    "card_background": false,
+    "vibrant_colors": true,
+    "anchor": "top_right",
+    "gap_x": 14,
+    "gap_y": 38,
+    "width": 320,
+    "vertical_gap": 16,
+    "colors": {
+      "title": "#94A3B8",
+      "primary": "#FFFFFF",
+      "accent": "#38BDF8",
+      "sensor": "#10B981",
+      "warning": "#F43F5E",
+      "time": "#FFFFFF"
+    }
+  },
+  "dock": {
+    "theme": "Sequoia",
+    "icon_size": 48,
+    "offset": 0,
+    "zoom_percent": 118
+  }
+}

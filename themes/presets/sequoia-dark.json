@@ -1,0 +1,40 @@
+{
+  "name": "sequoia-dark",
+  "description": "macOS Sequoia Midnight Dark - Deep Translucent Glass",
+  "profile": "lite",
+  "theme_gtk": "WhiteSur-Dark",
+  "accent": "#5E5CE6",
+  "topbar": {
+    "transparent": true,
+    "bg_color": "rgba(18, 18, 24, 0.45)",
+    "border_color": "rgba(255, 255, 255, 0.10)",
+    "fg_color": "#F5F5F7",
+    "accent_color": "#5E5CE6",
+    "height": 28,
+    "icon_size": 16,
+    "clock_format": "%a %e %b  %l:%M %P"
+  },
+  "widgets": {
+    "card_background": false,
+    "vibrant_colors": true,
+    "anchor": "top_right",
+    "gap_x": 14,
+    "gap_y": 38,
+    "width": 320,
+    "vertical_gap": 16,
+    "colors": {
+      "title": "#A1A1AA",
+      "primary": "#F4F4F5",
+      "accent": "#818CF8",
+      "sensor": "#34D399",
+      "warning": "#FB7185",
+      "time": "#FFFFFF"
+    }
+  },
+  "dock": {
+    "theme": "Sequoia",
+    "icon_size": 48,
+    "offset": 0,
+    "zoom_percent": 118
+  }
+}

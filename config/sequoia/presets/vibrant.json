@@ -1,0 +1,40 @@
+{
+  "name": "vibrant",
+  "description": "Gen-Z Cyber Vibrant - High Contrast Neon Accents & Glass Topbar",
+  "profile": "lite",
+  "theme_gtk": "WhiteSur-Dark",
+  "accent": "#00F0FF",
+  "topbar": {
+    "transparent": true,
+    "bg_color": "rgba(14, 18, 28, 0.40)",
+    "border_color": "rgba(0, 240, 255, 0.25)",
+    "fg_color": "#FFFFFF",
+    "accent_color": "#00F0FF",
+    "height": 28,
+    "icon_size": 16,
+    "clock_format": "%a %e %b  %l:%M %P"
+  },
+  "widgets": {
+    "card_background": false,
+    "vibrant_colors": true,
+    "anchor": "top_right",
+    "gap_x": 14,
+    "gap_y": 38,
+    "width": 320,
+    "vertical_gap": 16,
+    "colors": {
+      "title": "#38BDF8",
+      "primary": "#FFFFFF",
+      "accent": "#00F0FF",
+      "sensor": "#00FF9D",
+      "warning": "#FF4757",
+      "time": "#00F0FF"
+    }
+  },
+  "dock": {
+    "theme": "Sequoia",
+    "icon_size": 48,
+    "offset": 0,
+    "zoom_percent": 118
+  }
+}

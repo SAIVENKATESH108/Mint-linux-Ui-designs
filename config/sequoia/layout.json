@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "anchor": "top_right",
+  "gap_x": 14,
+  "gap_y": 38,
+  "width": 320,
+  "vertical_gap": 16,
+  "card_background": false,
+  "vibrant_colors": true,
+  "widgets": [
+    {
+      "id": "clock-weather",
+      "name": "Glance Time & Weather",
+      "enabled": true,
+      "order": 1,
+      "height": 130
+    },
+    {
+      "id": "calendar-system",
+      "name": "Calendar & Hardware Sensors",
+      "enabled": true,
+      "order": 2,
+      "height": 170
+    },
+    {
+      "id": "media-notes",
+      "name": "Media & Storage Network",
+      "enabled": true,
+      "order": 3,
+      "height": 150
+    }
+  ]
+}

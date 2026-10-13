@@ -1,0 +1,40 @@
+{
+  "name": "enterprise",
+  "description": "Enterprise Minimal - High Legibility Solid Crisp Contrast",
+  "profile": "lite",
+  "theme_gtk": "WhiteSur-Dark",
+  "accent": "#007AFF",
+  "topbar": {
+    "transparent": false,
+    "bg_color": "rgba(28, 30, 38, 0.90)",
+    "border_color": "rgba(255, 255, 255, 0.16)",
+    "fg_color": "#FFFFFF",
+    "accent_color": "#007AFF",
+    "height": 28,
+    "icon_size": 16,
+    "clock_format": "%a %e %b  %l:%M %P"
+  },
+  "widgets": {
+    "card_background": false,
+    "vibrant_colors": false,
+    "anchor": "top_right",
+    "gap_x": 14,
+    "gap_y": 38,
+    "width": 320,
+    "vertical_gap": 16,
+    "colors": {
+      "title": "#CBD5E1",
+      "primary": "#FFFFFF",
+      "accent": "#38BDF8",
+      "sensor": "#4ADE80",
+      "warning": "#F87171",
+      "time": "#FFFFFF"
+    }
+  },
+  "dock": {
+    "theme": "Sequoia",
+    "icon_size": 48,
+    "offset": 0,
+    "zoom_percent": 118
+  }
+}

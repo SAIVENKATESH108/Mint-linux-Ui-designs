@@ -116,6 +116,14 @@ else
     TEST_PASSED=1
 fi
 
+# Start Picom immediately in active session if DISPLAY is set
+if [[ "${DRY_RUN}" -eq 0 && -n "${DISPLAY:-}" ]] && command -v picom &>/dev/null; then
+    pkill -x picom 2>/dev/null || true
+    sleep 0.3
+    log_info "Starting Picom compositor process in active session..."
+    picom --config "${PICOM_CONFIG_DIR}/picom.conf" -b 2>/dev/null || true
+fi
+
 # ------------------------------------------------------------------------------
 # 7. Register Autostart LAST with a 5-Second Startup Delay
 # ------------------------------------------------------------------------------

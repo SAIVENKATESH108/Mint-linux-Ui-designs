@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Sequoia Session Supervisor
+Comment=Consolidated session supervisor for macOS Sequoia desktop components
+Exec=sh -c "sleep 3 && $HOME/.local/bin/sequoia-supervisor.sh"
+Terminal=false
+Hidden=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3

@@ -1,15 +1,15 @@
 -- ==============================================================================
--- Conky Window 2: Calendar & System Sensors Widget (macOS Sequoia)
+-- Conky Window 2: Calendar & System Sensors (Vibrant Floating Glass - No Solid Card)
 -- Target Hardware: Intel Core i3-3220, 12GB RAM, GT 610, 1280x1024
 -- ==============================================================================
 
 conky.config = {
     alignment = 'top_right',
     background = false,
-    border_width = 1,
+    border_width = 0,
     cpu_avg_samples = 2,
     default_color = '#FFFFFF',
-    default_outline_color = '#FFFFFF',
+    default_outline_color = '#000000',
     default_shade_color = '#000000',
     double_buffer = true,
     draw_borders = false,
@@ -35,8 +35,8 @@ conky.config = {
     own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
     own_window_transparent = false,
     own_window_argb_visual = true,
-    own_window_argb_value = 120,
-    own_window_colour = '1E293B',
+    own_window_argb_value = 0,
+    own_window_colour = '000000',
     override_utf8_locale = true,
     show_graph_range = false,
     show_graph_scale = false,
@@ -48,14 +48,14 @@ conky.config = {
 }
 
 conky.text = [[
-${color #94A3B8}${font Inter:bold:size=8}CALENDAR & SYSTEM SENSORS${alignr}CARD 2${font}${color}
-${color #334155}${hr 1}${color}
-${color #F43F5E}${font Inter:bold:size=11}${time %B %Y}${alignr}${color #F43F5E}TODAY: ${time %a %d}${color}${font}
-${color #94A3B8}${font JetBrains Mono:size=8}${execpi 3600 cal | sed 's/^/  /' | sed 's/'"$(date +%e | sed 's/ //g')"'/${color #0A84FF}&${color #94A3B8}/'}${font}${color}
+${color #00F0FF}${font Inter:bold:size=8}CALENDAR & SYSTEM SENSORS${alignr}${color #94A3B8}WIDGET 2${font}${color}
+${color #00F0FF}${hr 1}${color}
+${color #FF4757}${font Inter:bold:size=11}${time %B %Y}${alignr}${color #FFA502}TODAY: ${time %a %d}${color}${font}
+${color #E2E8F0}${font JetBrains Mono:size=8}${execpi 3600 cal | sed 's/^/  /' | sed 's/'"$(date +%e | sed 's/ //g')"'/${color #00F0FF}&${color #E2E8F0}/'}${font}${color}
 ${voffset 4}${color #334155}${hr 1}${color}
-${color #94A3B8}CPU (i3-3220):${alignr}${color #38BDF8}${cpu cpu0}%  ${color #F59E0B}(${execi 10 sensors 2>/dev/null | grep 'Core 0' | awk '{print $3}' | tr -d '+' | sed 's/°//g' || echo "34 C"})${color}
-${color #334155}${cpubar 4,320}${color}
-${color #94A3B8}RAM (12 GB):${alignr}${color #38BDF8}${mem} / ${memmax} (${memperc}%)${color}
-${color #334155}${membar 4,320}${color}
-${color #94A3B8}System Uptime:${alignr}${color #10B981}${uptime}${color}
+${color #CBD5E1}CPU (i3-3220):${alignr}${color #00F0FF}${font Inter:bold:size=9}${cpu cpu0}%${font}  ${color #FFA502}(${execi 10 sensors 2>/dev/null | grep 'Core 0' | awk '{print $3}' | tr -d '+' | sed 's/°//g' || echo "34 C"})${color}
+${color #00F0FF}${cpubar 4,320}${color}
+${color #CBD5E1}RAM (12 GB):${alignr}${color #00FF9D}${font Inter:bold:size=9}${mem} / ${memmax} (${memperc}%)${font}${color}
+${color #00FF9D}${membar 4,320}${color}
+${color #CBD5E1}System Uptime:${alignr}${color #38BDF8}${font Inter:bold:size=9}${uptime}${font}${color}
 ]]
