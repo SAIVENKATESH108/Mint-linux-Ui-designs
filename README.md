@@ -38,59 +38,24 @@ To inspect every change without modifying files or xfconf:
 ./install.sh --dry-run
 ```
 
-### 2. Full Installation (All 8 Phases)
+### 2. Full Installation
 ```bash
-# Default Lite Profile (Recommended for NVIDIA GT 610):
+# Default Lite Profile (Phases 1, 2, 3, 4, 6, 7, 8):
 ./install.sh --all
+
+# Include Phase 5 (Left Workspace Sidebar - Requires GUI positioning):
+./install.sh --all --with-sidebar
 
 # Or explicitly select profile:
 ./install.sh --all --profile lite
 ```
 
-### 3. Step-by-Step Execution
-Run phases individually in order:
+### 3. Panel Recovery Helper
+If the top bar ever disappears or fails to restart after configuration:
 ```bash
-./install.sh --phase 1
-./install.sh --phase 2
-./install.sh --phase 3
-./install.sh --phase 4
-./install.sh --phase 5
-./install.sh --phase 6
-./install.sh --phase 7
-./install.sh --phase 8
+./scripts/panel-recover.sh
 ```
-
-### 4. Offline Installation
-If deploying without an active internet connection:
-```bash
-./install.sh --all --offline
-```
-
----
-
-## 🔍 Verification & Diagnostics
-
-### Run the Integrity Audit
-After running phases, audit every package, config, running process, and xfconf setting:
-```bash
-./scripts/verify.sh
-```
-Prints a clear `[PASS]` / `[FAIL]` report that you can paste back into chat.
-
-### Hardware & Window Class Diagnostics
-To dump system info or inspect window classes with `xprop`:
-```bash
-./scripts/diagnose.sh
-```
-
----
-
-## 🔄 Hot Reload & Screenshot Tools
-
-- **Reload All Components**: `./scripts/reload.sh` (reloads GTK, panel, dock, widgets, picom, and xfwm4)
-- **Capture Desktop Screenshot**: `./scripts/snap.sh [label]` (saves to `preview/vm-[label].png`)
-- **Toggle Light / Dark Mode**: `~/.local/bin/toggle-theme.sh [light|dark|toggle]`
-- **Toggle Lite / Glass Mode**: `~/.local/bin/lite-mode.sh [lite|glass|toggle]`
+This utility ensures `xfce4-panel` is running, checks that panel-1 has active plugins, automatically reloads from the last good snapshot if needed, and prints complete plugin diagnostics.
 
 ---
 
@@ -103,7 +68,7 @@ Revert an individual phase:
 ```
 
 ### Full Transformation Reversal
-Revert all 8 phases back to stock Linux Mint XFCE:
+Revert all phases back to stock Linux Mint XFCE:
 ```bash
 ./uninstall.sh --all
 ```

@@ -99,75 +99,100 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-1/background-style" "uint" "0"
 # ------------------------------------------------------------------------------
 log_info "Ensuring tasklist (window buttons) is removed from top bar (dock handles windows)..."
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would filter tasklist plugin from panel-1 plugin-ids array"
+    log_dry "Would filter tasklist and windowmenu plugins from panel-1 plugin-ids array"
 elif command -v xfconf-query &>/dev/null; then
-    CURRENT_IDS=($(xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids 2>/dev/null | tr '\n' ' ' || true))
+    CURRENT_IDS=($(read_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids"))
     if [[ ${#CURRENT_IDS[@]} -gt 0 ]]; then
         FILTERED_IDS=()
-        TASKLIST_FOUND=0
         for pid in "${CURRENT_IDS[@]}"; do
             PTYPE="$(xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" 2>/dev/null || true)"
             if [[ "${PTYPE}" == "tasklist" || "${PTYPE}" == "windowmenu" ]]; then
-                log_info "Identified tasklist plugin-${pid} on panel-1. Removing..."
-                TASKLIST_FOUND=1
+                log_info "Identified tasklist/windowmenu plugin-${pid} on panel-1. Removing from top bar..."
             else
                 FILTERED_IDS+=("${pid}")
             fi
         done
 
-        if [[ "${TASKLIST_FOUND}" -eq 1 && ${#FILTERED_IDS[@]} -gt 0 ]]; then
-            XFCONF_ARGS=()
-            for fpid in "${FILTERED_IDS[@]}"; do
-                XFCONF_ARGS+=("-t" "int" "-s" "${fpid}")
-            done
-            xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -r -R 2>/dev/null || true
-            xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids --create -a "${XFCONF_ARGS[@]}" 2>/dev/null || true
-            log_success "Tasklist removed from top bar. Remaining plugins: ${FILTERED_IDS[*]}"
-        fi
+        set_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids" "${FILTERED_IDS[@]}"
     fi
 fi
 
 # ------------------------------------------------------------------------------
-# 6. Configure Apple Logo Launcher & macOS Clock Format
+# 6. Configure Apple Logo Launcher & macOS Clock Format (By Plugin Type)
 # ------------------------------------------------------------------------------
 APPLE_ICON_PATH="${HOME}/.local/share/icons/apple-logo.svg"
 if [[ ! -f "${APPLE_ICON_PATH}" && -f "${REPO_ROOT}/assets/icons/apple-logo.svg" ]]; then
     safe_copy "${REPO_ROOT}/assets/icons/apple-logo.svg" "${APPLE_ICON_PATH}"
 fi
 
-if command -v xfconf-query &>/dev/null; then
-    PLUGINS="$(xfconf-query -c xfce4-panel -p /plugins -l 2>/dev/null || true)"
-    for p in ${PLUGINS}; do
-        NAME="$(xfconf-query -c xfce4-panel -p "${p}" 2>/dev/null || true)"
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would configure whisker menu, clock, and separators on panel-1 by discovered type"
+elif command -v xfconf-query &>/dev/null; then
+    ACTIVE_IDS=($(read_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids"))
+    for pid in "${ACTIVE_IDS[@]}"; do
+        PTYPE="$(xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" 2>/dev/null || true)"
 
         # Apple icon on Whisker Menu
-        if [[ "${NAME}" == "whiskermenu" ]]; then
-            log_info "Found Whisker Menu at ${p}, setting Apple icon..."
+        if [[ "${PTYPE}" == "whiskermenu" ]]; then
+            log_info "Found Whisker Menu at /plugins/plugin-${pid}, applying Apple logo..."
             if [[ -f "${APPLE_ICON_PATH}" ]]; then
-                set_xfconf_prop "xfce4-panel" "${p}/button-icon" "string" "${APPLE_ICON_PATH}"
+                set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/button-icon" "string" "${APPLE_ICON_PATH}"
             fi
-            set_xfconf_prop "xfce4-panel" "${p}/button-title" "string" ""
-            set_xfconf_prop "xfce4-panel" "${p}/show-button-title" "bool" "false"
-            set_xfconf_prop "xfce4-panel" "${p}/show-button-icon" "bool" "true"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/button-title" "string" ""
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/show-button-title" "bool" "false"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/show-button-icon" "bool" "true"
 
         # macOS Clock Format: "ddd d MMM  h:mm a" -> %a %e %b  %l:%M %P
-        elif [[ "${NAME}" == "clock" || "${NAME}" == "datetime" ]]; then
-            log_info "Found Clock plugin at ${p}, configuring macOS Sequoia date/time..."
-            # Format: e.g. "Mon 12 Oct  10:45 AM"
-            set_xfconf_prop "xfce4-panel" "${p}/digital-format" "string" "%a %e %b  %l:%M %P"
-            set_xfconf_prop "xfce4-panel" "${p}/digital-time-format" "string" "%a %e %b  %l:%M %P"
-            set_xfconf_prop "xfce4-panel" "${p}/mode" "uint" "2"
+        elif [[ "${PTYPE}" == "clock" || "${PTYPE}" == "datetime" ]]; then
+            log_info "Found Clock at /plugins/plugin-${pid}, configuring macOS Sequoia date/time format..."
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/digital-format" "string" "%a %e %b  %l:%M %P"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/digital-time-format" "string" "%a %e %b  %l:%M %P"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/mode" "uint" "2"
 
         # Expand separator to push clock and tray items to the far right
-        elif [[ "${NAME}" == "separator" ]]; then
-            set_xfconf_prop "xfce4-panel" "${p}/expand" "bool" "true"
-            set_xfconf_prop "xfce4-panel" "${p}/style" "uint" "0"
+        elif [[ "${PTYPE}" == "separator" ]]; then
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/expand" "bool" "true"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/style" "uint" "0"
         fi
     done
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Safety Check & Guarded Panel Reload
+# 7. Verification: Confirm Panel-1 Plugins and Absence of Tasklist
+# ------------------------------------------------------------------------------
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would verify panel-1 plugin-ids contain whisker, clock, and zero tasklists"
+elif command -v xfconf-query &>/dev/null; then
+    FINAL_IDS=($(read_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids"))
+    log_info "Auditing panel-1 active plugins (${#FINAL_IDS[@]} items):"
+    HAS_WHISKER=0
+    HAS_CLOCK=0
+
+    for pid in "${FINAL_IDS[@]}"; do
+        PTYPE="$(xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" 2>/dev/null || echo "unknown")"
+        log_info "  [plugin-${pid}] type: '${PTYPE}'"
+
+        if [[ "${PTYPE}" == "whiskermenu" ]]; then
+            HAS_WHISKER=1
+        elif [[ "${PTYPE}" == "clock" || "${PTYPE}" == "datetime" ]]; then
+            HAS_CLOCK=1
+        elif [[ "${PTYPE}" == "tasklist" || "${PTYPE}" == "windowmenu" ]]; then
+            log_error "Assertion FAILED: Tasklist/windowmenu plugin-${pid} is still assigned to panel-1!"
+            exit 1
+        fi
+    done
+
+    if [[ "${HAS_WHISKER}" -eq 0 ]]; then
+        log_warn "Whisker Menu plugin not detected on panel-1."
+    fi
+    if [[ "${HAS_CLOCK}" -eq 0 ]]; then
+        log_warn "Clock plugin not detected on panel-1."
+    fi
+    log_success "Panel-1 plugins verified: Tasklist absent, Whisker & Clock mapped."
+fi
+
+# ------------------------------------------------------------------------------
+# 8. Safety Check & Process-Aware Guarded Panel Reload
 # ------------------------------------------------------------------------------
 guarded_panel_reload
 

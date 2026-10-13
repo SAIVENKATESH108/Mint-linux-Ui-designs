@@ -67,64 +67,134 @@ REQUIRED_PKGS=("plank" "dconf-cli")
 check_required_packages "${REQUIRED_PKGS[@]}"
 
 # ------------------------------------------------------------------------------
-# 3. Deploy Custom Sequoia Dock Theme (Validated against system Plank keys)
+# 3. Deploy Custom Sequoia Dock Theme (Strictly Validated against system template)
 # ------------------------------------------------------------------------------
 run mkdir -p "${PLANK_THEME_DEST}"
 
-# Verify theme keys against system Default template if available
 DEFAULT_THEME="/usr/share/plank/themes/Default/dock.theme"
 if [[ -f "${DEFAULT_THEME}" ]]; then
-    log_info "Validating Sequoia dock.theme against system template (${DEFAULT_THEME})..."
-    # Read valid keys from system default
+    log_info "Generating Sequoia dock.theme strictly from system Default template (${DEFAULT_THEME})..."
     KNOWN_KEYS="$(grep -E '^[A-Za-z0-9]+=' "${DEFAULT_THEME}" | cut -d'=' -f1 || true)"
-    if [[ -n "${KNOWN_KEYS}" ]]; then
-        while IFS='=' read -r key val || [[ -n "${key}" ]]; do
-            # Skip comments and section headers
-            [[ "${key}" =~ ^#.* || -z "${key}" || "${key}" =~ ^\[ ]] && continue
-            key="$(echo "${key}" | tr -d ' ')"
-            if ! grep -qw "${key}" <<< "${KNOWN_KEYS}"; then
-                log_warn "Theme key '${key}' not in system Default dock.theme (unverified key will fail soft)"
-            fi
-        done < "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme"
-    fi
+
+    # Verify that all keys in our Sequoia theme exist in the system template
+    while IFS='=' read -r key val || [[ -n "${key}" ]]; do
+        [[ "${key}" =~ ^#.* || -z "${key}" || "${key}" =~ ^\[ ]] && continue
+        key="$(echo "${key}" | tr -d ' ')"
+        if ! grep -qw "${key}" <<< "${KNOWN_KEYS}"; then
+            log_error "Plank theme key '${key}' does not exist in /usr/share/plank/themes/Default/dock.theme! Failing phase as required."
+            exit 1
+        fi
+    done < "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme"
+
+    # Copy Default as base and substitute verified values
+    safe_copy "${DEFAULT_THEME}" "${PLANK_THEME_DEST}/dock.theme"
+    while IFS='=' read -r key val || [[ -n "${key}" ]]; do
+        [[ "${key}" =~ ^#.* || -z "${key}" || "${key}" =~ ^\[ ]] && continue
+        key="$(echo "${key}" | tr -d ' ')"
+        val="$(echo "${val}" | tr -d '\r')"
+        sed -i "s|^${key}=.*|${key}=${val}|" "${PLANK_THEME_DEST}/dock.theme"
+    done < "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme"
+    log_success "Sequoia dock theme generated and verified against system Default."
+else
+    safe_copy "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme" "${PLANK_THEME_DEST}/dock.theme"
 fi
 
-safe_copy "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme" "${PLANK_THEME_DEST}/dock.theme"
-
 # ------------------------------------------------------------------------------
-# 4. Deploy Unified 10-Item Dock Launchers
+# 4. Deploy Unified 10-Item Dock Launchers (With Installed Equivalents & Trash Last)
 # ------------------------------------------------------------------------------
 run mkdir -p "${PLANK_LAUNCHERS_DIR}"
 backup_item "${PLANK_LAUNCHERS_DIR}"
 
-# Remove existing stale launchers to ensure clean 10-icon order
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would clean stale launchers in ${PLANK_LAUNCHERS_DIR}"
+    log_dry "Would clean stale launchers and deploy 10 ordered dockitems with Trash last"
 else
     rm -f "${PLANK_LAUNCHERS_DIR}/"*.dockitem
-fi
 
-# Copy 10 unified dock launchers
-for item in "${CONFIG_DIR}/plank/launchers/"*.dockitem; do
-    if [[ -f "${item}" ]]; then
-        safe_copy "${item}" "${PLANK_LAUNCHERS_DIR}/$(basename "${item}")"
-    fi
-done
+    find_best_desktop() {
+        for cand in "$@"; do
+            if [[ -f "${cand}" ]]; then
+                echo "${cand}"
+                return 0
+            fi
+        done
+        return 1
+    }
+
+    deploy_dockitem() {
+        local prefix="$1"
+        local name="$2"
+        local desktop_path="$3"
+        local candidates_desc="$4"
+
+        if [[ -n "${desktop_path}" && -f "${desktop_path}" ]]; then
+            cat << EOF > "${PLANK_LAUNCHERS_DIR}/${prefix}-${name}.dockitem"
+[PlankDockItemPreferences]
+Launcher=file://${desktop_path}
+EOF
+            log_success "Dock slot [${prefix} ${name}]: ${desktop_path}"
+        else
+            log_warn "Dock slot [${prefix} ${name}]: SKIPPED. None of candidate paths installed: ${candidates_desc}"
+        fi
+    }
+
+    # 01. Files
+    D_FILES="$(find_best_desktop "/usr/share/applications/thunar.desktop" "/usr/share/applications/nemo.desktop" "/usr/share/applications/org.gnome.Nautilus.desktop" || true)"
+    deploy_dockitem "01" "files" "${D_FILES}" "thunar, nemo, nautilus"
+
+    # 02. Browser
+    D_BROWSER="$(find_best_desktop "/usr/share/applications/firefox.desktop" "/usr/share/applications/brave-browser.desktop" "/usr/share/applications/google-chrome.desktop" || true)"
+    deploy_dockitem "02" "browser" "${D_BROWSER}" "firefox, brave-browser, chrome"
+
+    # 03. Terminal
+    D_TERM="$(find_best_desktop "/usr/share/applications/xfce4-terminal.desktop" "/usr/share/applications/gnome-terminal.desktop" "/usr/share/applications/xterm.desktop" || true)"
+    deploy_dockitem "03" "terminal" "${D_TERM}" "xfce4-terminal, gnome-terminal, xterm"
+
+    # 04. Text Editor
+    D_EDIT="$(find_best_desktop "/usr/share/applications/xed.desktop" "/usr/share/applications/mousepad.desktop" "/usr/share/applications/gedit.desktop" || true)"
+    deploy_dockitem "04" "editor" "${D_EDIT}" "xed, mousepad, gedit"
+
+    # 05. Music
+    D_MUSIC="$(find_best_desktop "/usr/share/applications/rhythmbox.desktop" "/usr/share/applications/hypnotix.desktop" "/usr/share/applications/org.gnome.Music.desktop" "/usr/share/applications/celluloid.desktop" || true)"
+    deploy_dockitem "05" "music" "${D_MUSIC}" "rhythmbox, hypnotix, gnome-music, celluloid"
+
+    # 06. Photos
+    D_PHOTOS="$(find_best_desktop "/usr/share/applications/pix.desktop" "/usr/share/applications/xviewer.desktop" "/usr/share/applications/ristretto.desktop" "/usr/share/applications/org.gnome.eog.desktop" || true)"
+    deploy_dockitem "06" "photos" "${D_PHOTOS}" "pix, xviewer, ristretto, eog"
+
+    # 07. Calendar
+    D_CAL="$(find_best_desktop "/usr/share/applications/org.gnome.Calendar.desktop" "/usr/share/applications/orage.desktop" "/usr/share/applications/xfce4-datetime-plugin.desktop" "/usr/share/applications/thunderbird.desktop" || true)"
+    deploy_dockitem "07" "calendar" "${D_CAL}" "gnome-calendar, orage, xfce4-datetime, thunderbird"
+
+    # 08. Settings
+    D_SETTINGS="$(find_best_desktop "/usr/share/applications/xfce4-settings-manager.desktop" "/usr/share/applications/gnome-control-center.desktop" || true)"
+    deploy_dockitem "08" "settings" "${D_SETTINGS}" "xfce4-settings-manager, gnome-control-center"
+
+    # 09. Software Manager
+    D_SOFTWARE="$(find_best_desktop "/usr/share/applications/mintinstall.desktop" "/usr/share/applications/gnome-software.desktop" || true)"
+    deploy_dockitem "09" "software" "${D_SOFTWARE}" "mintinstall, gnome-software"
+
+    # 10. Trash (Always Last!)
+    cat << EOF > "${PLANK_LAUNCHERS_DIR}/10-trash.dockitem"
+[PlankDockItemPreferences]
+Launcher=docklet://trash
+EOF
+    log_success "Dock slot [10 trash]: docklet://trash (Ordered last)"
+fi
 
 # ------------------------------------------------------------------------------
 # 5. Configure Plank via dconf & Verify
 # ------------------------------------------------------------------------------
-log_info "Configuring Plank dock geometry (48px icon, zoom 118%, dodge-window)..."
+log_info "Configuring Plank dock geometry (48px icon, zoom 118%, offset 4, dodge-window)..."
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would configure Plank preferences via dconf (theme: Sequoia, icon-size: 48, zoom: 118%, hide-mode: dodge-window)"
+    log_dry "Would configure Plank preferences via dconf (theme: Sequoia, icon-size: 48, offset: 4, zoom: 118%, hide-mode: dodge-window)"
 elif command -v dconf &>/dev/null; then
-    # Backup existing dconf tree
     mkdir -p "${CURRENT_PHASE_DIR}"
     dconf dump "${DCONF_PATH}/" > "${CURRENT_PHASE_DIR}/plank-dconf-backup.txt" 2>/dev/null || true
 
     dconf write "${DCONF_PATH}/theme" "'Sequoia'"
     dconf write "${DCONF_PATH}/icon-size" "48"
+    dconf write "${DCONF_PATH}/offset" "4"
     dconf write "${DCONF_PATH}/zoom-enabled" "true"
     dconf write "${DCONF_PATH}/zoom-percent" "118"
     dconf write "${DCONF_PATH}/hide-mode" "'dodge-window'"
@@ -135,8 +205,9 @@ elif command -v dconf &>/dev/null; then
 
     # Verify dconf configuration
     ACTUAL_THEME="$(dconf read "${DCONF_PATH}/theme" 2>/dev/null || true)"
+    ACTUAL_OFFSET="$(dconf read "${DCONF_PATH}/offset" 2>/dev/null || true)"
     if [[ "${ACTUAL_THEME}" == "'Sequoia'" ]]; then
-        log_success "Plank preferences verified via dconf (theme: ${ACTUAL_THEME})."
+        log_success "Plank preferences verified via dconf (theme: ${ACTUAL_THEME}, offset: ${ACTUAL_OFFSET})."
     else
         log_warn "dconf verification: expected 'Sequoia', got '${ACTUAL_THEME}'"
     fi

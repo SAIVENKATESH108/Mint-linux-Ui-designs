@@ -12,16 +12,18 @@
     font-weight: 500;
 }
 
-/* Panel Buttons */
+/* Panel Buttons (Calibrated for 28px panel to prevent negative width allocations) */
 .xfce4-panel button {
     background-color: transparent;
     background-image: none;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     color: @sequoia_fg;
     box-shadow: none;
-    padding: 0 6px;
-    margin: 2px 1px;
+    padding: 0 3px;
+    margin: 1px 1px;
+    min-height: 20px;
+    min-width: 20px;
     transition: background-color 150ms ease, color 150ms ease;
 }
 
@@ -39,8 +41,8 @@
 /* Whisker / Apple Menu Launcher Button */
 #whiskermenu-button,
 .xfce4-panel button#whiskermenu-button {
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 0 4px;
+    margin: 1px 2px;
 }
 
 #whiskermenu-button:hover {

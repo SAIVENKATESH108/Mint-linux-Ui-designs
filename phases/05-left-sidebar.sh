@@ -60,7 +60,24 @@ if [[ "${1:-}" == "--undo" ]]; then
     exit 0
 fi
 
-log_info "Phase 5: Configuring Left Workspace Sidebar (76px width, 4 Desktops)"
+WITH_SIDEBAR="${WITH_SIDEBAR:-0}"
+FALLBACK_PLANK_DOCK="${FALLBACK_PLANK_DOCK:-0}"
+
+for arg in "$@"; do
+    case "${arg}" in
+        --with-sidebar) WITH_SIDEBAR=1 ;;
+        --fallback-plank-dock) FALLBACK_PLANK_DOCK=1 ;;
+    esac
+done
+
+if [[ "${WITH_SIDEBAR}" -eq 0 ]]; then
+    log_warn "Phase 5 (Left Workspace Sidebar) is OPT-IN and skipped by default."
+    log_info "Position codes (p=...) in XFCE must be calibrated via GUI (drag panel to left edge)."
+    log_info "To run this phase explicitly, use: ./phases/05-left-sidebar.sh --with-sidebar"
+    exit 0
+fi
+
+log_info "Phase 5: Configuring Left Workspace Sidebar (76px width, 4 Desktops, Opt-In)"
 
 # ------------------------------------------------------------------------------
 # 1. Back Up Existing Configurations First
@@ -100,7 +117,7 @@ safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 # ------------------------------------------------------------------------------
 # 5. Configure panel-2 Geometry via xfconf (Mode 1: True Vertical)
 # ------------------------------------------------------------------------------
-log_info "Configuring panel-2 as a 76px true vertical sidebar on left edge..."
+log_info "Configuring panel-2 as a 76px true vertical sidebar..."
 
 # Add panel-2 to panels array if not already present
 if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -119,11 +136,21 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-2/size" "uint" "76"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/icon-size" "uint" "24"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/length" "uint" "58"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/length-adjust" "bool" "false"
-# Position along left edge under 28px top bar (p=1: Left-Top, x=10, y=38)
-set_xfconf_prop "xfce4-panel" "/panels/panel-2/position" "string" "p=1;x=10;y=38"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/position-locked" "bool" "true"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/autohide-behavior" "uint" "0" # Visible by default
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/background-style" "uint" "0"
+
+# Note on position: do NOT hardcode unverified p=1 codes.
+# Preserve existing position if configured in GUI; otherwise notify user.
+if command -v xfconf-query &>/dev/null; then
+    EXISTING_POS="$(xfconf-query -c xfce4-panel -p /panels/panel-2/position 2>/dev/null || true)"
+    if [[ -n "${EXISTING_POS}" ]]; then
+        log_info "Preserving calibrated panel-2 position: ${EXISTING_POS}"
+    else
+        log_warn "No position set for panel-2. In Panel Preferences, position it on the left,"
+        log_warn "then read back via: xfconf-query -c xfce4-panel -p /panels/panel-2/position"
+    fi
+fi
 
 # ------------------------------------------------------------------------------
 # 6. Configure Dynamically Allocated Plugins for Panel-2
@@ -155,22 +182,17 @@ elif command -v xfconf-query &>/dev/null; then
     # Plugin: Show Desktop
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_SHOWDESK}" "string" "showdesktop"
 
-    # Plugin: Power / Session action button at bottom
+    # Plugin: Power / Session action button at bottom (Strict GPtrArray string array)
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_ACTIONS}" "string" "actions"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_ACTIONS}/appearance" "uint" "0"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_ACTIONS}/items" "string" "+lock-screen;+logout;"
+    set_xfconf_string_array "xfce4-panel" "/plugins/plugin-${P_ACTIONS}/items" "+lock-screen" "+logout"
 
     # Assign dynamically allocated plugins to panel-2
-    xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids -r -R 2>/dev/null || true
-    xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids --create -a \
-        -t int -s "${P_PAGER}" \
-        -t int -s "${P_SEP}" \
-        -t int -s "${P_SHOWDESK}" \
-        -t int -s "${P_ACTIONS}" 2>/dev/null || true
+    set_xfconf_int_array "xfce4-panel" "/panels/panel-2/plugin-ids" "${P_PAGER}" "${P_SEP}" "${P_SHOWDESK}" "${P_ACTIONS}"
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Verification: Confirm Vertical Orientation & Plugins Before Guarded Reload
+# 7. Verification: Confirm Vertical Orientation & Visible Window Before Reload
 # ------------------------------------------------------------------------------
 if [[ "${DRY_RUN}" -eq 1 ]]; then
     log_dry "Would verify panel-2 mode is vertical (mode=1) and plugins exist"
@@ -184,7 +206,7 @@ else
     fi
 
     # 2. Verify plugins exist
-    PANEL_PLUGINS="$(xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids 2>/dev/null || true)"
+    PANEL_PLUGINS="$(read_xfconf_int_array "xfce4-panel" "/panels/panel-2/plugin-ids")"
     if [[ -z "${PANEL_PLUGINS}" ]]; then
         log_error "Verification FAILED: panel-2 plugin-ids is empty. Aborting reload."
         exit 1
@@ -192,6 +214,14 @@ else
 
     log_success "Verified: panel-2 is VERTICAL (mode=1) with active plugins: ${PANEL_PLUGINS//$'\n'/ }"
     guarded_panel_reload
+
+    # 3. Check for dock/panel window presence if DISPLAY is active
+    if [[ -n "${DISPLAY:-}" ]] && command -v wmctrl &>/dev/null; then
+        if ! wmctrl -l -G 2>/dev/null | grep -i 'panel' | grep -qE '[[:space:]]76[[:space:]]'; then
+            log_warn "Visual verification: 76px window not confirmed via wmctrl."
+            log_info "Fallback available: You can run with --fallback-plank-dock to use a secondary left Plank dock."
+        fi
+    fi
 fi
 
 log_success "Phase 5 Complete: Left Sidebar configured (76px width, 4 desktop pager)."

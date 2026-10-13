@@ -11,21 +11,22 @@ BottomRoundness=14
 # The thickness of the dock's border
 LineWidth=1
 
-# The color of the dock's border (reference: dock_border=rgba(255, 255, 255, 0.18))
-LineColor=255;;255;;255;;46
+# The color of the outer stroke (R;;G;;B;;A)
+OuterStrokeColor=255;;255;;255;;46
 
-# Background gradient (reference: dock_bg=rgba(35, 35, 40, 0.70))
-FillStart=35;;35;;40;;179
-FillEnd=35;;35;;40;;179
+# Background gradient (R;;G;;B;;A)
+FillStartColor=35;;35;;40;;179
+FillEndColor=35;;35;;40;;179
 
-# Inner subtle glow stroke
+# Inner subtle glow stroke (R;;G;;B;;A)
 InnerStrokeColor=255;;255;;255;;25
 
-# Spacing & Padding (reference: dock_item_padding=4px)
-BottomPadding=4
-TopPadding=0
+# Spacing & Padding (reference: dock_item_padding=4px, bottom padding to prevent screen clipping)
+BottomPadding=8
+TopPadding=2
 ItemPadding=4
 IndicatorSize=4
 IconShadowSize=1
 FadeOpacity=1
+
 
