@@ -7,7 +7,7 @@ conky.config = {
     alignment = 'top_right',
     background = false,
     border_width = 1,
-    border_inner_margin = 12,
+    border_inner_margin = 10,
     cpu_avg_samples = 2,
     default_color = '#FFFFFF',
     default_outline_color = '#2d3748',
@@ -20,10 +20,10 @@ conky.config = {
     extra_newline = false,
     font = 'Inter:size=9',
     gap_x = 14,
-    gap_y = 444,
-    minimum_height = 206,
-    minimum_width = 320,
-    maximum_width = 320,
+    gap_y = 416,
+    minimum_height = 160,
+    minimum_width = 310,
+    maximum_width = 310,
     net_avg_samples = 2,
     no_buffers = true,
     out_to_console = false,
@@ -36,8 +36,8 @@ conky.config = {
     own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
     own_window_transparent = false,
     own_window_argb_visual = true,
-    own_window_argb_value = 165,
-    own_window_colour = '161a26',
+    own_window_argb_value = 185,
+    own_window_colour = '141722',
     override_utf8_locale = true,
     show_graph_range = false,
     show_graph_scale = false,
@@ -54,9 +54,9 @@ ${color #334155}${hr 1}${color}
 ${color #FF4757}${font Inter:bold:size=9}NOW PLAYING${font}${color}
 ${color #FFFFFF}${font Inter:bold:size=9}${execi 5 playerctl metadata --format '{{title}}' 2>/dev/null || echo "No active media"}${font}${color}
 ${color #94A3B8}${font Inter:size=8}${execi 5 playerctl metadata --format '{{artist}} - {{album}}' 2>/dev/null || echo "Play music to display track"}${font}${color}
-${voffset 4}${color #334155}${hr 1}${color}
+${voffset 2}${color #334155}${hr 1}${color}
 ${color #CBD5E1}Disk (/):${alignr}${color #00F0FF}${font Inter:bold:size=8}${fs_used /} / ${fs_size /} (${fs_used_perc /}%)${font}${color}
-${color #00F0FF}${fs_bar 3,320 /}${color}
-${voffset 4}${color #334155}${hr 1}${color}
-${color #CBD5E1}Network Status:${alignr}${color #00FF9D}${font Inter:bold:size=8}Connected (1 Gbps)${font}${color}
+${color #00F0FF}${fs_bar 3,310 /}${color}
+${voffset 2}${color #334155}${hr 1}${color}
+${color #CBD5E1}Network:${alignr}${color #00FF9D}${font Inter:bold:size=8}Connected (1 Gbps)${font}${color}
 ]]

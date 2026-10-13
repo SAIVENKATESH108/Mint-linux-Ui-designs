@@ -25,12 +25,14 @@ MENU_ITEMS=(
     "⚙️  Open Sequoia Settings"
 )
 
+THEME_FILE="${HOME}/.config/rofi/control-center.rasi"
+if [[ ! -f "${THEME_FILE}" ]]; then
+    THEME_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/rofi/control-center.rasi"
+fi
+
 CHOICE=""
-if command -v rofi &>/dev/null; then
-    CHOICE=$(printf "%s\n" "${MENU_ITEMS[@]}" | rofi -dmenu -i -p "Control Center" -theme-str '
-    window { width: 440px; border-radius: 14px; location: north east; anchor: north east; x-offset: -14px; y-offset: 36px; }
-    listview { lines: 10; }
-    ' || true)
+if command -v rofi &>/dev/null && [[ -f "${THEME_FILE}" ]]; then
+    CHOICE=$(printf "%s\n" "${MENU_ITEMS[@]}" | rofi -dmenu -i -p "Control Center" -theme "${THEME_FILE}" || true)
 elif command -v zenity &>/dev/null; then
     CHOICE=$(zenity --list --title="Control Center" --column="Quick Controls" "${MENU_ITEMS[@]}" --height=380 --width=420 || true)
 else

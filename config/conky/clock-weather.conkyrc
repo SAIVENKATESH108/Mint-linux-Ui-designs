@@ -7,7 +7,7 @@ conky.config = {
     alignment = 'top_right',
     background = false,
     border_width = 1,
-    border_inner_margin = 12,
+    border_inner_margin = 10,
     cpu_avg_samples = 2,
     default_color = '#FFFFFF',
     default_outline_color = '#2d3748',
@@ -18,12 +18,12 @@ conky.config = {
     draw_outline = false,
     draw_shades = false,
     extra_newline = false,
-    font = 'Inter:size=10',
+    font = 'Inter:size=9',
     gap_x = 14,
-    gap_y = 38,
-    minimum_height = 136,
-    minimum_width = 320,
-    maximum_width = 320,
+    gap_y = 36,
+    minimum_height = 110,
+    minimum_width = 310,
+    maximum_width = 310,
     net_avg_samples = 2,
     no_buffers = true,
     out_to_console = false,
@@ -36,8 +36,8 @@ conky.config = {
     own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
     own_window_transparent = false,
     own_window_argb_visual = true,
-    own_window_argb_value = 165,
-    own_window_colour = '161a26',
+    own_window_argb_value = 185,
+    own_window_colour = '141722',
     override_utf8_locale = true,
     show_graph_range = false,
     show_graph_scale = false,
@@ -51,8 +51,6 @@ conky.config = {
 conky.text = [[
 ${color #38BDF8}${font Inter:bold:size=8}GLANCE • TIME & WEATHER${alignr}${color #94A3B8}CARD 1${font}${color}
 ${color #334155}${hr 1}${color}
-${voffset 4}${color #FFFFFF}${font Inter:bold:size=24}${time %l:%M %p}${font}${alignr}${color #38BDF8}${font Inter:bold:size=12}San Francisco${font}
-${color #94A3B8}${font Inter:size=9}${time %A, %B %e}${alignr}${color #00FF9D}${font Inter:bold:size=9}72° • Mostly Sunny${font}${color}
-${voffset 4}${color #334155}${hr 1}${color}
-${color #CBD5E1}${font Inter:size=8}Forecast: ${color #FFA502}Today 72°${color #CBD5E1} | ${color #FFA502}Tue 68°${color #CBD5E1} | ${color #38BDF8}Wed 64°${color #CBD5E1} | ${color #38BDF8}Thu 60°${alignr}${color #00F0FF}${font Inter:bold:size=8}${execi 1800 cat /tmp/wttr_cache.txt 2>/dev/null || echo "H:74° L:58°"}${font}${color}
+${voffset 2}${color #FFFFFF}${font Inter:bold:size=22}${time %l:%M %p}${font}${alignr}${color #38BDF8}${font Inter:bold:size=11}San Francisco${font}
+${color #94A3B8}${font Inter:size=9}${time %A, %B %e}${alignr}${color #00FF9D}${font Inter:bold:size=9}${execi 1800 ~/.local/bin/weather-cache.sh || echo "Clear +21°C"}${font}${color}
 ]]

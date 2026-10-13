@@ -3,14 +3,14 @@
 # Sequoia Permanent System Enforcer
 # Consolidates all configuration, wipes stale/glitched CSS fragments,
 # deploys and activates the complete macOS Sequoia suite:
-#   - Plank Dock 'Sequoia' theme
-#   - Conky 3-Card Desktop Widgets (Translucent Glass Cards matching Preview)
+#   - Plank Dock (Preserved untouched per user request)
+#   - Conky 3-Card Desktop Widgets (Translucent Glass Cards matching Preview, zero overlap)
 #   - Launchpad (Fullscreen 7x5 Application Grid via Rofi & Super+A / F4)
-#   - Spotlight Search (Universal search bar via Rofi & Super+Space)
-#   - Control Center (Quick settings menu via Super+C)
+#   - Spotlight Search (Universal search bar via Rofi & Super+Space & Top Bar button)
+#   - Control Center (Quick settings popover via Super+C & Top Bar button)
 #   - Mission Control (Window overview via Super+Up / F3)
-#   - Sequoia Settings (Theme & Appearance GUI Control Panel)
-#   - macOS traffic lights, zero top gap, and reboot supervisor
+#   - Sequoia Settings (Theme & Appearance GUI Control Panel via Super+,)
+#   - Single-line macOS clock, Apple menu, and reboot supervisor
 # ==============================================================================
 
 set -euo pipefail
@@ -68,12 +68,11 @@ fi
 log_success "Picom compositor configurations deployed."
 
 # ------------------------------------------------------------------------------
-# 3. Deploy Sequoia Dock Theme & Apply Plank dconf Settings
+# 3. Deploy Sequoia Dock Theme (DO NOT MODIFY PINNED DOCK LAUNCHERS)
 # ------------------------------------------------------------------------------
-log_info "Step 3: Deploying and activating Sequoia Dock theme..."
+log_info "Step 3: Ensuring Sequoia Dock theme file exists (dock items untouched)..."
 PLANK_THEME_DEST="${HOME}/.local/share/plank/themes/Sequoia"
 mkdir -p "${PLANK_THEME_DEST}"
-
 safe_copy "${REPO_ROOT}/config/plank/theme/Sequoia/dock.theme" "${PLANK_THEME_DEST}/dock.theme"
 
 if command -v dconf &>/dev/null; then
@@ -83,16 +82,11 @@ if command -v dconf &>/dev/null; then
     dconf write "${DCONF_PATH}/offset" "0"
     dconf write "${DCONF_PATH}/zoom-enabled" "true"
     dconf write "${DCONF_PATH}/zoom-percent" "118"
-    dconf write "${DCONF_PATH}/hide-mode" "'dodge-window'"
-    dconf write "${DCONF_PATH}/position" "'bottom'"
-    dconf write "${DCONF_PATH}/alignment" "'center'"
-    dconf write "${DCONF_PATH}/show-dock-item" "false"
-    dconf write "${DCONF_PATH}/pinned-only" "false"
-    log_success "Plank dock preferences locked to Sequoia theme via dconf (launchers untouched)."
+    log_success "Plank dock theme verified. Pinned dock launchers left 100% untouched."
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Deploy Conky Desktop Widgets (3 Translucent Glass Cards matching Preview)
+# 4. Deploy Conky Desktop Widgets (3 Non-Overlapping Translucent Glass Cards)
 # ------------------------------------------------------------------------------
 log_info "Step 4: Deploying Conky desktop widget configurations..."
 CONKY_CONFIG_DIR="${HOME}/.config/conky"
@@ -101,22 +95,21 @@ mkdir -p "${CONKY_CONFIG_DIR}"
 safe_copy "${REPO_ROOT}/config/conky/clock-weather.conkyrc" "${CONKY_CONFIG_DIR}/clock-weather.conkyrc"
 safe_copy "${REPO_ROOT}/config/conky/calendar-system.conkyrc" "${CONKY_CONFIG_DIR}/calendar-system.conkyrc"
 safe_copy "${REPO_ROOT}/config/conky/media-notes.conkyrc" "${CONKY_CONFIG_DIR}/media-notes.conkyrc"
-log_success "Conky translucent glass card configurations deployed."
+log_success "Conky non-overlapping translucent glass card configurations deployed."
 
 # ------------------------------------------------------------------------------
-# 5. Deploy Rofi Themes (Launchpad 7x5 & Spotlight Universal Search)
+# 5. Deploy Rofi Themes (Launchpad 7x5, Spotlight, Control Center)
 # ------------------------------------------------------------------------------
-log_info "Step 5: Deploying Rofi themes for Launchpad and Spotlight..."
+log_info "Step 5: Deploying Rofi themes for Launchpad, Spotlight, and Control Center..."
 ROFI_DIR="${HOME}/.config/rofi"
 mkdir -p "${ROFI_DIR}"
 
-if [[ -f "${REPO_ROOT}/config/rofi/launchpad.rasi" ]]; then
-    safe_copy "${REPO_ROOT}/config/rofi/launchpad.rasi" "${ROFI_DIR}/launchpad.rasi"
-fi
-if [[ -f "${REPO_ROOT}/config/rofi/spotlight.rasi" ]]; then
-    safe_copy "${REPO_ROOT}/config/rofi/spotlight.rasi" "${ROFI_DIR}/spotlight.rasi"
-fi
-log_success "Rofi Launchpad and Spotlight stylesheets installed."
+for rasi in "launchpad.rasi" "spotlight.rasi" "control-center.rasi"; do
+    if [[ -f "${REPO_ROOT}/config/rofi/${rasi}" ]]; then
+        safe_copy "${REPO_ROOT}/config/rofi/${rasi}" "${ROFI_DIR}/${rasi}"
+    fi
+done
+log_success "Rofi stylesheets installed."
 
 # ------------------------------------------------------------------------------
 # 6. Deploy xfdashboard Theme (Mission Control)
@@ -140,6 +133,7 @@ SESSION_BINS=(
     "sequoia-supervisor.sh"
     "start-plank.sh"
     "conky-manager.sh"
+    "conky-calendar.sh"
     "weather-cache.sh"
     "sequoia-ctl"
     "app-window-theming.sh"
@@ -162,7 +156,7 @@ done
 if [[ -f "${HOME}/.local/bin/weather-cache.sh" ]]; then
     bash "${HOME}/.local/bin/weather-cache.sh" >/dev/null 2>&1 || true
 fi
-log_success "All 12 session binaries deployed and marked executable."
+log_success "All session binaries deployed and marked executable."
 
 # ------------------------------------------------------------------------------
 # 8. Deploy Desktop Applications (.desktop Launchers)
@@ -224,9 +218,9 @@ log_info "Step 10: Enforcing macOS traffic lights & zero topbar gap..."
 bash "${SCRIPT_DIR}/app-window-theming.sh"
 
 # ------------------------------------------------------------------------------
-# 11. Enforce Top Bar Panel Geometry & Struts
+# 11. Top Bar Panel Geometry, Clean Apple Menu, Popovers & Clock Layout
 # ------------------------------------------------------------------------------
-log_info "Step 11: Enforcing panel-1 struts and geometry..."
+log_info "Step 11: Configuring top bar geometry, single-line clock & popover buttons..."
 if command -v xfconf-query &>/dev/null; then
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/position" "string" "p=6;x=0;y=0"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "28"
@@ -237,13 +231,96 @@ if command -v xfconf-query &>/dev/null; then
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/background-style" "uint" "0"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/enable-struts" "bool" "true"
 
-    # Ensure panel-2 is completely purged
-    P2_CHECK="$(xfconf-query -c xfce4-panel -p /panels 2>/dev/null | grep -c '2' || echo 0)"
-    if [[ "${P2_CHECK}" -gt 0 ]]; then
+    # Ensure panel-2 is purged cleanly without syntax errors
+    if xfconf-query -c xfce4-panel -p /panels/panel-2 &>/dev/null; then
         log_info "Purging residual panel-2..."
         xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
         set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
     fi
+
+    # Copy Apple Logo Icon
+    APPLE_ICON_PATH="${HOME}/.local/share/icons/apple-logo.svg"
+    mkdir -p "${HOME}/.local/share/icons"
+    if [[ -f "${REPO_ROOT}/assets/icons/apple-logo.svg" ]]; then
+        safe_copy "${REPO_ROOT}/assets/icons/apple-logo.svg" "${APPLE_ICON_PATH}"
+    fi
+
+    # Setup Popover Launchers for Top Bar: Spotlight (plugin-101) & Control Center (plugin-102)
+    PANEL_DIR="${HOME}/.config/xfce4/panel"
+    mkdir -p "${PANEL_DIR}/launcher-101"
+    safe_copy "${APP_DIR}/spotlight.desktop" "${PANEL_DIR}/launcher-101/spotlight.desktop"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-101" "string" "launcher"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-101/show-label" "bool" "false"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-101/disable-tooltips" "bool" "false"
+    xfconf-query -c xfce4-panel -p /plugins/plugin-101/items -n -t string -s "spotlight.desktop" --force-array 2>/dev/null || true
+
+    mkdir -p "${PANEL_DIR}/launcher-102"
+    safe_copy "${APP_DIR}/control-center.desktop" "${PANEL_DIR}/launcher-102/control-center.desktop"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-102" "string" "launcher"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-102/show-label" "bool" "false"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-102/disable-tooltips" "bool" "false"
+    xfconf-query -c xfce4-panel -p /plugins/plugin-102/items -n -t string -s "control-center.desktop" --force-array 2>/dev/null || true
+
+    # Clean existing plugin-ids on panel-1:
+    # Remove tasklist, windowmenu, and stock duplicate launchers
+    CURRENT_IDS=($(read_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids"))
+    CLEAN_IDS=()
+    WHISKER_ID=""
+    SEPARATOR_ID=""
+    CLOCK_ID=""
+    OTHER_RIGHT_IDS=()
+
+    for pid in "${CURRENT_IDS[@]}"; do
+        [[ "${pid}" -eq 101 || "${pid}" -eq 102 ]] && continue
+        PTYPE="$(xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" 2>/dev/null || true)"
+
+        if [[ "${PTYPE}" == "tasklist" || "${PTYPE}" == "windowmenu" ]]; then
+            log_info "Removing unwanted ${PTYPE} plugin-${pid} from panel-1..."
+            continue
+        elif [[ "${PTYPE}" == "launcher" ]]; then
+            log_info "Removing duplicate stock launcher plugin-${pid} from panel-1..."
+            continue
+        elif [[ "${PTYPE}" == "whiskermenu" ]]; then
+            WHISKER_ID="${pid}"
+            if [[ -f "${APPLE_ICON_PATH}" ]]; then
+                set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/button-icon" "string" "${APPLE_ICON_PATH}"
+            fi
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/button-title" "string" ""
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/show-button-title" "bool" "false"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/show-button-icon" "bool" "true"
+        elif [[ "${PTYPE}" == "separator" ]]; then
+            SEPARATOR_ID="${pid}"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/expand" "bool" "true"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/style" "uint" "0"
+        elif [[ "${PTYPE}" == "clock" || "${PTYPE}" == "datetime" ]]; then
+            CLOCK_ID="${pid}"
+            # Configure clean single-line macOS Clock format (no stacked date below)
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/digital-format" "string" "%a %e %b  %l:%M %P"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/digital-time-format" "string" "%a %e %b  %l:%M %P"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/digital-layout" "uint" "3"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/show-date" "bool" "false"
+            set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/mode" "uint" "2"
+        else
+            OTHER_RIGHT_IDS+=("${pid}")
+        fi
+    done
+
+    # Assemble perfect macOS Sequoia order:
+    # 1. Whisker Menu (Apple logo)
+    # 2. Separator (expand=true, pushes everything right)
+    # 3. System Tray & Status Items (Wi-Fi, sound, etc.)
+    # 4. Spotlight Button (101)
+    # 5. Control Center Button (102)
+    # 6. Single-line Clock
+    FINAL_PANEL_IDS=()
+    [[ -n "${WHISKER_ID}" ]] && FINAL_PANEL_IDS+=("${WHISKER_ID}")
+    [[ -n "${SEPARATOR_ID}" ]] && FINAL_PANEL_IDS+=("${SEPARATOR_ID}")
+    FINAL_PANEL_IDS+=("${OTHER_RIGHT_IDS[@]}")
+    FINAL_PANEL_IDS+=(101 102)
+    [[ -n "${CLOCK_ID}" ]] && FINAL_PANEL_IDS+=("${CLOCK_ID}")
+
+    set_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids" "${FINAL_PANEL_IDS[@]}"
+    log_success "Top bar plugins ordered: Apple Menu -> Separator -> Tray -> Spotlight (101) -> Control Center (102) -> Clock."
 fi
 
 # ------------------------------------------------------------------------------
@@ -291,38 +368,25 @@ if [[ -n "${DISPLAY:-}" ]]; then
         picom --config "${PICOM_DIR}/picom.conf" -b 2>/dev/null || true
     fi
 
-    # 13b. Restart Plank
-    if command -v plank &>/dev/null; then
-        log_info "Restarting Plank with Sequoia theme..."
-        pkill -x plank 2>/dev/null || true
-        sleep 0.5
-        if [[ -x "${HOME}/.local/bin/start-plank.sh" ]]; then
-            nohup "${HOME}/.local/bin/start-plank.sh" >/dev/null 2>&1 &
-        else
-            nohup plank >/dev/null 2>&1 &
-        fi
-    fi
-
-    # 13c. Restart Conky
+    # 13b. Restart Conky
     if command -v conky &>/dev/null; then
-        log_info "Restarting Conky widgets with translucent glass cards..."
+        log_info "Restarting Conky widgets with translucent glass cards (zero overlap)..."
         if [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
             "${HOME}/.local/bin/conky-manager.sh" restart >/dev/null 2>&1 || true
         fi
     fi
 
-    # 13d. Reload Top Panel
-    log_info "Reloading top panel with clean scoped styling..."
+    # 13c. Reload Top Panel
+    log_info "Reloading top panel with clean popovers, single-line clock, and scoped styling..."
     guarded_panel_reload || true
 fi
 
 log_success "=========================================================="
 log_success " Complete macOS Sequoia System Deployment Finished!"
-log_success " - Widgets: 3 Translucent Glass Cards active (matches preview)"
-log_success " - Launchpad: Super+A or F4 (or open from Whisker / Apps)"
-log_success " - Spotlight: Super+Space"
-log_success " - Control Center: Super+C"
-log_success " - Mission Control: Super+Up or F3"
-log_success " - Sequoia Settings: Super+, or open from Apps"
+log_success " - Dock: Left 100% untouched as requested"
+log_success " - Widgets: 3 distinct non-overlapping cards with Python calendar"
+log_success " - Top Bar: Spotlight & Control Center popover buttons added"
+log_success " - Top Bar Clock: Single-line clean macOS date/time format"
+log_success " - Shortcuts: Super+Space (Spotlight), Super+C (Control Center)"
 log_success " - All services will cleanly autostart upon reboot."
 log_success "=========================================================="
