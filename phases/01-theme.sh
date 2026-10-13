@@ -258,6 +258,11 @@ set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "center"
 # GTK Decoration Layout for CSD apps (Brave, Chrome, GTK3/4 dialogs):
 set_xfconf_prop "xsettings" "/Gtk/DecorationLayout" "string" "close,minimize,maximize:"
 
+# Apply native macOS window frames across browsers and applications
+if [[ -f "${SCRIPTS_DIR}/app-window-theming.sh" ]]; then
+    bash "${SCRIPTS_DIR}/app-window-theming.sh" || true
+fi
+
 log_success "Phase 1 Complete: WhiteSur themes, Inter font, and left window buttons configured."
 log_info "Test switching modes anytime with: ~/.local/bin/toggle-theme.sh"
 log_info "Undo this phase anytime with: ./phases/01-theme.sh --undo (or ./uninstall.sh -p 1)"
