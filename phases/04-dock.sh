@@ -14,6 +14,7 @@ verify_environment
 
 PLANK_THEME_DEST="${HOME}/.local/share/plank/themes/Sequoia"
 PLANK_LAUNCHERS_DIR="${HOME}/.config/plank/dock1/launchers"
+LOCAL_BIN="${HOME}/.local/bin"
 DCONF_PATH="/net/launchpad/plank/docks/dock1"
 
 # ------------------------------------------------------------------------------
@@ -32,6 +33,7 @@ undo_phase() {
     fi
 
     rm -f "${HOME}/.config/autostart/plank.desktop"
+    rm -f "${HOME}/.local/bin/start-plank.sh"
     rm -rf "${PLANK_THEME_DEST}"
     rm -rf "${PLANK_LAUNCHERS_DIR}"
 
@@ -127,7 +129,14 @@ if command -v xfconf-query &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Safety Test & Register Delayed Autostart
+# 7. Deploy Safe Plank Launcher Utility
+# ------------------------------------------------------------------------------
+run mkdir -p "${LOCAL_BIN}"
+safe_copy "${SCRIPTS_DIR}/start-plank.sh" "${LOCAL_BIN}/start-plank.sh"
+run chmod +x "${LOCAL_BIN}/start-plank.sh"
+
+# ------------------------------------------------------------------------------
+# 8. Safety Test & Register Delayed Autostart
 # ------------------------------------------------------------------------------
 TEST_PASSED=0
 if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -139,16 +148,14 @@ elif command -v plank &>/dev/null; then
 fi
 
 if [[ "${TEST_PASSED}" -eq 1 ]]; then
-    install_delayed_autostart "plank" "plank" "macOS Sequoia Floating Dock"
+    install_delayed_autostart "plank" "${LOCAL_BIN}/start-plank.sh" "macOS Sequoia Floating Dock"
 fi
 
 # Reload in active X11 session if present
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would reload Plank daemon"
+    log_dry "Would start Plank dock via start-plank.sh"
 elif [[ -n "${DISPLAY:-}" ]] && command -v plank &>/dev/null; then
-    pkill -x plank 2>/dev/null || true
-    sleep 0.5
-    plank &>/dev/null & disown || log_warn "Plank launch deferred."
+    bash "${LOCAL_BIN}/start-plank.sh" || log_warn "Plank launch deferred."
 fi
 
 log_success "Phase 4 Complete: Plank dock configured with 10 unified icons."

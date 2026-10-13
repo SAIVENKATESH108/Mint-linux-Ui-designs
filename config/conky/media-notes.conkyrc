@@ -31,10 +31,13 @@ conky.config = {
     out_to_x = true,
     own_window = true,
     own_window_class = 'conky',
-    own_window_type = 'desktop',
-    own_window_transparent = true,
-    own_window_argb_visual = true,
+    own_window_type = 'normal',
     own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
+    own_window_transparent = false,
+    own_window_argb_visual = true,
+    own_window_argb_value = 120,
+    own_window_colour = '1E293B',
+    override_utf8_locale = true,
     show_graph_range = false,
     show_graph_scale = false,
     stippled_borders = 0,
@@ -47,9 +50,9 @@ conky.config = {
 conky.text = [[
 ${color #94A3B8}${font Inter:bold:size=8}MEDIA, STORAGE & NETWORK${alignr}CARD 3${font}${color}
 ${color #334155}${hr 1}${color}
-${color #F43F5E}${font Inter:bold:size=10}♫ NOW PLAYING${font}${color}
+${color #F43F5E}${font Inter:bold:size=10}NOW PLAYING${font}${color}
 ${color #FFFFFF}${font Inter:size=9}${execi 5 playerctl metadata --format '{{title}}' 2>/dev/null || echo "No active media"}${font}${color}
-${color #94A3B8}${font Inter:size=8}${execi 5 playerctl metadata --format '{{artist}} — {{album}}' 2>/dev/null || echo "Play music to display track"}${font}${color}
+${color #94A3B8}${font Inter:size=8}${execi 5 playerctl metadata --format '{{artist}} - {{album}}' 2>/dev/null || echo "Play music to display track"}${font}${color}
 ${voffset 4}${color #334155}${hr 1}${color}
 ${color #94A3B8}Disk (/):${alignr}${color #38BDF8}${fs_used /} / ${fs_size /} (${fs_used_perc /}%)${color}
 ${color #334155}${fs_bar 4,320 /}${color}

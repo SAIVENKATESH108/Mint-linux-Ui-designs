@@ -90,7 +90,40 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-1/autohide-behavior" "uint" "0"
 set_xfconf_prop "xfce4-panel" "/panels/panel-1/background-style" "uint" "0"
 
 # ------------------------------------------------------------------------------
-# 5. Configure Apple Logo Launcher & macOS Clock Format
+# 5. Remove Tasklist (Window Buttons) from Top Menu Bar (Dock handles open apps)
+# ------------------------------------------------------------------------------
+log_info "Ensuring tasklist (window buttons) is removed from top bar (dock handles windows)..."
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would filter tasklist plugin from panel-1 plugin-ids array"
+elif command -v xfconf-query &>/dev/null; then
+    CURRENT_IDS=($(xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids 2>/dev/null | tr '\n' ' ' || true))
+    if [[ ${#CURRENT_IDS[@]} -gt 0 ]]; then
+        FILTERED_IDS=()
+        TASKLIST_FOUND=0
+        for pid in "${CURRENT_IDS[@]}"; do
+            PTYPE="$(xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" 2>/dev/null || true)"
+            if [[ "${PTYPE}" == "tasklist" || "${PTYPE}" == "windowmenu" ]]; then
+                log_info "Identified tasklist plugin-${pid} on panel-1. Removing..."
+                TASKLIST_FOUND=1
+            else
+                FILTERED_IDS+=("${pid}")
+            fi
+        done
+
+        if [[ "${TASKLIST_FOUND}" -eq 1 && ${#FILTERED_IDS[@]} -gt 0 ]]; then
+            XFCONF_ARGS=()
+            for fpid in "${FILTERED_IDS[@]}"; do
+                XFCONF_ARGS+=("-t" "int" "-s" "${fpid}")
+            done
+            xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids -r -R 2>/dev/null || true
+            xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids --create -a "${XFCONF_ARGS[@]}" 2>/dev/null || true
+            log_success "Tasklist removed from top bar. Remaining plugins: ${FILTERED_IDS[*]}"
+        fi
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# 6. Configure Apple Logo Launcher & macOS Clock Format
 # ------------------------------------------------------------------------------
 APPLE_ICON_PATH="${HOME}/.local/share/icons/apple-logo.svg"
 if [[ ! -f "${APPLE_ICON_PATH}" && -f "${REPO_ROOT}/assets/icons/apple-logo.svg" ]]; then
@@ -119,6 +152,11 @@ if command -v xfconf-query &>/dev/null; then
             set_xfconf_prop "xfce4-panel" "${p}/digital-format" "string" "%a %e %b  %l:%M %P"
             set_xfconf_prop "xfce4-panel" "${p}/digital-time-format" "string" "%a %e %b  %l:%M %P"
             set_xfconf_prop "xfce4-panel" "${p}/mode" "uint" "2"
+
+        # Expand separator to push clock and tray items to the far right
+        elif [[ "${NAME}" == "separator" ]]; then
+            set_xfconf_prop "xfce4-panel" "${p}/expand" "bool" "true"
+            set_xfconf_prop "xfce4-panel" "${p}/style" "uint" "0"
         fi
     done
 fi

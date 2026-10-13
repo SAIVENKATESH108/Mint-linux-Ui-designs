@@ -47,6 +47,7 @@ undo_phase() {
         set_xfconf_prop "xfwm4" "/general/title_font" "string" "Ubuntu Bold 9"
         set_xfconf_prop "xfwm4" "/general/button_layout" "string" "O|HMC"
         set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
+        set_xfconf_prop "xsettings" "/Gtk/DecorationLayout" "string" ":minimize,maximize,close"
     fi
 
     run rm -f "${LOCAL_BIN}/toggle-theme.sh"
@@ -253,6 +254,9 @@ set_xfconf_prop "xfwm4" "/general/title_font" "string" "Inter Medium 10"
 # Window Control Buttons on the Left: 'C' Close, 'H' Hide, 'M' Maximize
 set_xfconf_prop "xfwm4" "/general/button_layout" "string" "CHM|"
 set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "center"
+
+# GTK Decoration Layout for CSD apps (Brave, Chrome, GTK3/4 dialogs):
+set_xfconf_prop "xsettings" "/Gtk/DecorationLayout" "string" "close,minimize,maximize:"
 
 log_success "Phase 1 Complete: WhiteSur themes, Inter font, and left window buttons configured."
 log_info "Test switching modes anytime with: ~/.local/bin/toggle-theme.sh"

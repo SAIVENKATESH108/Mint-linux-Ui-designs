@@ -37,9 +37,11 @@ reload_panel() {
 
 reload_plank() {
     echo "==> Reloading Plank dock..."
-    if command -v plank &>/dev/null; then
+    if [[ -x "${HOME}/.local/bin/start-plank.sh" ]]; then
+        bash "${HOME}/.local/bin/start-plank.sh"
+    elif command -v plank &>/dev/null; then
         pkill -x plank 2>/dev/null || true
-        sleep 0.3
+        sleep 1
         plank &>/dev/null & disown
     fi
     echo "  ✔ Plank dock restarted."

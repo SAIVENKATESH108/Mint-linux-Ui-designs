@@ -12,8 +12,19 @@ ACTION="${1:-start}"
 
 stop_conky() {
     echo "==> Stopping all Conky widget instances..."
-    pkill -x conky 2>/dev/null || true
-    sleep 0.5
+    if pgrep -x conky >/dev/null 2>&1; then
+        pkill -x conky >/dev/null 2>&1 || true
+        for _ in {1..8}; do
+            if ! pgrep -x conky >/dev/null 2>&1; then
+                break
+            fi
+            sleep 0.25
+        done
+        if pgrep -x conky >/dev/null 2>&1; then
+            pkill -9 -x conky >/dev/null 2>&1 || true
+            sleep 0.2
+        fi
+    fi
     echo "✔ Conky stopped."
 }
 
@@ -30,7 +41,7 @@ start_conky() {
     for cfg in "${configs[@]}"; do
         local path="${CONKY_DIR}/${cfg}"
         if [[ -f "${path}" ]]; then
-            conky -c "${path}" -d &>/dev/null || {
+            conky -c "${path}" -d >/dev/null 2>&1 || {
                 echo "⚠ Warning: Failed to launch ${cfg}" >&2
             }
         else

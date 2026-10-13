@@ -61,6 +61,7 @@ undo_phase_1() {
         set_xfconf_prop "xfwm4" "/general/title_font" "string" "Ubuntu Bold 9"
         set_xfconf_prop "xfwm4" "/general/button_layout" "string" "O|HMC"
         set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
+        set_xfconf_prop "xsettings" "/Gtk/DecorationLayout" "string" ":minimize,maximize,close"
         run rm -f "${HOME}/.local/bin/toggle-theme.sh"
     }
     log_success "Phase 1 undone."
@@ -116,6 +117,9 @@ undo_phase_5() {
                 log_dry "Would remove panel-2 and set panel count to 1"
             else
                 xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
+                for pid in 20 21 22 23; do
+                    xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" -r -R 2>/dev/null || true
+                done
                 set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
             fi
         fi

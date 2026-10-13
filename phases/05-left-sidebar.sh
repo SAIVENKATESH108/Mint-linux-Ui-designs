@@ -35,6 +35,9 @@ undo_phase() {
         log_info "Removing panel-2 configuration..."
         if command -v xfconf-query &>/dev/null; then
             xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
+            for pid in 20 21 22 23; do
+                xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" -r -R 2>/dev/null || true
+            done
             set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
         fi
     fi
@@ -87,9 +90,9 @@ run mkdir -p "${GTK_CONFIG_DIR}"
 safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 
 # ------------------------------------------------------------------------------
-# 5. Configure panel-2 Geometry via xfconf
+# 5. Configure panel-2 Geometry via xfconf (Mode 1: True Vertical)
 # ------------------------------------------------------------------------------
-log_info "Configuring panel-2 as a 76px vertical sidebar on left edge..."
+log_info "Configuring panel-2 as a 76px true vertical sidebar on left edge..."
 
 # Add panel-2 to panels array if not already present
 if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -101,23 +104,77 @@ elif command -v xfconf-query &>/dev/null; then
     fi
 fi
 
-# Geometry: vertical left edge (p=9 is floating vertical, x=10, y=38)
-set_xfconf_prop "xfce4-panel" "/panels/panel-2/position" "string" "p=9;x=10;y=38"
+# Critical: mode = 1 is VERTICAL in XFCE 4.18 panel (mode 0 is horizontal)
+set_xfconf_prop "xfce4-panel" "/panels/panel-2/mode" "uint" "1"
+# In vertical mode, size is width (76px) and length is height percentage (58%)
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/size" "uint" "76"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/icon-size" "uint" "24"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/length" "uint" "58"
+set_xfconf_prop "xfce4-panel" "/panels/panel-2/length-adjust" "bool" "false"
+# Position along left edge under 28px top bar (p=1: Left-Top, x=10, y=38)
+set_xfconf_prop "xfce4-panel" "/panels/panel-2/position" "string" "p=1;x=10;y=38"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/position-locked" "bool" "true"
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/autohide-behavior" "uint" "0" # Visible by default
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/background-style" "uint" "0"
 
 # ------------------------------------------------------------------------------
-# 6. Safety Check & Panel Reload
+# 6. Configure Plugins for Panel-2 (Pager, Spacer, ShowDesktop, Session Action)
+# ------------------------------------------------------------------------------
+log_info "Configuring sidebar plugins (4-row pager, spacer, shortcuts)..."
+
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would register plugins [20:pager (4 rows), 21:separator (expand), 22:showdesktop, 23:actions] on panel-2"
+elif command -v xfconf-query &>/dev/null; then
+    # Plugin 20: Pager with 4 vertical rows
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20" "string" "pager"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20/rows" "uint" "4"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20/miniature-view" "bool" "true"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20/numbering" "bool" "true"
+
+    # Plugin 21: Expanding transparent separator
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-21" "string" "separator"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-21/style" "uint" "0"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-21/expand" "bool" "true"
+
+    # Plugin 22: Show Desktop
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-22" "string" "showdesktop"
+
+    # Plugin 23: Power / Session action button at bottom
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-23" "string" "actions"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-23/appearance" "uint" "0"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-23/items" "string" "+lock-screen;+logout;"
+
+    # Assign plugins 20, 21, 22, 23 to panel-2
+    xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids -r -R 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids --create -a -t int -s 20 -t int -s 21 -t int -s 22 -t int -s 23 2>/dev/null || true
+fi
+
+# ------------------------------------------------------------------------------
+# 7. Verification: Confirm Vertical Orientation & Plugins Before Reload
 # ------------------------------------------------------------------------------
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would reload xfce4-panel to activate left sidebar"
-elif [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
-    log_info "Reloading xfce4-panel to activate left sidebar..."
-    xfce4-panel -r 2>/dev/null || log_warn "Panel reload deferred."
+    log_dry "Would verify panel-2 mode is vertical (mode=1) and plugins exist"
+    log_dry "Would reload xfce4-panel"
+else
+    # 1. Verify orientation is vertical
+    PANEL_MODE="$(xfconf-query -c xfce4-panel -p /panels/panel-2/mode 2>/dev/null || echo "0")"
+    if [[ "${PANEL_MODE}" != "1" ]]; then
+        log_error "Verification FAILED: panel-2 mode is '${PANEL_MODE}' (expected '1' for Vertical). Aborting reload."
+        exit 1
+    fi
+
+    # 2. Verify plugins exist
+    PANEL_PLUGINS="$(xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids 2>/dev/null || true)"
+    if [[ -z "${PANEL_PLUGINS}" ]]; then
+        log_error "Verification FAILED: panel-2 plugin-ids is empty. Aborting reload."
+        exit 1
+    fi
+
+    log_success "Verified: panel-2 is VERTICAL (mode=1) with active plugins: ${PANEL_PLUGINS//$'\n'/ }"
+    if [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
+        log_info "Reloading xfce4-panel to activate left sidebar..."
+        xfce4-panel -r 2>/dev/null || log_warn "Panel reload deferred."
+    fi
 fi
 
 log_success "Phase 5 Complete: Left Sidebar configured (76px width, 4 desktop pager)."
