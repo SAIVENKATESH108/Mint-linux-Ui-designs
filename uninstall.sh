@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Linux Mint XFCE - macOS Sequoia Desktop Reversal & Rollback Tool
-# Matches undo steps for all phases in ./phases/
+# Linux Mint XFCE - macOS Sequoia Transformation Reversal Tool
+# Supports: --phase <1-8> or --all
+# Matches undo steps for all 8 phases in ./phases/
 # ==============================================================================
 
 set -euo pipefail
@@ -11,8 +12,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 verify_environment
-
-log_info "Initiating Rollback / Uninstall Process"
 
 TARGET_PHASE="all"
 while [[ $# -gt 0 ]]; do
@@ -32,7 +31,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Attempt to execute latest xfconf restore script if available
 restore_latest_xfconf() {
     local latest_backup
     latest_backup="$(ls -td "${BACKUP_ROOT}"/* 2>/dev/null | head -n1 || true)"
@@ -43,75 +41,110 @@ restore_latest_xfconf() {
 }
 
 undo_phase_1() {
-    log_info "Undoing Phase 1: Resetting Themes & Window Controls to Linux Mint Defaults..."
-    set_xfconf_prop "xsettings" "/Net/ThemeName" "string" "Mint-Y-Dark"
-    set_xfconf_prop "xsettings" "/Net/IconThemeName" "string" "Mint-Y"
-    set_xfconf_prop "xfwm4" "/general/theme" "string" "Mint-Y-Dark"
-    set_xfconf_prop "xsettings" "/Gtk/CursorThemeName" "string" "DMZ-White"
-    set_xfconf_prop "xsettings" "/Gtk/FontName" "string" "Ubuntu 10"
-    set_xfconf_prop "xfwm4" "/general/title_font" "string" "Ubuntu Bold 9"
-    set_xfconf_prop "xfwm4" "/general/button_layout" "string" "O|HMC"
-    set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
-    rm -f "${HOME}/.local/bin/toggle-theme.sh"
+    log_info "Undoing Phase 1: Resetting Themes & Window Controls to Mint Defaults..."
+    bash "${SCRIPT_DIR}/phases/01-theme.sh" --undo 2>/dev/null || {
+        set_xfconf_prop "xsettings" "/Net/ThemeName" "string" "Mint-Y-Dark"
+        set_xfconf_prop "xsettings" "/Net/IconThemeName" "string" "Mint-Y"
+        set_xfconf_prop "xfwm4" "/general/theme" "string" "Mint-Y-Dark"
+        set_xfconf_prop "xsettings" "/Gtk/CursorThemeName" "string" "DMZ-White"
+        set_xfconf_prop "xsettings" "/Gtk/FontName" "string" "Ubuntu 10"
+        set_xfconf_prop "xfwm4" "/general/title_font" "string" "Ubuntu Bold 9"
+        set_xfconf_prop "xfwm4" "/general/button_layout" "string" "O|HMC"
+        set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
+        rm -f "${HOME}/.local/bin/toggle-theme.sh"
+    }
     log_success "Phase 1 undone."
 }
 
 undo_phase_2() {
-    log_info "Undoing Phase 2: Restoring xfwm4 and stopping Picom..."
-    # Re-enable xfwm4 native compositing
-    set_xfconf_prop "xfwm4" "/general/use_compositing" "bool" "true"
-    # Restore traditional button layout (Option, Title | Minimize, Maximize, Close)
-    set_xfconf_prop "xfwm4" "/general/button_layout" "string" "O|HMC"
-    set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
-    
-    # Remove picom autostart and kill running instances
-    rm -f "${HOME}/.config/autostart/picom.desktop"
-    killall picom 2>/dev/null || true
+    log_info "Undoing Phase 2: Restoring xfwm4 Native Compositor..."
+    bash "${SCRIPT_DIR}/phases/02-compositor.sh" --undo 2>/dev/null || {
+        set_xfconf_prop "xfwm4" "/general/use_compositing" "bool" "true"
+        rm -f "${HOME}/.config/autostart/picom.desktop"
+        rm -f "${HOME}/.local/bin/lite-mode.sh"
+        pkill -x picom 2>/dev/null || true
+    }
     log_success "Phase 2 undone."
 }
 
 undo_phase_3() {
-    log_info "Undoing Phase 3: Removing GTK3 custom CSS and resetting panel..."
-    rm -f "${HOME}/.config/gtk-3.0/gtk.css"
-    # If a backup of xfce4-panel.xml exists, point user or reload
-    if command -v xfce4-panel &>/dev/null; then
-        xfce4-panel -r 2>/dev/null || true
-    fi
+    log_info "Undoing Phase 3: Removing GTK3 custom CSS and resetting panel-1..."
+    bash "${SCRIPT_DIR}/phases/03-top-bar.sh" --undo 2>/dev/null || {
+        rm -f "${HOME}/.config/gtk-3.0/gtk.css"
+        set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "24"
+        if command -v xfce4-panel &>/dev/null; then
+            xfce4-panel -r 2>/dev/null || true
+        fi
+    }
     log_success "Phase 3 undone."
 }
 
 undo_phase_4() {
     log_info "Undoing Phase 4: Stopping Plank and removing autostart..."
-    rm -f "${HOME}/.config/autostart/plank.desktop"
-    rm -rf "${HOME}/.local/share/plank/themes/Sequoia"
-    killall plank 2>/dev/null || true
+    bash "${SCRIPT_DIR}/phases/04-dock.sh" --undo 2>/dev/null || {
+        rm -f "${HOME}/.config/autostart/plank.desktop"
+        rm -rf "${HOME}/.local/share/plank/themes/Sequoia"
+        rm -rf "${HOME}/.config/plank/dock1/launchers"
+        pkill -x plank 2>/dev/null || true
+    }
     log_success "Phase 4 undone."
 }
 
 undo_phase_5() {
-    log_info "Undoing Phase 5: Removing Rofi configs and shortcuts..."
-    rm -f "${HOME}/.config/rofi/spotlight.rasi"
-    rm -f "${HOME}/.config/rofi/launchpad.rasi"
-    rm -f "${HOME}/.local/bin/spotlight.sh"
-    rm -f "${HOME}/.local/bin/launchpad.sh"
-    rm -f "${HOME}/.local/bin/mission-control.sh"
-    rm -rf "${HOME}/.local/share/xfdashboard/themes/Sequoia"
-
-    # Reset shortcuts
-    xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>space" -r -R 2>/dev/null || true
-    xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/F4" -r -R 2>/dev/null || true
-    xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>a" -r -R 2>/dev/null || true
-    xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/F3" -r -R 2>/dev/null || true
-    xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>Up" -r -R 2>/dev/null || true
+    log_info "Undoing Phase 5: Removing Left Workspace Sidebar..."
+    bash "${SCRIPT_DIR}/phases/05-left-sidebar.sh" --undo 2>/dev/null || {
+        if command -v xfconf-query &>/dev/null; then
+            xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
+            set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
+        fi
+        if command -v xfce4-panel &>/dev/null; then
+            xfce4-panel -r 2>/dev/null || true
+        fi
+    }
     log_success "Phase 5 undone."
 }
 
 undo_phase_6() {
-    log_info "Undoing Phase 6: Stopping Conky and removing widget..."
-    rm -f "${HOME}/.config/autostart/conky-sequoia.desktop"
-    rm -f "${HOME}/.config/conky/sequoia-glance.conkyrc"
-    killall conky 2>/dev/null || true
+    log_info "Undoing Phase 6: Stopping Conky Widgets..."
+    bash "${SCRIPT_DIR}/phases/06-widgets.sh" --undo 2>/dev/null || {
+        rm -f "${HOME}/.config/autostart/conky.desktop"
+        rm -f "${HOME}/.local/bin/conky-manager.sh"
+        rm -f "${HOME}/.local/bin/weather-cache.sh"
+        rm -rf "${HOME}/.config/conky"
+        pkill -x conky 2>/dev/null || true
+    }
     log_success "Phase 6 undone."
+}
+
+undo_phase_7() {
+    log_info "Undoing Phase 7: Removing Rofi Launchers & Shortcuts..."
+    bash "${SCRIPT_DIR}/phases/07-launcher.sh" --undo 2>/dev/null || {
+        if command -v xfconf-query &>/dev/null; then
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>space" -r -R 2>/dev/null || true
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>a" -r -R 2>/dev/null || true
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/F4" -r -R 2>/dev/null || true
+        fi
+        rm -f "${HOME}/.config/rofi/spotlight.rasi"
+        rm -f "${HOME}/.config/rofi/launchpad.rasi"
+        rm -f "${HOME}/.local/bin/spotlight.sh"
+        rm -f "${HOME}/.local/bin/launchpad.sh"
+    }
+    log_success "Phase 7 undone."
+}
+
+undo_phase_8() {
+    log_info "Undoing Phase 8: Removing Extras & Hotkeys..."
+    bash "${SCRIPT_DIR}/phases/08-extras.sh" --undo 2>/dev/null || {
+        if command -v xfconf-query &>/dev/null; then
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>c" -r -R 2>/dev/null || true
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>Up" -r -R 2>/dev/null || true
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/F3" -r -R 2>/dev/null || true
+            xfconf-query -c "xfce4-keyboard-shortcuts" -p "/commands/custom/<Super>q" -r -R 2>/dev/null || true
+        fi
+        rm -f "${HOME}/.local/bin/mission-control.sh"
+        rm -f "${HOME}/.local/bin/control-center.sh"
+    }
+    log_success "Phase 8 undone."
 }
 
 case "${TARGET_PHASE}" in
@@ -121,7 +154,11 @@ case "${TARGET_PHASE}" in
     4) undo_phase_4 ;;
     5) undo_phase_5 ;;
     6) undo_phase_6 ;;
+    7) undo_phase_7 ;;
+    8) undo_phase_8 ;;
     all)
+        undo_phase_8
+        undo_phase_7
         undo_phase_6
         undo_phase_5
         undo_phase_4
@@ -129,7 +166,7 @@ case "${TARGET_PHASE}" in
         undo_phase_2
         undo_phase_1
         restore_latest_xfconf
-        log_success "All phases reverted successfully."
+        log_success "All 8 phases reverted successfully."
         ;;
     *)
         log_error "Invalid phase number: ${TARGET_PHASE}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Hot Reload Script for Linux Mint XFCE Desktop Testing (Level 2 Preview)
+# Hot Reload Script for Linux Mint XFCE Desktop
 # Allows instant refreshing of UI components without logging out
 # ==============================================================================
 
@@ -10,43 +10,59 @@ TARGET="${1:-all}"
 
 reload_gtk() {
     echo "==> Reloading GTK Theme & CSS..."
-    CURRENT_THEME="$(xfconf-query -c xsettings -p /Net/ThemeName 2>/dev/null || echo "Mint-Y-Dark")"
-    xfconf-query -c xsettings -p /Net/ThemeName -s "Mint-Y" 2>/dev/null || true
-    sleep 0.1
-    xfconf-query -c xsettings -p /Net/ThemeName -s "${CURRENT_THEME}" 2>/dev/null || true
+    if command -v xfconf-query &>/dev/null; then
+        CURRENT_THEME="$(xfconf-query -c xsettings -p /Net/ThemeName 2>/dev/null || echo "WhiteSur-Dark")"
+        xfconf-query -c xsettings -p /Net/ThemeName -s "Mint-Y" 2>/dev/null || true
+        sleep 0.1
+        xfconf-query -c xsettings -p /Net/ThemeName -s "${CURRENT_THEME}" 2>/dev/null || true
+    fi
     echo "  ✔ GTK theme reloaded."
+}
+
+reload_xfwm4() {
+    echo "==> Reloading xfwm4 window manager..."
+    if command -v xfwm4 &>/dev/null && [[ -n "${DISPLAY:-}" ]]; then
+        xfwm4 --replace 2>/dev/null &
+    fi
+    echo "  ✔ xfwm4 reloaded."
 }
 
 reload_panel() {
     echo "==> Reloading xfce4-panel..."
-    xfce4-panel -r 2>/dev/null || true
+    if command -v xfce4-panel &>/dev/null; then
+        xfce4-panel -r 2>/dev/null || true
+    fi
     echo "  ✔ xfce4-panel reloaded."
 }
 
 reload_plank() {
     echo "==> Reloading Plank dock..."
-    killall plank 2>/dev/null || true
-    sleep 0.2
-    plank &>/dev/null & disown
+    if command -v plank &>/dev/null; then
+        pkill -x plank 2>/dev/null || true
+        sleep 0.3
+        plank &>/dev/null & disown
+    fi
     echo "  ✔ Plank dock restarted."
 }
 
 reload_conky() {
     echo "==> Reloading Conky widgets..."
-    killall conky 2>/dev/null || true
-    sleep 0.2
-    if [[ -f "${HOME}/.config/conky/sequoia-glance.conkyrc" ]]; then
-        conky -c "${HOME}/.config/conky/sequoia-glance.conkyrc" -d &>/dev/null || true
+    if [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
+        bash "${HOME}/.local/bin/conky-manager.sh" restart
+    else
+        pkill -x conky 2>/dev/null || true
     fi
     echo "  ✔ Conky restarted."
 }
 
 reload_picom() {
     echo "==> Reloading Picom compositor..."
-    killall picom 2>/dev/null || true
-    sleep 0.2
-    if [[ -f "${HOME}/.config/picom/picom.conf" ]]; then
-        picom --config "${HOME}/.config/picom/picom.conf" -b 2>/dev/null || true
+    if command -v picom &>/dev/null; then
+        pkill -x picom 2>/dev/null || true
+        sleep 0.3
+        if [[ -f "${HOME}/.config/picom/picom.conf" ]]; then
+            picom --config "${HOME}/.config/picom/picom.conf" -b 2>/dev/null || true
+        fi
     fi
     echo "  ✔ Picom reloaded."
 }
@@ -54,6 +70,9 @@ reload_picom() {
 case "${TARGET}" in
     gtk)
         reload_gtk
+        ;;
+    wm|xfwm4)
+        reload_xfwm4
         ;;
     panel)
         reload_panel
@@ -69,6 +88,7 @@ case "${TARGET}" in
         ;;
     all)
         reload_gtk
+        reload_xfwm4
         reload_panel
         reload_plank
         reload_conky
@@ -76,7 +96,7 @@ case "${TARGET}" in
         echo "🎉 All XFCE desktop components reloaded successfully!"
         ;;
     *)
-        echo "Usage: $0 [all|gtk|panel|plank|conky|picom]"
+        echo "Usage: $0 [all|gtk|wm|panel|plank|conky|picom]"
         exit 1
         ;;
 esac

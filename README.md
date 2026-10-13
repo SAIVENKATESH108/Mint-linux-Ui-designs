@@ -1,126 +1,125 @@
 # macOS Sequoia Style Linux Mint XFCE Desktop
 
-Automated, idempotent, and reversible desktop transformation suite that turns a Linux Mint 22.3 XFCE system into a macOS Sequoia-style desktop environment. Tailored for legacy x86_64 hardware (Core i3-3220, NVIDIA GeForce GT 610, 1280x1024 resolution) running X11.
+Automated, idempotent, defensive, and reversible desktop transformation suite that turns a Linux Mint 22.3 XFCE desktop into an authentic macOS Sequoia workspace. Specifically calibrated for legacy hardware (Intel Core i3-3220, NVIDIA GeForce GT 610, HDMI-1 1280×1024 @ 60.02 Hz) running X11.
 
 ---
 
 ## 🖥️ Target System & Architecture
 
-- **Base System**: Linux Mint 22.3 (Zena) / Ubuntu 24.04 LTS (Noble)
+- **Operating System**: Linux Mint 22.3 (Zena) / Ubuntu 24.04 LTS (Noble)
 - **Desktop Environment**: XFCE 4.18 (X11 Display Server)
-- **Target Hardware**: Intel Core i3-3220 @ 3.3GHz, 12GB RAM, NVIDIA GT 610 (nouveau driver)
-- **Display Resolution**: 1280x1024 @ 60Hz
+- **Target Hardware**: Intel Core i3-3220 (2C/4T @ 3.3GHz), 12 GB RAM, NVIDIA GT 610 (Fermi GF119, nouveau driver, OpenGL 4.3 Mesa 25.2.8)
+- **Chassis**: Desktop PC (No battery, No Bluetooth)
+- **Display**: HDMI-1, 1280×1024 @ 60.02 Hz (5:4 aspect ratio, 1x scale). PRIMARY and required target.
+- **Default Profile**: **LITE Mode** (Picom 10.2 GLX backend, rounded corners 12px, soft shadows, fade, **0% blur** to prevent GPU fillrate stalls).
 
 ---
 
-## 🎨 Design Tokens & Reference
+## 🚀 The 8 Phases
 
-All colors, radii, spacing, and typography are canonically declared in [`reference/design-tokens.conf`](reference/design-tokens.conf):
-- **Window Controls**: Traffic lights (`#ff5f56`, `#ffbd2e`, `#27c93f`) on the left (`CHM|`).
-- **Top Panel**: 26px height, dark frosted translucent background (`rgba(30, 30, 32, 0.85)`), Apple logo launcher.
-- **Dock**: Plank 44px icons, 14px corner radius, dodge-window autohide, zoom on hover.
-- **Spotlight & Launchpad**: Rofi themes styled with Apple Blue (`#007aff`) accents.
-- **Compositor Profiles**:
-  - **`lite` mode** (*default*): `xrender` backend, 0 blur, smooth shadows, lightweight for GT 610.
-  - **`full` mode**: `glx` backend with dual-kawase blur for capable hardware.
-
----
-
-## 🚀 Toolchain & Phases
-
-| Phase | Component | Script | Key Features |
-|---|---|---|---|
-| **Phase 1** | GTK & Icons | `phases/01-theme-assets.sh` | Vendored WhiteSur-Dark GTK theme, WhiteSur icons, Apple logo |
-| **Phase 2** | WM & Compositor | `phases/02-wm-compositor.sh` | xfwm4 left traffic lights, Picom compositor (lite / full) |
-| **Phase 3** | Top Menu Bar | `phases/03-top-panel.sh` | xfce4-panel 26px top bar styled via GTK3 CSS, macOS clock format |
-| **Phase 4** | Dock | `phases/04-plank-dock.sh` | Plank bottom dock with Sequoia theme, zoom effect, pinned apps |
-| **Phase 5** | Search & Launchers | `phases/05-launchpad-spotlight.sh` | Rofi Spotlight (`Super+Space`), Launchpad (`F4`), xfdashboard (`F3`) |
-| **Phase 6** | Desktop Widgets | `phases/06-conky-widgets.sh` | Conky glance widget (clock, date, CPU/RAM/SSD glance) |
+| Phase | Component | Script | Key Features | Undo Command |
+|---|---|---|---|---|
+| **01** | Theme & Icons | `phases/01-theme.sh` | WhiteSur GTK (Dark & Light), WhiteSur icons, Inter font, left traffic-lights (`CHM\|`), `toggle-theme.sh` | `./phases/01-theme.sh --undo` |
+| **02** | Compositor | `phases/02-compositor.sh` | Picom 10.2 (glx backend), lite profile default, glass profile optional, xfwm4 uncomposited, `lite-mode.sh` | `./phases/02-compositor.sh --undo` |
+| **03** | Top Menu Bar | `phases/03-top-bar.sh` | `xfce4-panel` (28px height), macOS clock format (`%a %e %b  %l:%M %P`), Apple logo, GTK CSS styling | `./phases/03-top-bar.sh --undo` |
+| **04** | Dock | `phases/04-dock.sh` | Plank with custom Sequoia theme, 10 unified icons, dodge-window autohide, bottom panel hidden | `./phases/04-dock.sh --undo` |
+| **05** | Left Sidebar | `phases/05-left-sidebar.sh` | 76px vertical floating panel (`panel-2`), 4-desktop pager (`Desk 1..4`), 3 quick launchers, power button | `./phases/05-left-sidebar.sh --undo` |
+| **06** | Desktop Widgets | `phases/06-widgets.sh` | 3 Conky windows (Clock+Weather, Calendar+Sensors, Media+Storage), update interval 3.5s, cached wttr.in weather | `./phases/06-widgets.sh --undo` |
+| **07** | Launchers | `phases/07-launcher.sh` | Rofi Spotlight (`Super+Space`), 7×5 Launchpad app grid (`Super+A` / `F4`), Sequoia themes | `./phases/07-launcher.sh --undo` |
+| **08** | Extras & Hotkeys | `phases/08-extras.sh` | Mission Control (`Super+Up` / `F3`), interactive Control Center menu (`Super+C`), macOS window shortcuts | `./phases/08-extras.sh --undo` |
 
 ---
 
-## 📦 VM Testing Guide
+## 🛠️ Installation & Execution Guide
 
-### 1. Transfer or Clone to VM
+### 1. Dry Run (Test Before Modifying)
+To inspect every change without modifying files or xfconf:
 ```bash
-git clone <repository-url> linux-mint-design
-cd linux-mint-design
+./install.sh --dry-run
 ```
 
-### 2. Testing Phase-by-Phase
-
-#### **Phase 1: Theme Assets**
+### 2. Full Installation (All 8 Phases)
 ```bash
-bash phases/01-theme-assets.sh
-```
-- **What to Expect**: Window theme switches to WhiteSur-Dark, icons change to macOS style, Apple icon is installed.
-- **How to Test**: Open Thunar file manager and XFCE Settings to inspect the dark window chrome and icons.
-- **Undo**: `bash uninstall.sh --phase 1`
+# Default Lite Profile (Recommended for NVIDIA GT 610):
+./install.sh --all
 
-#### **Phase 2: Window Manager & Compositor**
+# Or explicitly select profile:
+./install.sh --all --profile lite
+```
+
+### 3. Step-by-Step Execution
+Run phases individually in order:
 ```bash
-# Test with lite mode (recommended for GT 610)
-bash phases/02-wm-compositor.sh --lite
-
-# Or test full mode if VM has 3D acceleration enabled
-bash phases/02-wm-compositor.sh --full
+./install.sh --phase 1
+./install.sh --phase 2
+./install.sh --phase 3
+./install.sh --phase 4
+./install.sh --phase 5
+./install.sh --phase 6
+./install.sh --phase 7
+./install.sh --phase 8
 ```
-- **What to Expect**: Traffic light dots (Close, Minimize, Maximize) appear on the top-left of every window. Picom launches with tear-free vsync and subtle shadows.
-- **Undo**: `bash uninstall.sh --phase 2`
 
-#### **Phase 3: Top Menu Bar**
+### 4. Offline Installation
+If deploying without an active internet connection:
 ```bash
-bash phases/03-top-panel.sh
+./install.sh --all --offline
 ```
-- **What to Expect**: Panel relocates to the top edge (26px height), styled with translucent dark acrylic styling and Apple menu icon.
-- **Undo**: `bash uninstall.sh --phase 3`
-
-#### **Phase 4: Plank Dock**
-```bash
-bash phases/04-plank-dock.sh
-```
-- **What to Expect**: macOS-style bottom dock pops up with smooth hover zoom and pinned launchers (Finder/Thunar, Browser, Terminal, Settings).
-- **Undo**: `bash uninstall.sh --phase 4`
-
-#### **Phase 5: Spotlight & Launchpad**
-```bash
-bash phases/05-launchpad-spotlight.sh
-```
-- **What to Expect**:
-  - Press `Super + Space`: Spotlight search modal appears in center screen.
-  - Press `F4` or `Super + A`: Fullscreen Launchpad app grid opens.
-  - Press `F3`: Mission Control window overview appears.
-- **Undo**: `bash uninstall.sh --phase 5`
-
-#### **Phase 6: Desktop Glance Widget**
-```bash
-bash phases/06-conky-widgets.sh --lite
-```
-- **What to Expect**: Clean macOS Sequoia date, time, and system resource bars appear on the upper right of the desktop.
-- **Undo**: `bash uninstall.sh --phase 6`
 
 ---
 
-## ⚡ Master Installer & Complete Rollback
+## 🔍 Verification & Diagnostics
 
-To deploy everything at once:
+### Run the Integrity Audit
+After running phases, audit every package, config, running process, and xfconf setting:
 ```bash
-# Standard lite run for target PC
-bash install.sh --lite
-
-# Full effects mode
-bash install.sh --full
+./scripts/verify.sh
 ```
+Prints a clear `[PASS]` / `[FAIL]` report that you can paste back into chat.
 
-To completely restore original Mint configuration:
+### Hardware & Window Class Diagnostics
+To dump system info or inspect window classes with `xprop`:
 ```bash
-bash uninstall.sh --all
+./scripts/diagnose.sh
 ```
-All original configurations are automatically backed up before every change in `~/.mint-sequoia-backup/<timestamp>/`.
 
 ---
 
-## 🔒 Safety & Idempotency Guarantee
-- Scripts never use `sudo` automatically without explicit confirmation.
-- Running any phase twice is safe and produces identical results without duplication.
-- No commands affect the development host machine.
+## 🔄 Hot Reload & Screenshot Tools
+
+- **Reload All Components**: `./scripts/reload.sh` (reloads GTK, panel, dock, widgets, picom, and xfwm4)
+- **Capture Desktop Screenshot**: `./scripts/snap.sh [label]` (saves to `preview/vm-[label].png`)
+- **Toggle Light / Dark Mode**: `~/.local/bin/toggle-theme.sh [light|dark|toggle]`
+- **Toggle Lite / Glass Mode**: `~/.local/bin/lite-mode.sh [lite|glass|toggle]`
+
+---
+
+## ↩️ Rollback & Emergency Recovery
+
+### Granular Rollback
+Revert an individual phase:
+```bash
+./uninstall.sh --phase 2
+```
+
+### Full Transformation Reversal
+Revert all 8 phases back to stock Linux Mint XFCE:
+```bash
+./uninstall.sh --all
+```
+
+### 🚨 Emergency Recovery from TTY (Ctrl+Alt+F3)
+If the graphical desktop freezes, crashes, or fails to render:
+1. Press `Ctrl + Alt + F3` to access a text console and log in.
+2. Run:
+   ```bash
+   cd ~/linux-mint-design
+   bash restore-default-desktop.sh
+   ```
+3. This script immediately:
+   - Kills `picom`, `plank`, `conky`, `rofi`, and `xfdashboard`
+   - Disables all autostarts
+   - Re-enables native `xfwm4` compositing
+   - Restores stock Mint-Y theme and traditional right window buttons (`O|HMC`)
+   - Resets the panel to default
+4. Press `Ctrl + Alt + F7` (or `sudo systemctl restart lightdm`) to return to your working desktop.
