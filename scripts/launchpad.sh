@@ -12,4 +12,10 @@ if [[ ! -f "${THEME_FILE}" ]]; then
     THEME_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/rofi/launchpad.rasi"
 fi
 
-exec rofi -show drun -theme "${THEME_FILE}"
+if command -v rofi &>/dev/null && [[ -f "${THEME_FILE}" ]]; then
+    exec rofi -show drun -theme "${THEME_FILE}"
+elif command -v xfce4-appfinder &>/dev/null; then
+    exec xfce4-appfinder --collapsed
+else
+    xfce4-popup-whiskermenu || true
+fi

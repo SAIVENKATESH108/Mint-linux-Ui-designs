@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Control Center
+GenericName=Quick Settings
+Comment=macOS Sequoia Quick Settings & Media Controls
+Exec=control-center.sh
+Icon=preferences-desktop
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=control;center;volume;wifi;brightness;settings;macos;
+StartupNotify=false

@@ -2,9 +2,15 @@
 # ==============================================================================
 # Sequoia Permanent System Enforcer
 # Consolidates all configuration, wipes stale/glitched CSS fragments,
-# deploys and applies the Sequoia Dock theme (Plank) and Desktop Widgets (Conky),
-# enforces macOS traffic lights across applications, zero-gap struts,
-# and locks the consolidated supervisor into autostart for 100% reboot persistence.
+# deploys and activates the complete macOS Sequoia suite:
+#   - Plank Dock 'Sequoia' theme
+#   - Conky 3-Card Desktop Widgets (Translucent Glass Cards matching Preview)
+#   - Launchpad (Fullscreen 7x5 Application Grid via Rofi & Super+A / F4)
+#   - Spotlight Search (Universal search bar via Rofi & Super+Space)
+#   - Control Center (Quick settings menu via Super+C)
+#   - Mission Control (Window overview via Super+Up / F3)
+#   - Sequoia Settings (Theme & Appearance GUI Control Panel)
+#   - macOS traffic lights, zero top gap, and reboot supervisor
 # ==============================================================================
 
 set -euo pipefail
@@ -21,7 +27,7 @@ verify_environment
 
 log_info "=========================================================="
 log_info " Sequoia Permanent System Enforcer"
-log_info " Applying clean state, dock & widget theming across system"
+log_info " Deploying complete functional macOS suite across system"
 log_info "=========================================================="
 
 # ------------------------------------------------------------------------------
@@ -42,7 +48,7 @@ safe_copy "${REPO_ROOT}/config/gtk-3.0/gtk.css" "${GTK_DIR}/gtk.css"
 log_success "GTK 3.0 stylesheets cleanly consolidated and strictly scoped."
 
 # ------------------------------------------------------------------------------
-# 2. Deploy Picom Compositor Configuration (Prerequisite for Dock & Widgets)
+# 2. Deploy Picom Compositor Configuration (16px Corner Radius)
 # ------------------------------------------------------------------------------
 log_info "Step 2: Deploying Picom compositor configuration..."
 PICOM_DIR="${HOME}/.config/picom"
@@ -86,7 +92,7 @@ if command -v dconf &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Deploy Conky Desktop Widgets Configuration
+# 4. Deploy Conky Desktop Widgets (3 Translucent Glass Cards matching Preview)
 # ------------------------------------------------------------------------------
 log_info "Step 4: Deploying Conky desktop widget configurations..."
 CONKY_CONFIG_DIR="${HOME}/.config/conky"
@@ -95,16 +101,57 @@ mkdir -p "${CONKY_CONFIG_DIR}"
 safe_copy "${REPO_ROOT}/config/conky/clock-weather.conkyrc" "${CONKY_CONFIG_DIR}/clock-weather.conkyrc"
 safe_copy "${REPO_ROOT}/config/conky/calendar-system.conkyrc" "${CONKY_CONFIG_DIR}/calendar-system.conkyrc"
 safe_copy "${REPO_ROOT}/config/conky/media-notes.conkyrc" "${CONKY_CONFIG_DIR}/media-notes.conkyrc"
-log_success "Conky transparent floating card configurations deployed."
+log_success "Conky translucent glass card configurations deployed."
 
 # ------------------------------------------------------------------------------
-# 5. Deploy Binaries to ~/.local/bin/
+# 5. Deploy Rofi Themes (Launchpad 7x5 & Spotlight Universal Search)
 # ------------------------------------------------------------------------------
-log_info "Step 5: Installing session binaries into ~/.local/bin/..."
+log_info "Step 5: Deploying Rofi themes for Launchpad and Spotlight..."
+ROFI_DIR="${HOME}/.config/rofi"
+mkdir -p "${ROFI_DIR}"
+
+if [[ -f "${REPO_ROOT}/config/rofi/launchpad.rasi" ]]; then
+    safe_copy "${REPO_ROOT}/config/rofi/launchpad.rasi" "${ROFI_DIR}/launchpad.rasi"
+fi
+if [[ -f "${REPO_ROOT}/config/rofi/spotlight.rasi" ]]; then
+    safe_copy "${REPO_ROOT}/config/rofi/spotlight.rasi" "${ROFI_DIR}/spotlight.rasi"
+fi
+log_success "Rofi Launchpad and Spotlight stylesheets installed."
+
+# ------------------------------------------------------------------------------
+# 6. Deploy xfdashboard Theme (Mission Control)
+# ------------------------------------------------------------------------------
+log_info "Step 6: Deploying xfdashboard Mission Control theme..."
+XFDASH_DIR="${HOME}/.local/share/xfdashboard/themes/Sequoia"
+mkdir -p "${XFDASH_DIR}"
+
+if [[ -f "${REPO_ROOT}/config/xfdashboard/xfdashboard.css" ]]; then
+    safe_copy "${REPO_ROOT}/config/xfdashboard/xfdashboard.css" "${XFDASH_DIR}/xfdashboard.css"
+fi
+log_success "Mission Control theme deployed."
+
+# ------------------------------------------------------------------------------
+# 7. Deploy Binaries to ~/.local/bin/
+# ------------------------------------------------------------------------------
+log_info "Step 7: Installing session binaries into ~/.local/bin/..."
 mkdir -p "${HOME}/.local/bin"
 
-for b in "sequoia-supervisor.sh" "start-plank.sh" "conky-manager.sh" \
-         "weather-cache.sh" "sequoia-ctl" "app-window-theming.sh" "lite-mode.sh"; do
+SESSION_BINS=(
+    "sequoia-supervisor.sh"
+    "start-plank.sh"
+    "conky-manager.sh"
+    "weather-cache.sh"
+    "sequoia-ctl"
+    "app-window-theming.sh"
+    "lite-mode.sh"
+    "launchpad.sh"
+    "spotlight.sh"
+    "control-center.sh"
+    "mission-control.sh"
+    "sequoia-settings.sh"
+)
+
+for b in "${SESSION_BINS[@]}"; do
     if [[ -f "${SCRIPT_DIR}/${b}" ]]; then
         safe_copy "${SCRIPT_DIR}/${b}" "${HOME}/.local/bin/${b}"
         chmod +x "${HOME}/.local/bin/${b}"
@@ -115,18 +162,71 @@ done
 if [[ -f "${HOME}/.local/bin/weather-cache.sh" ]]; then
     bash "${HOME}/.local/bin/weather-cache.sh" >/dev/null 2>&1 || true
 fi
-log_success "Binaries deployed and marked executable."
+log_success "All 12 session binaries deployed and marked executable."
 
 # ------------------------------------------------------------------------------
-# 6. Enforce macOS Window Decorations & Zero Topbar Gap
+# 8. Deploy Desktop Applications (.desktop Launchers)
 # ------------------------------------------------------------------------------
-log_info "Step 6: Enforcing macOS traffic lights & zero topbar gap..."
+log_info "Step 8: Installing Desktop Application Launchers..."
+APP_DIR="${HOME}/.local/share/applications"
+mkdir -p "${APP_DIR}"
+
+APP_ENTRIES=(
+    "launchpad.desktop"
+    "spotlight.desktop"
+    "control-center.desktop"
+    "mission-control.desktop"
+    "sequoia-settings.desktop"
+)
+
+for app in "${APP_ENTRIES[@]}"; do
+    if [[ -f "${REPO_ROOT}/config/applications/${app}" ]]; then
+        safe_copy "${REPO_ROOT}/config/applications/${app}" "${APP_DIR}/${app}"
+        chmod +x "${APP_DIR}/${app}"
+    fi
+done
+
+if command -v update-desktop-database &>/dev/null; then
+    update-desktop-database "${APP_DIR}" 2>/dev/null || true
+fi
+log_success "Desktop applications installed (Launchpad, Spotlight, Control Center, Mission Control, Settings)."
+
+# ------------------------------------------------------------------------------
+# 9. Bind macOS-Style Global Keyboard Shortcuts
+# ------------------------------------------------------------------------------
+log_info "Step 9: Binding macOS-style global keyboard shortcuts..."
+KB_CHANNEL="xfce4-keyboard-shortcuts"
+
+if command -v xfconf-query &>/dev/null; then
+    # Spotlight: Super+Space
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>space" "string" "${HOME}/.local/bin/spotlight.sh"
+
+    # Launchpad: Super+A and F4
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>a" "string" "${HOME}/.local/bin/launchpad.sh"
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/F4" "string" "${HOME}/.local/bin/launchpad.sh"
+
+    # Control Center: Super+C
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>c" "string" "${HOME}/.local/bin/control-center.sh"
+
+    # Mission Control: Super+Up and F3
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>Up" "string" "${HOME}/.local/bin/mission-control.sh"
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/F3" "string" "${HOME}/.local/bin/mission-control.sh"
+
+    # Sequoia Settings: Super+comma (Cmd+, macOS standard)
+    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>comma" "string" "${HOME}/.local/bin/sequoia-settings.sh"
+    log_success "Keyboard shortcuts active: Super+Space (Spotlight), Super+A (Launchpad), Super+C (Control Center), Super+Up (Mission Control)."
+fi
+
+# ------------------------------------------------------------------------------
+# 10. Enforce macOS Window Decorations & Zero Topbar Gap
+# ------------------------------------------------------------------------------
+log_info "Step 10: Enforcing macOS traffic lights & zero topbar gap..."
 bash "${SCRIPT_DIR}/app-window-theming.sh"
 
 # ------------------------------------------------------------------------------
-# 7. Enforce Top Bar Panel Geometry & Struts
+# 11. Enforce Top Bar Panel Geometry & Struts
 # ------------------------------------------------------------------------------
-log_info "Step 7: Enforcing panel-1 struts and geometry..."
+log_info "Step 11: Enforcing panel-1 struts and geometry..."
 if command -v xfconf-query &>/dev/null; then
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/position" "string" "p=6;x=0;y=0"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "28"
@@ -147,9 +247,9 @@ if command -v xfconf-query &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 8. Permanent Consolidated Autostart (Survives Reboot)
+# 12. Permanent Consolidated Autostart (Survives Reboot)
 # ------------------------------------------------------------------------------
-log_info "Step 8: Configuring reboot-persistent autostart supervisor..."
+log_info "Step 12: Configuring reboot-persistent autostart supervisor..."
 AUTOSTART_DIR="${HOME}/.config/autostart"
 mkdir -p "${AUTOSTART_DIR}"
 MIGRATED_DIR="${AUTOSTART_DIR}/.sequoia-migrated"
@@ -179,19 +279,19 @@ chmod +x "${AUTOSTART_DIR}/sequoia-session.desktop"
 log_success "Reboot supervisor registered at: ${AUTOSTART_DIR}/sequoia-session.desktop"
 
 # ------------------------------------------------------------------------------
-# 9. Live Application & Service Restart (Immediate Visual Refresh)
+# 13. Live Application & Service Restart (Immediate Visual Refresh)
 # ------------------------------------------------------------------------------
-log_info "Step 9: Applying themes live to active desktop session..."
+log_info "Step 13: Applying themes live to active desktop session..."
 if [[ -n "${DISPLAY:-}" ]]; then
-    # 9a. Restart Picom
+    # 13a. Restart Picom
     if command -v picom &>/dev/null && [[ -f "${PICOM_DIR}/picom.conf" ]]; then
-        log_info "Starting Picom compositor..."
+        log_info "Restarting Picom compositor (16px corners & GLX backend)..."
         pkill -x picom 2>/dev/null || true
         sleep 0.4
         picom --config "${PICOM_DIR}/picom.conf" -b 2>/dev/null || true
     fi
 
-    # 9b. Restart Plank
+    # 13b. Restart Plank
     if command -v plank &>/dev/null; then
         log_info "Restarting Plank with Sequoia theme..."
         pkill -x plank 2>/dev/null || true
@@ -203,25 +303,26 @@ if [[ -n "${DISPLAY:-}" ]]; then
         fi
     fi
 
-    # 9c. Restart Conky
+    # 13c. Restart Conky
     if command -v conky &>/dev/null; then
-        log_info "Restarting Conky widgets with transparent floating layout..."
+        log_info "Restarting Conky widgets with translucent glass cards..."
         if [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
             "${HOME}/.local/bin/conky-manager.sh" restart >/dev/null 2>&1 || true
         fi
     fi
 
-    # 9d. Reload Top Panel
+    # 13d. Reload Top Panel
     log_info "Reloading top panel with clean scoped styling..."
     guarded_panel_reload || true
 fi
 
 log_success "=========================================================="
-log_success " Permanent system enforcement complete!"
-log_success " - Dock theme 'Sequoia' deployed & applied via dconf"
-log_success " - Conky transparent floating widgets deployed & restarted"
-log_success " - Picom compositor active (enables dock/widget transparency)"
-log_success " - Scoped GTK CSS active across panel & apps"
-log_success " - macOS traffic lights & zero top gap enforced"
+log_success " Complete macOS Sequoia System Deployment Finished!"
+log_success " - Widgets: 3 Translucent Glass Cards active (matches preview)"
+log_success " - Launchpad: Super+A or F4 (or open from Whisker / Apps)"
+log_success " - Spotlight: Super+Space"
+log_success " - Control Center: Super+C"
+log_success " - Mission Control: Super+Up or F3"
+log_success " - Sequoia Settings: Super+, or open from Apps"
 log_success " - All services will cleanly autostart upon reboot."
 log_success "=========================================================="

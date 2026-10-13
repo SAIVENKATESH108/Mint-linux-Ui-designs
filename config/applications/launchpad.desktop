@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Launchpad
+GenericName=Application Launcher
+Comment=macOS Sequoia Fullscreen 7x5 Application Grid
+Exec=launchpad.sh
+Icon=launchpad
+Terminal=false
+Categories=Utility;System;
+Keywords=launcher;grid;apps;macos;launchpad;
+StartupNotify=false

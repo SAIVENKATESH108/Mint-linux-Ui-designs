@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Mission Control
+GenericName=Workspace Overview
+Comment=macOS Sequoia Window & Workspace Overview
+Exec=mission-control.sh
+Icon=workspace-switcher
+Terminal=false
+Categories=Utility;DesktopSettings;
+Keywords=mission;control;windows;workspaces;overview;macos;
+StartupNotify=false

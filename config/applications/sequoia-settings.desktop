@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Sequoia Settings
+GenericName=Appearance Settings
+Comment=Configure macOS Sequoia Appearance, Themes & Presets
+Exec=sequoia-settings.sh
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=settings;theme;sequoia;appearance;preset;macos;
+StartupNotify=false

@@ -2,13 +2,6 @@
 # ==============================================================================
 # macOS Sequoia Control Center Menu for Linux Mint XFCE
 # Trigger: Super+C or panel launcher
-#
-# Technical Limits & Implementation Reality:
-#   XFCE 4.18 has no native composite popover widget matching macOS Control Center.
-#   Rather than running heavy Electron/JavaScript background daemons that exhaust
-#   the Core i3-3220 CPU and 12GB RAM, this script builds an interactive, zero-overhead
-#   control menu using Rofi/CLI tools (pactl, xrandr, nmcli, playerctl).
-#   No Bluetooth options are shown (Desktop PC hardware constraint).
 # ==============================================================================
 
 set -euo pipefail
@@ -29,13 +22,23 @@ MENU_ITEMS=(
     "🌙  Display Brightness: Decrease (-10%)"
     "🎵  Now Playing: ${TRACK_INFO} (Play/Pause)"
     "🛑  Do Not Disturb: Toggle Notifications"
-    "⚙️  Open System Settings"
+    "⚙️  Open Sequoia Settings"
 )
 
-CHOICE=$(printf "%s\n" "${MENU_ITEMS[@]}" | rofi -dmenu -i -p "Control Center" -theme-str '
-window { width: 440px; border-radius: 14px; location: north east; anchor: north east; x-offset: -14px; y-offset: 36px; }
-listview { lines: 10; }
-') || exit 0
+CHOICE=""
+if command -v rofi &>/dev/null; then
+    CHOICE=$(printf "%s\n" "${MENU_ITEMS[@]}" | rofi -dmenu -i -p "Control Center" -theme-str '
+    window { width: 440px; border-radius: 14px; location: north east; anchor: north east; x-offset: -14px; y-offset: 36px; }
+    listview { lines: 10; }
+    ' || true)
+elif command -v zenity &>/dev/null; then
+    CHOICE=$(zenity --list --title="Control Center" --column="Quick Controls" "${MENU_ITEMS[@]}" --height=380 --width=420 || true)
+else
+    xfce4-settings-manager &
+    exit 0
+fi
+
+[[ -z "${CHOICE}" ]] && exit 0
 
 case "${CHOICE}" in
     *"Wi-Fi"*)
@@ -69,7 +72,11 @@ case "${CHOICE}" in
         xfconf-query -c xfce4-notifyd -p /do-not-disturb -t bool -s "$(xfconf-query -c xfce4-notifyd -p /do-not-disturb 2>/dev/null | grep -q true && echo false || echo true)" 2>/dev/null || true
         notify-send "Control Center" "Do Not Disturb Toggled"
         ;;
-    *"System Settings"*)
-        xfce4-settings-manager &
+    *"Sequoia Settings"*)
+        if [[ -x "${HOME}/.local/bin/sequoia-settings.sh" ]]; then
+            "${HOME}/.local/bin/sequoia-settings.sh" &
+        else
+            xfce4-settings-manager &
+        fi
         ;;
 esac

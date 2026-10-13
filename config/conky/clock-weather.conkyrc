@@ -1,18 +1,19 @@
 -- ==============================================================================
--- Conky Window 1: Clock & Weather Widget (Vibrant Floating Glass - No Solid Card)
+-- Conky Window 1: Clock & Weather Widget (macOS Sequoia Translucent Glass Card)
 -- Target Hardware: Intel Core i3-3220, NVIDIA GT 610, 1280x1024
 -- ==============================================================================
 
 conky.config = {
     alignment = 'top_right',
     background = false,
-    border_width = 0,
+    border_width = 1,
+    border_inner_margin = 12,
     cpu_avg_samples = 2,
     default_color = '#FFFFFF',
-    default_outline_color = '#000000',
+    default_outline_color = '#2d3748',
     default_shade_color = '#000000',
     double_buffer = true,
-    draw_borders = false,
+    draw_borders = true,
     draw_graph_borders = false,
     draw_outline = false,
     draw_shades = false,
@@ -20,7 +21,7 @@ conky.config = {
     font = 'Inter:size=10',
     gap_x = 14,
     gap_y = 38,
-    minimum_height = 130,
+    minimum_height = 136,
     minimum_width = 320,
     maximum_width = 320,
     net_avg_samples = 2,
@@ -35,8 +36,8 @@ conky.config = {
     own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
     own_window_transparent = false,
     own_window_argb_visual = true,
-    own_window_argb_value = 0,
-    own_window_colour = '000000',
+    own_window_argb_value = 165,
+    own_window_colour = '161a26',
     override_utf8_locale = true,
     show_graph_range = false,
     show_graph_scale = false,
@@ -48,10 +49,10 @@ conky.config = {
 }
 
 conky.text = [[
-${color #38BDF8}${font Inter:bold:size=8}GLANCE | TIME & WEATHER${alignr}${color #94A3B8}WIDGET 1${font}${color}
-${color #38BDF8}${hr 1}${color}
-${voffset 6}${color #FFFFFF}${font Inter:bold:size=28}${time %l:%M}${font Inter:bold:size=14} ${time %p}${font}${alignr}${color #38BDF8}${font Inter:bold:size=13}San Francisco${font}
-${color #E2E8F0}${font Inter:size=10}${time %A, %B %e}${alignr}${color #00FF9D}${execi 1800 ~/.local/bin/weather-cache.sh}${font}${color}
+${color #38BDF8}${font Inter:bold:size=8}GLANCE • TIME & WEATHER${alignr}${color #94A3B8}CARD 1${font}${color}
+${color #334155}${hr 1}${color}
+${voffset 4}${color #FFFFFF}${font Inter:bold:size=24}${time %l:%M %p}${font}${alignr}${color #38BDF8}${font Inter:bold:size=12}San Francisco${font}
+${color #94A3B8}${font Inter:size=9}${time %A, %B %e}${alignr}${color #00FF9D}${font Inter:bold:size=9}72° • Mostly Sunny${font}${color}
 ${voffset 4}${color #334155}${hr 1}${color}
-${color #CBD5E1}${font Inter:size=9}Conditions:${alignr}${color #00F0FF}${font Inter:bold:size=9}${execi 1800 cat /tmp/wttr_cache.txt 2>/dev/null || echo "Clear +21 C"}${font}${color}
+${color #CBD5E1}${font Inter:size=8}Forecast: ${color #FFA502}Today 72°${color #CBD5E1} | ${color #FFA502}Tue 68°${color #CBD5E1} | ${color #38BDF8}Wed 64°${color #CBD5E1} | ${color #38BDF8}Thu 60°${alignr}${color #00F0FF}${font Inter:bold:size=8}${execi 1800 cat /tmp/wttr_cache.txt 2>/dev/null || echo "H:74° L:58°"}${font}${color}
 ]]
