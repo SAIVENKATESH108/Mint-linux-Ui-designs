@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Picom Compositor
+Comment=macOS Sequoia X11 Compositor
+Exec=picom --config %h/.config/picom/picom.conf -b
+OnlyShowIn=XFCE;
+StartupNotify=false
+Terminal=false
+Hidden=false
