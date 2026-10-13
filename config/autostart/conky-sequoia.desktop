@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Conky Sequoia Glance
+Comment=macOS Sequoia Desktop Glance Widget
+Exec=conky -c %h/.config/conky/sequoia-glance.conkyrc -p 3
+OnlyShowIn=XFCE;
+StartupNotify=false
+Terminal=false
+Hidden=false

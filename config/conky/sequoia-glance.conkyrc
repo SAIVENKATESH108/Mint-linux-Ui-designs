@@ -1,0 +1,58 @@
+-- ==============================================================================
+-- macOS Sequoia Glance Widget for Conky
+-- Derived from reference/design-tokens.conf
+-- Optimized for low CPU footprint (Intel Core i3-3220)
+-- ==============================================================================
+
+conky.config = {
+    alignment = 'top_right',
+    gap_x = 24,
+    gap_y = 44,
+    minimum_width = 240,
+    maximum_width = 280,
+    update_interval = 2.0,
+    total_run_times = 0,
+
+    -- Window Specifications
+    own_window = true,
+    own_window_type = 'desktop',
+    own_window_transparent = true,
+    own_window_argb_visual = true,
+    own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
+    double_buffer = true,
+
+    -- Graphics & Drawing
+    draw_shades = false,
+    draw_outline = false,
+    draw_borders = false,
+    draw_graph_borders = false,
+    use_xft = true,
+    font = 'Inter:size=10',
+    xftalpha = 1.0,
+
+    -- Colors from reference/design-tokens.conf
+    default_color = '#f5f5f7',
+    color1 = '#007aff',       -- Apple Blue Accent
+    color2 = '#8e8e93',       -- Muted Graphite
+    color3 = '#27c93f',       -- Green status
+};
+
+conky.text = [[
+${color2}${font Inter:weight=bold:size=9}DATE & TIME${font}${color}
+${color default}${font Inter:weight=bold:size=28}${time %H:%M}${font}${color}
+${color2}${font Inter:size=11}${time %A, %B %d}${font}${color}
+
+${color2}──────────────────────────────────────────${color}
+
+${color2}${font Inter:weight=bold:size=9}SYSTEM GLANCE${font}${color}
+${color default}CPU${alignr}${cpu cpu0}%
+${color1}${cpubar 4,240}${color}
+
+${color default}Memory${alignr}${mem} / ${memmax}
+${color1}${membar 4,240}${color}
+
+${color default}Storage${alignr}${fs_used /} / ${fs_size /}
+${color1}${fs_bar 4,240 /}${color}
+
+${color2}Uptime:${alignr}${color default}${uptime_short}
+]];
