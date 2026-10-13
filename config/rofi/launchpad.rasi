@@ -1,0 +1,94 @@
+/* ==============================================================================
+ * macOS Sequoia Launchpad Theme for Rofi
+ * Derived from reference/design-tokens.conf
+ * ============================================================================== */
+
+configuration {
+    modi:                       "drun";
+    show-icons:                 true;
+    display-drun:               "🔍";
+    drun-display-format:        "{name}";
+    font:                       "Inter 11";
+}
+
+* {
+    bg-col:                     #19191ee0;
+    bg-input:                   #ffffff18;
+    selected-col:               #ffffff25;
+    fg-col:                     #f5f5f7;
+    fg-muted:                   #a1a1a6;
+    border-col:                 transparent;
+}
+
+window {
+    transparency:               "real";
+    background-color:           @bg-col;
+    text-color:                 @fg-col;
+    fullscreen:                 true;
+    padding:                    60px 100px;
+}
+
+mainbox {
+    background-color:           transparent;
+    children:                   [ inputbar, listview ];
+    spacing:                    40px;
+}
+
+inputbar {
+    background-color:           @bg-input;
+    text-color:                 @fg-col;
+    border-radius:              12px;
+    padding:                    10px 20px;
+    margin:                     0px 250px;
+    children:                   [ prompt, entry ];
+    spacing:                    12px;
+}
+
+prompt {
+    background-color:           transparent;
+    text-color:                 @fg-muted;
+}
+
+entry {
+    background-color:           transparent;
+    text-color:                 @fg-col;
+    placeholder:                "Search Applications";
+    placeholder-color:          @fg-muted;
+}
+
+listview {
+    background-color:           transparent;
+    columns:                    7;
+    lines:                      4;
+    cycle:                      false;
+    dynamic:                    true;
+    layout:                     vertical;
+    spacing:                    24px;
+}
+
+element {
+    background-color:           transparent;
+    text-color:                 @fg-col;
+    border-radius:              14px;
+    padding:                    18px 10px;
+    orientation:                vertical;
+    spacing:                    10px;
+    children:                   [ element-icon, element-text ];
+}
+
+element-icon {
+    size:                       64px;
+    horizontal-align:           0.5;
+    background-color:           transparent;
+}
+
+element-text {
+    background-color:           transparent;
+    text-color:                 inherit;
+    horizontal-align:           0.5;
+}
+
+element selected {
+    background-color:           @selected-col;
+    text-color:                 #ffffff;
+}

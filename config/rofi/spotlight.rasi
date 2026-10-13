@@ -1,0 +1,102 @@
+/* ==============================================================================
+ * macOS Sequoia Spotlight Theme for Rofi
+ * Derived from reference/design-tokens.conf
+ * ============================================================================== */
+
+configuration {
+    modi:                       "drun,run,filebrowser";
+    show-icons:                 true;
+    display-drun:               "🔍";
+    display-run:                "";
+    display-filebrowser:        "📁";
+    drun-display-format:        "{name}";
+    font:                       "Inter 12";
+}
+
+* {
+    bg-col:                     #1e1e23f0;
+    bg-input:                   #ffffff14;
+    selected-col:               #007aff;
+    fg-col:                     #f5f5f7;
+    fg-muted:                   #8e8e93;
+    border-col:                 #ffffff25;
+    width-spotlight:            600px;
+    radius-spotlight:           14px;
+}
+
+window {
+    transparency:               "real";
+    background-color:           @bg-col;
+    text-color:                 @fg-col;
+    border:                     1px solid;
+    border-color:               @border-col;
+    border-radius:              @radius-spotlight;
+    width:                      @width-spotlight;
+    location:                   center;
+    anchor:                     center;
+    padding:                    12px;
+}
+
+mainbox {
+    background-color:           transparent;
+    children:                   [ inputbar, listview ];
+    spacing:                    8px;
+}
+
+inputbar {
+    background-color:           @bg-input;
+    text-color:                 @fg-col;
+    border-radius:              10px;
+    padding:                    10px 14px;
+    children:                   [ prompt, entry ];
+    spacing:                    10px;
+}
+
+prompt {
+    background-color:           transparent;
+    text-color:                 @fg-muted;
+    font:                       "Inter 13";
+}
+
+entry {
+    background-color:           transparent;
+    text-color:                 @fg-col;
+    placeholder:                "Spotlight Search";
+    placeholder-color:          @fg-muted;
+}
+
+listview {
+    background-color:           transparent;
+    columns:                    1;
+    lines:                      6;
+    cycle:                      false;
+    dynamic:                    true;
+    layout:                     vertical;
+    spacing:                    4px;
+    padding:                    4px 0px 0px 0px;
+}
+
+element {
+    background-color:           transparent;
+    text-color:                 @fg-col;
+    border-radius:              8px;
+    padding:                    8px 12px;
+    spacing:                    10px;
+    children:                   [ element-icon, element-text ];
+}
+
+element-icon {
+    size:                       24px;
+    background-color:           transparent;
+}
+
+element-text {
+    background-color:           transparent;
+    text-color:                 inherit;
+    vertical-align:             0.5;
+}
+
+element selected {
+    background-color:           @selected-col;
+    text-color:                 #ffffff;
+}
