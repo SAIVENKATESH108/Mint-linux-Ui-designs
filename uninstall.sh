@@ -83,15 +83,13 @@ undo_phase_2() {
 undo_phase_3() {
     log_info "Undoing Phase 3: Removing GTK3 custom CSS and resetting panel-1..."
     bash "${SCRIPT_DIR}/phases/03-top-bar.sh" --undo 2>/dev/null || {
-        run rm -f "${HOME}/.config/gtk-3.0/gtk.css"
-        set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "24"
-        if command -v xfce4-panel &>/dev/null; then
-            if [[ "${DRY_RUN}" -eq 1 ]]; then
-                log_dry "Would reload xfce4-panel"
-            else
-                xfce4-panel -r 2>/dev/null || true
-            fi
+        run rm -f "${HOME}/.config/gtk-3.0/sequoia/panel-top.css"
+        if [[ ! -f "${HOME}/.config/gtk-3.0/sequoia/sidebar.css" ]]; then
+            run rm -rf "${HOME}/.config/gtk-3.0/sequoia"
+            run rm -f "${HOME}/.config/gtk-3.0/gtk.css"
         fi
+        set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "24"
+        guarded_panel_reload
     }
     log_success "Phase 3 undone."
 }
@@ -112,24 +110,25 @@ undo_phase_4() {
 undo_phase_5() {
     log_info "Undoing Phase 5: Removing Left Workspace Sidebar..."
     bash "${SCRIPT_DIR}/phases/05-left-sidebar.sh" --undo 2>/dev/null || {
+        run rm -f "${HOME}/.config/gtk-3.0/sequoia/sidebar.css"
+        if [[ ! -f "${HOME}/.config/gtk-3.0/sequoia/panel-top.css" ]]; then
+            run rm -rf "${HOME}/.config/gtk-3.0/sequoia"
+            run rm -f "${HOME}/.config/gtk-3.0/gtk.css"
+        fi
         if command -v xfconf-query &>/dev/null; then
             if [[ "${DRY_RUN}" -eq 1 ]]; then
                 log_dry "Would remove panel-2 and set panel count to 1"
             else
-                xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
-                for pid in 20 21 22 23; do
+                local p2_plugins
+                p2_plugins="$(xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids 2>/dev/null | tr '\n' ' ' || true)"
+                for pid in ${p2_plugins}; do
                     xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" -r -R 2>/dev/null || true
                 done
+                xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
                 set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
             fi
         fi
-        if command -v xfce4-panel &>/dev/null; then
-            if [[ "${DRY_RUN}" -eq 1 ]]; then
-                log_dry "Would reload xfce4-panel"
-            else
-                xfce4-panel -r 2>/dev/null || true
-            fi
-        fi
+        guarded_panel_reload
     }
     log_success "Phase 5 undone."
 }

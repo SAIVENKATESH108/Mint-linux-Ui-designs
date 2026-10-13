@@ -42,6 +42,8 @@ CONFIG_DIR="${REPO_ROOT}/config"
 REFERENCE_DIR="${REPO_ROOT}/reference"
 VENDOR_DIR="${REPO_ROOT}/vendor"
 SCRIPTS_DIR="${REPO_ROOT}/scripts"
+# shellcheck source=xfconf-helpers.sh
+source "${REPO_ROOT}/lib/xfconf-helpers.sh"
 
 # Environment Flags (propagated from install.sh or sub-shells)
 DRY_RUN="${DRY_RUN:-0}"

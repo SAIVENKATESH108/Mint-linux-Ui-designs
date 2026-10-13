@@ -67,9 +67,28 @@ REQUIRED_PKGS=("plank" "dconf-cli")
 check_required_packages "${REQUIRED_PKGS[@]}"
 
 # ------------------------------------------------------------------------------
-# 3. Deploy Custom Sequoia Dock Theme
+# 3. Deploy Custom Sequoia Dock Theme (Validated against system Plank keys)
 # ------------------------------------------------------------------------------
 run mkdir -p "${PLANK_THEME_DEST}"
+
+# Verify theme keys against system Default template if available
+DEFAULT_THEME="/usr/share/plank/themes/Default/dock.theme"
+if [[ -f "${DEFAULT_THEME}" ]]; then
+    log_info "Validating Sequoia dock.theme against system template (${DEFAULT_THEME})..."
+    # Read valid keys from system default
+    KNOWN_KEYS="$(grep -E '^[A-Za-z0-9]+=' "${DEFAULT_THEME}" | cut -d'=' -f1 || true)"
+    if [[ -n "${KNOWN_KEYS}" ]]; then
+        while IFS='=' read -r key val || [[ -n "${key}" ]]; do
+            # Skip comments and section headers
+            [[ "${key}" =~ ^#.* || -z "${key}" || "${key}" =~ ^\[ ]] && continue
+            key="$(echo "${key}" | tr -d ' ')"
+            if ! grep -qw "${key}" <<< "${KNOWN_KEYS}"; then
+                log_warn "Theme key '${key}' not in system Default dock.theme (unverified key will fail soft)"
+            fi
+        done < "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme"
+    fi
+fi
+
 safe_copy "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme" "${PLANK_THEME_DEST}/dock.theme"
 
 # ------------------------------------------------------------------------------
@@ -93,7 +112,7 @@ for item in "${CONFIG_DIR}/plank/launchers/"*.dockitem; do
 done
 
 # ------------------------------------------------------------------------------
-# 5. Configure Plank via dconf
+# 5. Configure Plank via dconf & Verify
 # ------------------------------------------------------------------------------
 log_info "Configuring Plank dock geometry (48px icon, zoom 118%, dodge-window)..."
 
@@ -113,7 +132,14 @@ elif command -v dconf &>/dev/null; then
     dconf write "${DCONF_PATH}/alignment" "'center'"
     dconf write "${DCONF_PATH}/show-dock-item" "false"
     dconf write "${DCONF_PATH}/pinned-only" "false"
-    log_success "Plank preferences configured via dconf."
+
+    # Verify dconf configuration
+    ACTUAL_THEME="$(dconf read "${DCONF_PATH}/theme" 2>/dev/null || true)"
+    if [[ "${ACTUAL_THEME}" == "'Sequoia'" ]]; then
+        log_success "Plank preferences verified via dconf (theme: ${ACTUAL_THEME})."
+    else
+        log_warn "dconf verification: expected 'Sequoia', got '${ACTUAL_THEME}'"
+    fi
 fi
 
 # ------------------------------------------------------------------------------

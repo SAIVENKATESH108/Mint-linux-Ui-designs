@@ -27,7 +27,12 @@ undo_phase() {
         return 0
     fi
 
-    rm -f "${GTK_CONFIG_DIR}/gtk.css"
+    rm -f "${GTK_CONFIG_DIR}/sequoia/panel-top.css"
+    # If sidebar is not installed, also remove tokens.css and gtk.css
+    if [[ ! -f "${GTK_CONFIG_DIR}/sequoia/sidebar.css" ]]; then
+        rm -f "${GTK_CONFIG_DIR}/sequoia/tokens.css"
+        rm -f "${GTK_CONFIG_DIR}/gtk.css"
+    fi
 
     # Replay backup if available
     local latest_backup
@@ -40,9 +45,7 @@ undo_phase() {
         set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "24"
     fi
 
-    if [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
-        xfce4-panel -r 2>/dev/null || true
-    fi
+    guarded_panel_reload
 
     log_success "Phase 3 successfully reverted."
 }
@@ -70,9 +73,11 @@ REQUIRED_PKGS=(
 check_required_packages "${REQUIRED_PKGS[@]}"
 
 # ------------------------------------------------------------------------------
-# 3. Deploy GTK 3.0 CSS Stylesheet
+# 3. Deploy Modular GTK 3.0 CSS Stylesheets (Tokens & Top Panel Fragment)
 # ------------------------------------------------------------------------------
-run mkdir -p "${GTK_CONFIG_DIR}"
+run mkdir -p "${GTK_CONFIG_DIR}/sequoia"
+safe_copy "${CONFIG_DIR}/gtk-3.0/sequoia/tokens.css" "${GTK_CONFIG_DIR}/sequoia/tokens.css"
+safe_copy "${CONFIG_DIR}/gtk-3.0/sequoia/panel-top.css" "${GTK_CONFIG_DIR}/sequoia/panel-top.css"
 safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 
 # ------------------------------------------------------------------------------
@@ -162,14 +167,9 @@ if command -v xfconf-query &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 6. Safety Check & Panel Reload
+# 7. Safety Check & Guarded Panel Reload
 # ------------------------------------------------------------------------------
-if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would reload xfce4-panel"
-elif [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
-    log_info "Reloading xfce4-panel to apply updated geometry and CSS..."
-    xfce4-panel -r 2>/dev/null || log_warn "Panel reload deferred."
-fi
+guarded_panel_reload
 
 log_success "Phase 3 Complete: Top Menu Bar configured (28px height, macOS Sequoia clock)."
 log_info "Undo this phase anytime with: ./phases/03-top-bar.sh --undo (or ./uninstall.sh -p 3)"

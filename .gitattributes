@@ -8,3 +8,5 @@
 *.conkyrc text eol=lf
 *.dockitem text eol=lf
 *.desktop text eol=lf
+*.json text eol=lf
+*.in text eol=lf

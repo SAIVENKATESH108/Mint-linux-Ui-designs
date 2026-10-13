@@ -82,11 +82,13 @@ echo ""
 printf "${C_BOLD}Phase 3: Top Menu Bar${C_RESET}\n"
 check_item "Custom GTK3 stylesheet exists at ~/.config/gtk-3.0/gtk.css" \
     "[[ -f '${HOME}/.config/gtk-3.0/gtk.css' ]]"
+check_item "Modular GTK3 tokens use @define-color (no GTK3 unsupported var())" \
+    "[[ ! -f '${HOME}/.config/gtk-3.0/sequoia/tokens.css' || \$(grep -c 'var(' '${HOME}/.config/gtk-3.0/sequoia/tokens.css' 2>/dev/null || echo 0) -eq 0 ]]"
 check_item "xfce4-panel panel-1 size set to 28px" \
     "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-1/size 2>/dev/null || true)\" == '28' ]]"
 if [[ -n "${DISPLAY:-}" ]]; then
-    check_item "xfce4-panel process running" \
-        "pgrep -x xfce4-panel &>/dev/null"
+    check_item "xfce4-panel process running and top panel intact" \
+        "pgrep -x xfce4-panel &>/dev/null && [[ -n \"\$(xfconf-query -c xfce4-panel -p /panels/panel-1/position 2>/dev/null || true)\" ]]"
 fi
 
 # ------------------------------------------------------------------------------
@@ -98,6 +100,8 @@ check_item "Plank package installed" \
     "command -v plank &>/dev/null"
 check_item "Sequoia dock theme installed at ~/.local/share/plank/themes/Sequoia" \
     "[[ -f '${HOME}/.local/share/plank/themes/Sequoia/dock.theme' ]]"
+check_item "Sequoia dock theme has standard keys and no invented keys (RoundClip)" \
+    "[[ ! -f '${HOME}/.local/share/plank/themes/Sequoia/dock.theme' || \$(grep -c 'RoundClip' '${HOME}/.local/share/plank/themes/Sequoia/dock.theme' 2>/dev/null || echo 0) -eq 0 ]]"
 check_item "10 dock launchers present in ~/.config/plank/dock1/launchers/" \
     "[[ \$(ls '${HOME}/.config/plank/dock1/launchers/' 2>/dev/null | grep -c '\.dockitem$') -ge 8 ]]"
 if [[ -n "${DISPLAY:-}" ]]; then
@@ -112,6 +116,8 @@ echo ""
 printf "${C_BOLD}Phase 5: Left Sidebar (76px)${C_RESET}\n"
 check_item "xfce4-panel panel-2 configured with size 76px" \
     "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/size 2>/dev/null || true)\" == '76' ]]"
+check_item "xfce4-panel panel-2 mode is true vertical (mode=1)" \
+    "[[ \"\$(xfconf-query -c xfce4-panel -p /panels/panel-2/mode 2>/dev/null || true)\" == '1' ]]"
 check_item "xfwm4 workspace_count configured to 4 spaces" \
     "[[ \"\$(xfconf-query -c xfwm4 -p /general/workspace_count 2>/dev/null || true)\" == '4' ]]"
 
@@ -128,6 +134,8 @@ check_item "Conky Window 2 config (calendar-system.conkyrc) exists" \
     "[[ -f '${HOME}/.config/conky/calendar-system.conkyrc' ]]"
 check_item "Conky Window 3 config (media-notes.conkyrc) exists" \
     "[[ -f '${HOME}/.config/conky/media-notes.conkyrc' ]]"
+check_item "Conky configs enforce override_utf8_locale" \
+    "[[ ! -f '${HOME}/.config/conky/clock-weather.conkyrc' || \$(grep -c 'override_utf8_locale = true' '${HOME}/.config/conky/clock-weather.conkyrc' 2>/dev/null || echo 0) -ge 1 ]]"
 check_item "Weather cache script executable at ~/.local/bin/weather-cache.sh" \
     "[[ -x '${HOME}/.local/bin/weather-cache.sh' ]]"
 check_item "Conky manager script executable at ~/.local/bin/conky-manager.sh" \

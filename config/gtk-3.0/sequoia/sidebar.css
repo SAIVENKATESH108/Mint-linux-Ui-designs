@@ -1,0 +1,39 @@
+/* ==============================================================================
+ * Phase 5 Fragment: Left Workspace Sidebar (panel-2, 76px width)
+ * ============================================================================== */
+
+#panel-2.xfce4-panel,
+.xfce4-panel#panel-2 {
+    background-color: @sequoia_bg_sidebar;
+    border: 1px solid @sequoia_border;
+    border-radius: 16px;
+    padding: 8px 4px;
+    margin: 6px;
+}
+
+#panel-2 .pager {
+    padding: 4px 0;
+}
+
+#panel-2 .pager button {
+    border-radius: 8px;
+    margin: 3px 2px;
+    padding: 4px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid @sequoia_border;
+}
+
+#panel-2 .pager button:checked {
+    background-color: @sequoia_active;
+    border: 1.5px solid @sequoia_accent_active;
+}
+
+#panel-2 .launcher button {
+    border-radius: 10px;
+    padding: 6px;
+    margin: 3px 0;
+}
+
+#panel-2 .launcher button:hover {
+    background-color: @sequoia_hover;
+}

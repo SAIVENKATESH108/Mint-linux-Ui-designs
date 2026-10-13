@@ -21,12 +21,11 @@ FillEnd=35;;35;;40;;179
 # Inner subtle glow stroke
 InnerStrokeColor=255;;255;;255;;25
 
-# Shadow styling
-ShadowSize=8
-ShadowColor=0;;0;;0;;60
-
-# Spacing & Indicators (reference: dock_item_padding=4px)
+# Spacing & Padding (reference: dock_item_padding=4px)
+BottomPadding=4
+TopPadding=0
 ItemPadding=4
 IndicatorSize=4
-IndicatorOffset=2
+IconShadowSize=1
 FadeOpacity=1
+

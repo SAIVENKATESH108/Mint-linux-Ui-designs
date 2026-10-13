@@ -19,7 +19,7 @@ conky.config = {
     extra_newline = false,
     font = 'Inter:size=9',
     gap_x = 14,
-    gap_y = 195,
+    gap_y = 194,
     minimum_height = 230,
     minimum_width = 320,
     maximum_width = 320,

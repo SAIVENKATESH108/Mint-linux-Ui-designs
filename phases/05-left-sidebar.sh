@@ -25,6 +25,12 @@ undo_phase() {
         return 0
     fi
 
+    rm -f "${GTK_CONFIG_DIR}/sequoia/sidebar.css"
+    if [[ ! -f "${GTK_CONFIG_DIR}/sequoia/panel-top.css" ]]; then
+        rm -f "${GTK_CONFIG_DIR}/sequoia/tokens.css"
+        rm -f "${GTK_CONFIG_DIR}/gtk.css"
+    fi
+
     # Replay backup if available
     local latest_backup
     latest_backup="$(ls -td "${BACKUP_ROOT}"/*/phase5 2>/dev/null | head -n1 || true)"
@@ -32,19 +38,19 @@ undo_phase() {
         log_info "Replaying recorded xfconf settings from ${latest_backup}..."
         bash "${latest_backup}/restore-xfconf.sh" || log_warn "Partial xfconf replay warning."
     else
-        log_info "Removing panel-2 configuration..."
+        log_info "Removing panel-2 configuration and plugins..."
         if command -v xfconf-query &>/dev/null; then
-            xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
-            for pid in 20 21 22 23; do
+            local p2_plugins
+            p2_plugins="$(xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids 2>/dev/null | tr '\n' ' ' || true)"
+            for pid in ${p2_plugins}; do
                 xfconf-query -c xfce4-panel -p "/plugins/plugin-${pid}" -r -R 2>/dev/null || true
             done
+            xfconf-query -c xfce4-panel -p /panels/panel-2 -r -R 2>/dev/null || true
             set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
         fi
     fi
 
-    if [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
-        xfce4-panel -r 2>/dev/null || true
-    fi
+    guarded_panel_reload
 
     log_success "Phase 5 successfully reverted."
 }
@@ -84,9 +90,11 @@ elif command -v xfconf-query &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Deploy Updated GTK 3.0 CSS (Panel-2 Sidebar Styling)
+# 4. Deploy Modular GTK 3.0 CSS Stylesheets (Tokens & Sidebar Fragment)
 # ------------------------------------------------------------------------------
-run mkdir -p "${GTK_CONFIG_DIR}"
+run mkdir -p "${GTK_CONFIG_DIR}/sequoia"
+safe_copy "${CONFIG_DIR}/gtk-3.0/sequoia/tokens.css" "${GTK_CONFIG_DIR}/sequoia/tokens.css"
+safe_copy "${CONFIG_DIR}/gtk-3.0/sequoia/sidebar.css" "${GTK_CONFIG_DIR}/sequoia/sidebar.css"
 safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 
 # ------------------------------------------------------------------------------
@@ -118,43 +126,55 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-2/autohide-behavior" "uint" "0" # V
 set_xfconf_prop "xfce4-panel" "/panels/panel-2/background-style" "uint" "0"
 
 # ------------------------------------------------------------------------------
-# 6. Configure Plugins for Panel-2 (Pager, Spacer, ShowDesktop, Session Action)
+# 6. Configure Dynamically Allocated Plugins for Panel-2
 # ------------------------------------------------------------------------------
 log_info "Configuring sidebar plugins (4-row pager, spacer, shortcuts)..."
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log_dry "Would register plugins [20:pager (4 rows), 21:separator (expand), 22:showdesktop, 23:actions] on panel-2"
+    log_dry "Would dynamically allocate 4 plugin IDs for panel-2 [pager, separator, showdesktop, actions]"
 elif command -v xfconf-query &>/dev/null; then
-    # Plugin 20: Pager with 4 vertical rows
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20" "string" "pager"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20/rows" "uint" "4"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20/miniature-view" "bool" "true"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-20/numbering" "bool" "true"
+    P_BASE="$(allocate_next_plugin_id)"
+    P_PAGER="${P_BASE}"
+    P_SEP="$((P_BASE + 1))"
+    P_SHOWDESK="$((P_BASE + 2))"
+    P_ACTIONS="$((P_BASE + 3))"
 
-    # Plugin 21: Expanding transparent separator
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-21" "string" "separator"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-21/style" "uint" "0"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-21/expand" "bool" "true"
+    log_info "Dynamically allocated plugin IDs: ${P_PAGER} (pager), ${P_SEP} (separator), ${P_SHOWDESK} (showdesktop), ${P_ACTIONS} (actions)"
 
-    # Plugin 22: Show Desktop
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-22" "string" "showdesktop"
+    # Plugin: Pager with 4 vertical rows
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_PAGER}" "string" "pager"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_PAGER}/rows" "uint" "4"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_PAGER}/miniature-view" "bool" "true"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_PAGER}/numbering" "bool" "true"
 
-    # Plugin 23: Power / Session action button at bottom
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-23" "string" "actions"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-23/appearance" "uint" "0"
-    set_xfconf_prop "xfce4-panel" "/plugins/plugin-23/items" "string" "+lock-screen;+logout;"
+    # Plugin: Expanding transparent separator
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_SEP}" "string" "separator"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_SEP}/style" "uint" "0"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_SEP}/expand" "bool" "true"
 
-    # Assign plugins 20, 21, 22, 23 to panel-2
+    # Plugin: Show Desktop
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_SHOWDESK}" "string" "showdesktop"
+
+    # Plugin: Power / Session action button at bottom
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_ACTIONS}" "string" "actions"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_ACTIONS}/appearance" "uint" "0"
+    set_xfconf_prop "xfce4-panel" "/plugins/plugin-${P_ACTIONS}/items" "string" "+lock-screen;+logout;"
+
+    # Assign dynamically allocated plugins to panel-2
     xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids -r -R 2>/dev/null || true
-    xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids --create -a -t int -s 20 -t int -s 21 -t int -s 22 -t int -s 23 2>/dev/null || true
+    xfconf-query -c xfce4-panel -p /panels/panel-2/plugin-ids --create -a \
+        -t int -s "${P_PAGER}" \
+        -t int -s "${P_SEP}" \
+        -t int -s "${P_SHOWDESK}" \
+        -t int -s "${P_ACTIONS}" 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Verification: Confirm Vertical Orientation & Plugins Before Reload
+# 7. Verification: Confirm Vertical Orientation & Plugins Before Guarded Reload
 # ------------------------------------------------------------------------------
 if [[ "${DRY_RUN}" -eq 1 ]]; then
     log_dry "Would verify panel-2 mode is vertical (mode=1) and plugins exist"
-    log_dry "Would reload xfce4-panel"
+    log_dry "Would perform guarded panel reload"
 else
     # 1. Verify orientation is vertical
     PANEL_MODE="$(xfconf-query -c xfce4-panel -p /panels/panel-2/mode 2>/dev/null || echo "0")"
@@ -171,10 +191,7 @@ else
     fi
 
     log_success "Verified: panel-2 is VERTICAL (mode=1) with active plugins: ${PANEL_PLUGINS//$'\n'/ }"
-    if [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
-        log_info "Reloading xfce4-panel to activate left sidebar..."
-        xfce4-panel -r 2>/dev/null || log_warn "Panel reload deferred."
-    fi
+    guarded_panel_reload
 fi
 
 log_success "Phase 5 Complete: Left Sidebar configured (76px width, 4 desktop pager)."

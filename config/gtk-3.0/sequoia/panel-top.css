@@ -1,0 +1,100 @@
+/* ==============================================================================
+ * Phase 3 Fragment: Top Menu Bar (panel-1, 28px height)
+ * ============================================================================== */
+
+/* Top Panel Bar */
+.xfce4-panel.background {
+    background-color: @sequoia_bg_panel;
+    color: @sequoia_fg;
+    border-bottom: 1px solid @sequoia_border;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 10pt;
+    font-weight: 500;
+}
+
+/* Panel Buttons */
+.xfce4-panel button {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    border-radius: 6px;
+    color: @sequoia_fg;
+    box-shadow: none;
+    padding: 0 6px;
+    margin: 2px 1px;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.xfce4-panel button:hover {
+    background-color: @sequoia_hover;
+    color: @sequoia_fg_hover;
+}
+
+.xfce4-panel button:checked,
+.xfce4-panel button:active {
+    background-color: @sequoia_accent;
+    color: @sequoia_fg_hover;
+}
+
+/* Whisker / Apple Menu Launcher Button */
+#whiskermenu-button,
+.xfce4-panel button#whiskermenu-button {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+#whiskermenu-button:hover {
+    background-color: @sequoia_hover;
+}
+
+/* Clock Applet (macOS format) */
+#clock-button,
+.xfce4-panel #clock-button label {
+    font-weight: 600;
+    color: @sequoia_fg;
+    letter-spacing: 0.2px;
+}
+
+/* StatusNotifier & Systray items */
+#sn-button,
+.xfce4-panel .systray {
+    margin: 0 2px;
+}
+
+/* Menus & Popups */
+menu,
+.xfce4-panel menu {
+    background-color: @sequoia_bg_menu;
+    color: @sequoia_fg;
+    border-radius: 8px;
+    border: 1px solid @sequoia_border;
+    padding: 4px;
+    box-shadow: 0 8px 24px @sequoia_shadow;
+}
+
+menuitem {
+    padding: 4px 12px;
+    border-radius: 4px;
+    color: @sequoia_fg;
+}
+
+menuitem:hover {
+    background-color: @sequoia_accent;
+    color: @sequoia_fg_hover;
+}
+
+/* Separators */
+separator {
+    background-color: @sequoia_border;
+    min-height: 1px;
+    min-width: 1px;
+}
+
+/* Tooltips */
+tooltip.background {
+    background-color: @sequoia_bg_panel;
+    border-radius: 6px;
+    border: 1px solid @sequoia_border;
+    color: @sequoia_fg;
+    padding: 4px 8px;
+}

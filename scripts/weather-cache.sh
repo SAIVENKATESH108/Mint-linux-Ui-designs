@@ -7,7 +7,11 @@
 
 set -euo pipefail
 
-CACHE_FILE="/tmp/wttr_cache.txt"
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+CACHE_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+CACHE_FILE="${CACHE_DIR}/wttr_cache.txt"
 CACHE_TTL=1800 # 30 minutes
 CITY="${1:-}"
 
