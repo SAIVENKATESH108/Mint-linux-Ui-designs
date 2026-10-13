@@ -23,8 +23,10 @@
 ## Target hardware (from reference/system-info.txt)
 - Linux Mint 22.3 (Ubuntu 24.04 base), XFCE 4.18, X11.
 - Desktop PC, no battery. i3-3220 (2C/4T), 12 GB RAM, GeForce GT 610 on nouveau (weak GPU).
-- Screen: 1280x1024 (5:4). Design and test at this resolution as well as 1920x1080.
-- Picom is not installed.
+- Screen: HDMI-1, 1280x1024 @ 60.02 Hz, scale 1x. This is the PRIMARY and only required target (user confirmed 1920x1080 is not good for them).
+- 1920x1080 is optional and not to be designed for.
+- OpenGL works: NVD9 (nouveau GF119), OpenGL 4.3 compat, Mesa 25.2.8. Picom 10.2 (Ubuntu package) with the glx backend starts without errors. Blur performance is unverified.
+- Picom 10.2 supports: corner-radius, dual_kawase blur, "!" negation in match rules. Do not use glx-no-stencil or glx-copy-from-front.
 
 ## Performance rules
 - Default profile is "lite": rounded corners + shadows + fade, NO blur, translucent flat colors for glass.

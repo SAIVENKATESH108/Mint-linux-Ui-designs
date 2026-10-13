@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview: Full Desktop (macOS Sequoia XFCE Glass Edition)</title>
+  <title>Preview: Full Desktop (macOS Sequoia XFCE - 1280x1024 Primary Target)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="tokens.css">
   <style>
     .viewport-container {
-      transition: width 300ms cubic-bezier(0.2, 0, 0.1, 1), height 300ms cubic-bezier(0.2, 0, 0.1, 1);
+      transition: width 250ms ease, height 250ms ease;
     }
     .dock-item {
       transition: transform 140ms cubic-bezier(0.2, 0, 0.1, 1);
@@ -18,54 +18,31 @@
     .dock-item:hover {
       transform: translateY(-8px) scale(var(--zoom-dock-icon));
     }
-    /* 1280x1024 compact adjustments */
-    .res-1280 .sidebar-el {
-      left: 8px !important;
-    }
-    .res-1280 .window-el {
-      left: 96px !important;
-      width: 530px !important;
-      height: 440px !important;
-      top: 40px !important;
-    }
-    .res-1280 .widgets-el {
-      right: 12px !important;
-      width: 320px !important;
-      top: 36px !important;
-      gap: 10px !important;
-    }
-    .res-1280 .widgets-el .grid-cols-5 {
-      grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-    }
-    .res-1280 .widgets-el .col-span-3,
-    .res-1280 .widgets-el .col-span-2 {
-      grid-column: span 1 / span 1 !important;
-    }
   </style>
 </head>
 <body class="bg-slate-950 flex flex-col items-center justify-start min-h-screen p-4 overflow-x-hidden">
 
-  <!-- ================= TOP HUD CONTROLS: VIEWPORT, PROFILE, THEME ================= -->
-  <header class="w-full max-w-6xl mb-3 py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 flex flex-wrap items-center justify-between text-xs gap-3 shadow-xl">
+  <!-- ================= TOP HUD: VIEWPORT (1280x1024 DEFAULT), PROFILE & THEME ================= -->
+  <header class="w-full max-w-5xl mb-3 py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 flex flex-wrap items-center justify-between text-xs gap-3 shadow-xl">
     <div class="flex items-center space-x-3">
       <span class="font-bold text-white uppercase tracking-wider text-[11px] flex items-center">
-        <i class="fa-solid fa-desktop mr-1.5 text-blue-400"></i> Level 1 Desktop Viewport
+        <i class="fa-solid fa-desktop mr-1.5 text-blue-400"></i> Primary Target: 1280×1024
       </span>
       <div class="h-4 w-[1px] bg-slate-700"></div>
 
-      <!-- Resolution Switcher -->
+      <!-- Viewport Switcher: 1280x1024 is Default -->
       <div class="flex items-center space-x-1 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
-        <button onclick="setResolution('1920')" id="btn-res-1920" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white shadow transition">
-          1920×1080 (16:9)
+        <button onclick="setResolution('1280')" id="btn-res-1280" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white shadow transition">
+          1280×1024 (5:4 Primary)
         </button>
-        <button onclick="setResolution('1280')" id="btn-res-1280" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition">
-          1280×1024 (5:4 Target PC)
+        <button onclick="setResolution('1920')" id="btn-res-1920" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition">
+          1920×1080 (Optional)
         </button>
       </div>
     </div>
 
     <!-- Mode and Theme Switches -->
-    <div class="flex items-center space-x-3">
+    <div class="flex items-center space-x-2.5">
       <button onclick="toggleProfile()" id="btn-profile" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
         Enable Glass Mode (GPU Blur)
       </button>
@@ -80,10 +57,10 @@
     </div>
   </header>
 
-  <!-- ================= CANVAS / VIEWPORT WRAPPER ================= -->
-  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1920px] h-[1080px] max-w-full origin-top scale-90 sm:scale-95 md:scale-100">
+  <!-- ================= CANVAS (1280x1024 DEFAULT) ================= -->
+  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1280px] h-[1024px] max-w-full origin-top">
 
-    <!-- ================= TOP MENU BAR ================= -->
+    <!-- ================= 1. TOP MENU BAR (28px) ================= -->
     <header class="ui-menubar w-full px-4 flex items-center justify-between text-[13px] font-medium z-50 absolute top-0 left-0">
       <div class="flex items-center space-x-5">
         <div class="flex items-center space-x-1 cursor-pointer hover:opacity-80 transition" title="Linux Mint Menu">
@@ -108,6 +85,7 @@
           <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/5 dark:bg-white/10 text-slate-700 dark:text-slate-200">EN</span>
           <i class="fa-solid fa-wifi cursor-pointer" title="Wi-Fi"></i>
           <i class="fa-solid fa-volume-high cursor-pointer" title="Audio"></i>
+          <!-- CPU Temp readout from system-info sensors -->
           <div class="flex items-center space-x-1 cursor-pointer" title="CPU Temp (Core i3-3220)">
             <i class="fa-solid fa-temperature-half text-amber-500"></i>
             <span class="text-[11px] font-medium text-slate-800 dark:text-slate-200">34°C</span>
@@ -124,8 +102,9 @@
       </div>
     </header>
 
-    <!-- ================= LEFT SIDEBAR (76px UNIFIED) ================= -->
-    <aside class="sidebar-el ui-sidebar absolute left-4 top-11 bottom-20 flex flex-col items-center py-4 justify-between z-30 shadow-2xl">
+    <!-- ================= 2. LEFT SIDEBAR (76px UNIFIED) ================= -->
+    <!-- Position: left 10px, top 38px, height 580px (space used on left: 86px) -->
+    <aside class="ui-sidebar absolute left-[10px] top-[38px] h-[580px] flex flex-col items-center py-3.5 justify-between z-30 shadow-2xl">
       <div class="flex flex-col items-center space-y-3 w-full px-1">
         <div class="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Desktops</div>
 
@@ -169,31 +148,32 @@
 
         <div class="w-10 h-[1px] bg-slate-300/60 dark:bg-white/10 my-1"></div>
 
-        <div class="flex flex-col space-y-2.5">
-          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-sm">
+        <div class="flex flex-col space-y-2">
+          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-sm" title="Terminal">
             <i class="fa-solid fa-terminal text-sm text-emerald-500"></i>
           </button>
-          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 shadow-sm">
+          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 shadow-sm" title="VS Code">
             <i class="fa-solid fa-code text-sm"></i>
           </button>
-          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-emerald-600 shadow-sm">
+          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-emerald-600 shadow-sm" title="Software Manager">
             <i class="fa-solid fa-bag-shopping text-sm"></i>
           </button>
         </div>
       </div>
 
-      <div class="flex flex-col items-center space-y-2.5">
-        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer">
+      <div class="flex flex-col items-center space-y-2">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer" title="Mint User">
           <div class="w-full h-full rounded-full bg-white dark:bg-[#161828] flex items-center justify-center font-bold text-xs text-indigo-700 dark:text-indigo-300">LM</div>
         </div>
-        <button class="w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition">
+        <button class="w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition" title="Power Off">
           <i class="fa-solid fa-power-off text-xs"></i>
         </button>
       </div>
     </aside>
 
-    <!-- ================= CENTER SAMPLE WINDOW (Thunar / Files) ================= -->
-    <main class="window-el ui-window absolute left-[120px] top-[70px] w-[660px] h-[480px] flex flex-col overflow-hidden z-20 shadow-2xl">
+    <!-- ================= 3. CENTER SAMPLE WINDOW (600px wide, no overlap) ================= -->
+    <!-- Position: left 104px (gap 18px from sidebar), top 48px, width 600px (ends at 704px; widget grid starts at 946px; 242px margin!) -->
+    <main class="ui-window absolute left-[104px] top-[48px] w-[600px] h-[480px] flex flex-col overflow-hidden z-20 shadow-2xl">
       <div class="h-11 bg-white/40 dark:bg-white/5 border-b border-white/40 dark:border-white/10 px-3.5 flex items-center justify-between shrink-0">
         <div class="flex items-center space-x-2">
           <div class="traffic-dot bg-[#FF5F56] border border-[#E0443E]/60 cursor-pointer"></div>
@@ -223,96 +203,111 @@
       </div>
     </main>
 
-    <!-- ================= RIGHT WIDGET GRID (REUSING 3 CONKY CARDS) ================= -->
-    <aside class="widgets-el absolute right-[24px] top-[48px] w-[456px] flex flex-col space-y-4 z-20">
+    <!-- ================= 4. RIGHT WIDGET GRID (320px WIDE, 2 COLUMNS, 3 CONKY CARDS) ================= -->
+    <!-- Position: right 14px, top 38px, width 320px (starts at 1280 - 334 = 946px). Zero overlap with window ending at 704px! -->
+    <aside class="absolute right-[14px] top-[38px] w-[320px] flex flex-col space-y-3 z-20">
 
-      <!-- CARD 1: Time & Weather -->
-      <div class="ui-card p-3.5 shadow-lg flex flex-col space-y-2">
-        <div class="grid grid-cols-3 gap-3 items-center">
+      <!-- CARD 1: Time & Weather (Conky Window 1) -->
+      <div class="ui-card p-3 shadow-lg flex flex-col space-y-2">
+        <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-1 text-[10px]">
+          <span class="font-bold uppercase text-slate-500 dark:text-slate-400">Glance • Time & Weather</span>
+          <span class="text-slate-400">Card 1</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 items-center">
           <div class="flex flex-col items-center justify-center">
-            <div class="w-16 h-16 rounded-full border-2 border-slate-700/20 relative flex items-center justify-center bg-white/40 dark:bg-white/5 shadow-inner">
+            <div class="w-14 h-14 rounded-full border-2 border-slate-700/20 relative flex items-center justify-center bg-white/40 dark:bg-white/5 shadow-inner">
               <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white z-10"></div>
-              <div class="absolute w-[2px] h-5 bg-slate-800 dark:bg-slate-200 top-3 origin-bottom rotate-45 rounded"></div>
-              <div class="absolute w-[1px] h-7 bg-rose-500 top-1 origin-bottom rotate-180 rounded"></div>
+              <div class="absolute w-[2px] h-4 bg-slate-800 dark:bg-slate-200 top-2.5 origin-bottom rotate-45 rounded"></div>
+              <div class="absolute w-[1px] h-6 bg-rose-500 top-1 origin-bottom rotate-180 rounded"></div>
             </div>
             <span class="text-[9px] font-semibold text-slate-800 dark:text-slate-200 mt-1">10:45 AM</span>
           </div>
 
-          <div class="col-span-2 flex flex-col justify-between h-full pl-1">
+          <div class="flex flex-col justify-between pl-1">
             <div class="flex items-center justify-between">
               <div>
                 <div class="text-xs font-bold text-slate-800 dark:text-slate-100">San Francisco</div>
-                <div class="text-[10px] text-slate-500 dark:text-slate-400">Mostly Sunny • 72°</div>
+                <div class="text-[9px] text-slate-500 dark:text-slate-400">Sunny • 72°</div>
               </div>
-              <i class="fa-solid fa-sun text-amber-500 text-2xl"></i>
+              <i class="fa-solid fa-sun text-amber-500 text-xl"></i>
             </div>
-            <div class="grid grid-cols-5 gap-1 pt-1.5 border-t border-black/5 dark:border-white/10 text-center text-[9px]">
-              <div><span>Today</span><div class="font-bold text-slate-700 dark:text-slate-300">72°</div></div>
-              <div><span>Tue</span><div class="font-bold text-slate-700 dark:text-slate-300">68°</div></div>
-              <div><span>Wed</span><div class="font-bold text-slate-700 dark:text-slate-300">64°</div></div>
-              <div><span>Thu</span><div class="font-bold text-slate-700 dark:text-slate-300">60°</div></div>
-              <div><span>Fri</span><div class="font-bold text-slate-700 dark:text-slate-300">59°</div></div>
+            <div class="text-[9px] text-slate-500 dark:text-slate-400 pt-1 border-t border-black/5 dark:border-white/10 mt-1">
+              H:74° &nbsp; L:58°
             </div>
           </div>
         </div>
       </div>
 
-      <!-- CARD 2: Calendar & Hardware System (October 2026 accurate) -->
-      <div class="ui-card p-3.5 shadow-lg flex flex-col space-y-2">
-        <div class="grid grid-cols-5 gap-3">
-          <div class="col-span-3 flex flex-col justify-between">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
-              <span class="tracking-tight font-bold">October 2026</span>
-              <span class="text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded-full text-[9px]">MON 12</span>
+      <!-- CARD 2: October 2026 Calendar & System Sensors (Conky Window 2) -->
+      <div class="ui-card p-3 shadow-lg flex flex-col space-y-2">
+        <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-1 text-[10px]">
+          <span class="font-bold uppercase text-slate-500 dark:text-slate-400">Calendar & System (Oct 2026)</span>
+          <span class="text-slate-400">Card 2</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <!-- Calendar Matrix: Accurate October 2026 -->
+          <div class="flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[10px] font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+              <span>Oct 2026</span>
+              <span class="text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/40 px-1 rounded text-[8px]">MON 12</span>
             </div>
-            <div class="grid grid-cols-7 gap-0.5 text-center text-[9px] font-semibold text-slate-400 border-b border-black/5 dark:border-white/10 pb-0.5">
+            <div class="grid grid-cols-7 gap-0.5 text-center text-[8px] font-semibold text-slate-400 border-b border-black/5 dark:border-white/10 pb-0.5">
               <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
             </div>
-            <div class="grid grid-cols-7 gap-0.5 text-center text-[9px] text-slate-700 dark:text-slate-300 font-medium py-0.5">
+            <div class="grid grid-cols-7 gap-0.5 text-center text-[8px] text-slate-700 dark:text-slate-300 font-medium py-0.5">
               <span class="text-slate-300 dark:text-slate-600">27</span><span class="text-slate-300 dark:text-slate-600">28</span><span class="text-slate-300 dark:text-slate-600">29</span><span class="text-slate-300 dark:text-slate-600">30</span>
               <span>1</span><span>2</span><span>3</span>
               <span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
-              <span>11</span><span class="w-4 h-4 bg-[#0a84ff] text-white rounded-full mx-auto flex items-center justify-center font-bold">12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span>
+              <span>11</span><span class="w-3.5 h-3.5 bg-[#0a84ff] text-white rounded-full mx-auto flex items-center justify-center font-bold">12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span>
               <span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span>
               <span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span>
             </div>
           </div>
 
-          <div class="col-span-2 flex flex-col justify-between pl-2 border-l border-black/5 dark:border-white/10 text-[9px]">
+          <!-- Hardware Sensors (No battery/BT) -->
+          <div class="flex flex-col justify-between pl-1.5 border-l border-black/5 dark:border-white/10 text-[9px]">
             <div class="font-bold text-slate-800 dark:text-slate-100 flex justify-between">
               <span>Hardware</span>
-              <span class="text-amber-500">34°C</span>
+              <span class="text-amber-500 font-bold">34°C</span>
             </div>
-            <div class="space-y-1 my-1">
-              <div>CPU: 32% (i3-3220)</div>
-              <div>RAM: 54% (12 GB)</div>
-              <div>Uptime: 3h 42m</div>
+            <div class="space-y-0.5 my-1">
+              <div>CPU: 32% (i3)</div>
+              <div>RAM: 54% (12G)</div>
+              <div>Up: 3h 42m</div>
             </div>
             <div class="text-emerald-600 dark:text-emerald-400 font-bold">Optimal State</div>
           </div>
         </div>
       </div>
 
-      <!-- CARD 3: Media, Notes & Storage -->
-      <div class="ui-card p-3 shadow-lg flex flex-col space-y-2">
-        <div class="flex items-center space-x-2.5 bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
-          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white text-xs shrink-0 shadow">
+      <!-- CARD 3: Media, Notes & SSD (Conky Window 3) -->
+      <div class="ui-card p-2.5 shadow-lg flex flex-col space-y-2">
+        <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-1 text-[10px]">
+          <span class="font-bold uppercase text-slate-500 dark:text-slate-400">Media & Network</span>
+          <span class="text-slate-400">Card 3</span>
+        </div>
+
+        <div class="flex items-center space-x-2 bg-black/5 dark:bg-white/5 p-1.5 rounded-lg">
+          <div class="w-7 h-7 rounded bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white text-[10px] shrink-0 shadow">
             <i class="fa-solid fa-music"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-[11px] font-bold text-slate-900 dark:text-white truncate">Midnight In Monterey</div>
-            <div class="text-[9px] text-slate-500 dark:text-slate-400 truncate">Sequoia Ambient</div>
+            <div class="text-[10px] font-bold text-slate-900 dark:text-white truncate">Monterey Ambient</div>
+            <div class="w-full h-1 bg-slate-300/60 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
+              <div class="h-full bg-slate-800 dark:bg-white w-[62%] rounded-full"></div>
+            </div>
           </div>
-          <button class="w-6 h-6 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-[10px]"><i class="fa-solid fa-pause"></i></button>
+          <button class="w-5 h-5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-[8px]"><i class="fa-solid fa-pause"></i></button>
         </div>
 
-        <div class="grid grid-cols-2 gap-2 text-[9px]">
-          <div class="p-1.5 rounded bg-black/5 dark:bg-white/5">
-            <span class="text-slate-400">Network:</span>
+        <div class="grid grid-cols-2 gap-1.5 text-[8px]">
+          <div class="p-1 rounded bg-black/5 dark:bg-white/5">
+            <span class="text-slate-400">Net:</span>
             <span class="font-bold text-slate-800 dark:text-slate-200">↓ 124 MB/s</span>
           </div>
-          <div class="p-1.5 rounded bg-black/5 dark:bg-white/5">
-            <span class="text-slate-400">SSD Storage:</span>
+          <div class="p-1 rounded bg-black/5 dark:bg-white/5">
+            <span class="text-slate-400">SSD:</span>
             <span class="font-bold text-slate-800 dark:text-slate-200">163 GB Free</span>
           </div>
         </div>
@@ -320,39 +315,39 @@
 
     </aside>
 
-    <!-- ================= BOTTOM DOCK (10-ICON UNIFIED LIST) ================= -->
-    <footer class="absolute bottom-[14px] left-1/2 transform -translate-x-1/2 z-40">
-      <div class="ui-dock px-3.5 py-2.5 flex items-end space-x-2.5 shadow-2xl relative">
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-b from-[#2998ff] to-[#006ee6] shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
-          <i class="fa-solid fa-folder text-white text-2xl drop-shadow"></i>
+    <!-- ================= 5. BOTTOM DOCK (10-ICON UNIFIED LIST) ================= -->
+    <footer class="absolute bottom-[12px] left-1/2 transform -translate-x-1/2 z-40">
+      <div class="ui-dock px-3.5 py-2 flex items-end space-x-2.5 shadow-2xl relative">
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-b from-[#2998ff] to-[#006ee6] shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
+          <i class="fa-solid fa-folder text-white text-xl drop-shadow"></i>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-400 to-blue-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
-          <i class="fa-brands fa-firefox-browser text-white text-2xl drop-shadow"></i>
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-400 to-blue-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
+          <i class="fa-brands fa-firefox-browser text-white text-xl drop-shadow"></i>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-b from-slate-800 to-black shadow-md flex items-center justify-center cursor-pointer border-t border-slate-600">
-          <i class="fa-solid fa-terminal text-emerald-400 text-xl font-mono"></i>
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-b from-slate-800 to-black shadow-md flex items-center justify-center cursor-pointer border-t border-slate-600">
+          <i class="fa-solid fa-terminal text-emerald-400 text-lg font-mono"></i>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
-          <i class="fa-solid fa-pen-nib text-white text-xl drop-shadow"></i>
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
+          <i class="fa-solid fa-pen-nib text-white text-lg drop-shadow"></i>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
-          <i class="fa-solid fa-music text-white text-xl drop-shadow"></i>
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
+          <i class="fa-solid fa-music text-white text-lg drop-shadow"></i>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-white shadow-md flex items-center justify-center cursor-pointer border-t border-slate-200">
-          <div class="grid grid-cols-2 gap-0.5 p-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span><span class="w-2.5 h-2.5 rounded-full bg-red-400"></span><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span><span class="w-2.5 h-2.5 rounded-full bg-green-400"></span></div>
+        <div class="dock-item w-11 h-11 rounded-xl bg-white shadow-md flex items-center justify-center cursor-pointer border-t border-slate-200">
+          <div class="grid grid-cols-2 gap-0.5 p-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span><span class="w-2 h-2 rounded-full bg-red-400"></span><span class="w-2 h-2 rounded-full bg-blue-400"></span><span class="w-2 h-2 rounded-full bg-green-400"></span></div>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-white shadow-md flex flex-col items-center justify-center cursor-pointer border-t border-slate-200">
-          <span class="text-[8px] font-bold text-rose-500 tracking-wider">OCT</span><span class="text-base font-bold text-slate-800 leading-tight">12</span>
+        <div class="dock-item w-11 h-11 rounded-xl bg-white shadow-md flex flex-col items-center justify-center cursor-pointer border-t border-slate-200">
+          <span class="text-[7px] font-bold text-rose-500 tracking-wider">OCT</span><span class="text-sm font-bold text-slate-800 leading-tight">12</span>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-b from-slate-400 to-slate-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/50">
-          <i class="fa-solid fa-gear text-white text-xl drop-shadow"></i>
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-b from-slate-400 to-slate-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/50">
+          <i class="fa-solid fa-gear text-white text-lg drop-shadow"></i>
         </div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-400 to-teal-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
-          <i class="fa-solid fa-shapes text-white text-xl drop-shadow"></i>
+        <div class="dock-item w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-400 to-teal-600 shadow-md flex items-center justify-center cursor-pointer border-t border-white/60">
+          <i class="fa-solid fa-shapes text-white text-lg drop-shadow"></i>
         </div>
-        <div class="w-[1px] h-10 bg-slate-400/50 my-auto mx-1 self-center"></div>
-        <div class="dock-item w-12 h-12 rounded-xl bg-white/70 shadow-md flex items-center justify-center cursor-pointer border-t border-white/80">
-          <i class="fa-regular fa-trash-can text-slate-700 text-xl"></i>
+        <div class="w-[1px] h-8 bg-slate-400/50 my-auto mx-0.5 self-center"></div>
+        <div class="dock-item w-11 h-11 rounded-xl bg-white/70 shadow-md flex items-center justify-center cursor-pointer border-t border-white/80">
+          <i class="fa-regular fa-trash-can text-slate-700 text-lg"></i>
         </div>
       </div>
     </footer>
@@ -362,7 +357,7 @@
   <script>
     let isDark = false;
     let isGlass = false;
-    let currentRes = '1920';
+    let currentRes = '1280';
 
     function toggleTheme() {
       isDark = !isDark;
@@ -389,21 +384,19 @@
     function setResolution(res) {
       currentRes = res;
       const canvas = document.getElementById('viewport-canvas');
-      const btn1920 = document.getElementById('btn-res-1920');
       const btn1280 = document.getElementById('btn-res-1280');
+      const btn1920 = document.getElementById('btn-res-1920');
 
-      if (res === '1280') {
-        canvas.style.width = '1280px';
-        canvas.style.height = '1024px';
-        canvas.classList.add('res-1280');
-        btn1280.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white shadow transition';
-        btn1920.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
-      } else {
+      if (res === '1920') {
         canvas.style.width = '1920px';
         canvas.style.height = '1080px';
-        canvas.classList.remove('res-1280');
         btn1920.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white shadow transition';
         btn1280.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
+      } else {
+        canvas.style.width = '1280px';
+        canvas.style.height = '1024px';
+        btn1280.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white shadow transition';
+        btn1920.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
       }
     }
   </script>

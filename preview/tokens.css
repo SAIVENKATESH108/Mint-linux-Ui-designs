@@ -26,8 +26,8 @@
   --width-sidebar: 76px;
   --size-dock-icon: 48px;
   --zoom-dock-icon: 1.18;
-  --width-widget-grid: 456px;
-  --gap-widgets: 16px;
+  --width-widget-grid: 320px;
+  --gap-widgets: 12px;
 
   /* Radii */
   --radius-traffic: 9999px;

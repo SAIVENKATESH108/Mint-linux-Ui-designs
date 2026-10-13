@@ -4,7 +4,7 @@ Derived directly from [`preview/tokens.css`](../preview/tokens.css) and calibrat
 - **CPU**: Intel Core i3-3220 (2C/4T @ 3.3GHz)
 - **RAM**: 12 GB
 - **GPU**: NVIDIA GeForce GT 610 (Fermi GF119, nouveau driver, OpenGL 4.3 Mesa)
-- **Display**: 1280×1024 @ 60Hz (5:4 aspect ratio; also tested at 1920×1080)
+- **Display**: HDMI-1, 1280×1024 @ 60.02 Hz, scale 1x (5:4 aspect ratio). PRIMARY and only required target.
 - **Chassis**: Desktop PC (No battery, No Bluetooth)
 
 ---
@@ -141,5 +141,6 @@ blur-background-exclude = [
 4. **Desktop Widgets (Conky, 3 Windows)**:
    - Grouped into 3 standalone Conky configs (`window 1: Clock/Weather`, `window 2: Calendar Oct 2026/Hardware`, `window 3: Media/Notes/Storage`).
    - `update_interval = 3.5s` to protect the Core i3-3220 from CPU wakeups.
-5. **Resolution Handling (1280×1024 vs 1920×1080)**:
-   - At 1280×1024 (5:4 aspect ratio), the widget grid width compacts to 320px and center windows scale to 530px so that sidebar (76px), window, and widgets never collide or overlap.
+5. **Resolution Handling (Primary Target: 1280×1024)**:
+   - Fixed target: HDMI-1 at 1280×1024 (5:4 aspect ratio, 60.02 Hz).
+   - Widget grid width is fixed at 320px (2 columns) and window sizes are calibrated so that sidebar (76px), active application window (left: 104px, width: ~600px), and right widget grid (right: 14px, width: 320px) never collide or overlap. 1920×1080 is purely optional and not targeted.
