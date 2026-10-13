@@ -23,6 +23,11 @@ KB_CHANNEL="xfce4-keyboard-shortcuts"
 undo_phase() {
     log_info "==> Reverting Phase 7: Removing Rofi Themes & Shortcuts..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would revert Rofi themes, scripts, and shortcut keybindings"
+        return 0
+    fi
+
     if command -v xfconf-query &>/dev/null; then
         xfconf-query -c "${KB_CHANNEL}" -p "/commands/custom/<Super>space" -r -R 2>/dev/null || true
         xfconf-query -c "${KB_CHANNEL}" -p "/commands/custom/<Super>a" -r -R 2>/dev/null || true
@@ -66,17 +71,17 @@ check_required_packages "${REQUIRED_PKGS[@]}"
 # ------------------------------------------------------------------------------
 # 3. Deploy Rofi Themes
 # ------------------------------------------------------------------------------
-mkdir -p "${ROFI_CONFIG_DIR}"
+run mkdir -p "${ROFI_CONFIG_DIR}"
 safe_copy "${CONFIG_DIR}/rofi/spotlight.rasi" "${ROFI_CONFIG_DIR}/spotlight.rasi"
 safe_copy "${CONFIG_DIR}/rofi/launchpad.rasi" "${ROFI_CONFIG_DIR}/launchpad.rasi"
 
 # ------------------------------------------------------------------------------
 # 4. Deploy Launcher Executables
 # ------------------------------------------------------------------------------
-mkdir -p "${LOCAL_BIN}"
+run mkdir -p "${LOCAL_BIN}"
 safe_copy "${SCRIPTS_DIR}/spotlight.sh" "${LOCAL_BIN}/spotlight.sh"
 safe_copy "${SCRIPTS_DIR}/launchpad.sh" "${LOCAL_BIN}/launchpad.sh"
-chmod +x "${LOCAL_BIN}/spotlight.sh" "${LOCAL_BIN}/launchpad.sh"
+run chmod +x "${LOCAL_BIN}/spotlight.sh" "${LOCAL_BIN}/launchpad.sh"
 
 # ------------------------------------------------------------------------------
 # 5. Bind macOS Shortcuts via xfconf

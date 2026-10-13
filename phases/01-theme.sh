@@ -22,6 +22,11 @@ LOCAL_BIN="${HOME}/.local/bin"
 undo_phase() {
     log_info "==> Reverting Phase 1: Restoring Default Linux Mint XFCE Theme & Window Controls..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would revert Phase 1 themes, icons, and window controls"
+        return 0
+    fi
+
     # Replay precise xfconf backup if available
     local latest_backup
     latest_backup="$(ls -td "${BACKUP_ROOT}"/*/phase1 2>/dev/null | head -n1 || true)"
@@ -44,7 +49,7 @@ undo_phase() {
         set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "left"
     fi
 
-    rm -f "${LOCAL_BIN}/toggle-theme.sh"
+    run rm -f "${LOCAL_BIN}/toggle-theme.sh"
     log_success "Phase 1 successfully reverted."
 }
 
@@ -74,70 +79,130 @@ REQUIRED_PKGS=(
 check_required_packages "${REQUIRED_PKGS[@]}"
 
 # ------------------------------------------------------------------------------
-# 3. Extract and Install WhiteSur GTK Theme (Vendor First, Git Clone Fallback)
+# 3. Extract and Install WhiteSur GTK Theme (Named Flags Only)
 # ------------------------------------------------------------------------------
-mkdir -p "${THEME_DEST}"
-BUILD_TMP="$(mktemp -d -t whitesur-build-XXXXXX)"
-trap 'rm -rf "${BUILD_TMP}"' EXIT
-
 GTK_TARBALL="${VENDOR_DIR}/archives/WhiteSur-gtk-theme.tar.gz"
 
-if [[ -f "${GTK_TARBALL}" ]]; then
-    if [[ ! -d "${THEME_DEST}/WhiteSur-Dark" || ! -d "${THEME_DEST}/WhiteSur-Light" ]]; then
-        log_info "Extracting and compiling vendored WhiteSur GTK themes (Dark & Light)..."
-        tar -zxf "${GTK_TARBALL}" -C "${BUILD_TMP}"
-        (
-            cd "${BUILD_TMP}/WhiteSur-gtk-theme-master"
-            ./install.sh -d "${THEME_DEST}" -c Light Dark -t default -N glassy -o normal --normal
-        )
-        log_success "WhiteSur GTK theme variants installed into ${THEME_DEST}"
-    else
-        log_success "WhiteSur GTK theme already present in ${THEME_DEST}"
-    fi
-elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
-    log_info "Vendored GTK tarball missing. Attempting online git fallback..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git "${BUILD_TMP}/WhiteSur-gtk-theme"
-    (
-        cd "${BUILD_TMP}/WhiteSur-gtk-theme"
-        ./install.sh -d "${THEME_DEST}" -c Light Dark -t default -N glassy -o normal --normal
-    )
-    log_success "WhiteSur GTK theme cloned and installed."
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would compile WhiteSur GTK themes (Dark & Light) to ${THEME_DEST} with:"
+    log_dry "  ./install.sh -d ${THEME_DEST} -c Dark -o normal -t default"
+    log_dry "  ./install.sh -d ${THEME_DEST} -c Light -o normal -t default"
 else
-    log_warn "WhiteSur GTK source not available. Proceeding with existing themes if present."
+    mkdir -p "${THEME_DEST}"
+    if [[ -f "${GTK_TARBALL}" ]]; then
+        if [[ ! -d "${THEME_DEST}/WhiteSur-Dark" || ! -d "${THEME_DEST}/WhiteSur-Light" ]]; then
+            log_info "Extracting and compiling vendored WhiteSur GTK themes (Dark & Light)..."
+            BUILD_TMP="$(mktemp -d -t whitesur-gtk-XXXXXX)"
+            tar -zxf "${GTK_TARBALL}" -C "${BUILD_TMP}"
+            (
+                cd "${BUILD_TMP}/WhiteSur-gtk-theme-master"
+                ./install.sh -d "${THEME_DEST}" -c Dark -o normal -t default
+                ./install.sh -d "${THEME_DEST}" -c Light -o normal -t default
+            )
+            rm -rf "${BUILD_TMP}"
+            log_success "WhiteSur GTK themes (Dark & Light) installed."
+        else
+            log_success "WhiteSur GTK theme already present in ${THEME_DEST}"
+        fi
+    elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
+        log_info "Vendored GTK tarball missing. Attempting online git clone fallback..."
+        BUILD_TMP="$(mktemp -d -t whitesur-gtk-XXXXXX)"
+        git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git "${BUILD_TMP}/WhiteSur-gtk-theme"
+        (
+            cd "${BUILD_TMP}/WhiteSur-gtk-theme"
+            ./install.sh -d "${THEME_DEST}" -c Dark -o normal -t default
+            ./install.sh -d "${THEME_DEST}" -c Light -o normal -t default
+        )
+        rm -rf "${BUILD_TMP}"
+        log_success "WhiteSur GTK theme cloned and installed."
+    else
+        log_warn "WhiteSur GTK source not available. Proceeding with existing themes if present."
+    fi
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Extract and Install WhiteSur Icon Theme (Vendor First, Git Clone Fallback)
+# 4. Extract and Install WhiteSur Icon Theme (Named Flags Only)
 # ------------------------------------------------------------------------------
-mkdir -p "${ICON_DEST}"
 ICON_TARBALL="${VENDOR_DIR}/archives/WhiteSur-icon-theme.tar.gz"
 
-if [[ -f "${ICON_TARBALL}" ]]; then
-    if [[ ! -d "${ICON_DEST}/WhiteSur-dark" && ! -d "${ICON_DEST}/WhiteSur" ]]; then
-        log_info "Extracting and installing vendored WhiteSur icon themes..."
-        tar -zxf "${ICON_TARBALL}" -C "${BUILD_TMP}"
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would install WhiteSur icon themes to ${ICON_DEST} with:"
+    log_dry "  ./install.sh -d ${ICON_DEST} -t default -a"
+else
+    mkdir -p "${ICON_DEST}"
+    if [[ -f "${ICON_TARBALL}" ]]; then
+        if [[ ! -d "${ICON_DEST}/WhiteSur-dark" && ! -d "${ICON_DEST}/WhiteSur" ]]; then
+            log_info "Extracting and installing vendored WhiteSur icon themes..."
+            BUILD_TMP="$(mktemp -d -t whitesur-icon-XXXXXX)"
+            tar -zxf "${ICON_TARBALL}" -C "${BUILD_TMP}"
+            (
+                cd "${BUILD_TMP}/WhiteSur-icon-theme-master"
+                ./install.sh -d "${ICON_DEST}" -t default -a
+            )
+            rm -rf "${BUILD_TMP}"
+            log_success "WhiteSur Icon themes installed."
+        else
+            log_success "WhiteSur Icon theme already present in ${ICON_DEST}"
+        fi
+    elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
+        log_info "Vendored Icon tarball missing. Attempting online git clone fallback..."
+        BUILD_TMP="$(mktemp -d -t whitesur-icon-XXXXXX)"
+        git clone --depth=1 https://github.com/vinceliuice/WhiteSur-icon-theme.git "${BUILD_TMP}/WhiteSur-icon-theme"
         (
-            cd "${BUILD_TMP}/WhiteSur-icon-theme-master"
+            cd "${BUILD_TMP}/WhiteSur-icon-theme"
             ./install.sh -d "${ICON_DEST}" -t default -a
         )
-        log_success "WhiteSur Icon theme installed into ${ICON_DEST}"
+        rm -rf "${BUILD_TMP}"
+        log_success "WhiteSur Icon theme cloned and installed."
     else
-        log_success "WhiteSur Icon theme already present in ${ICON_DEST}"
+        log_warn "WhiteSur Icon source not available. Proceeding with existing icons if present."
     fi
-elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
-    log_info "Vendored Icon tarball missing. Attempting online git fallback..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-icon-theme.git "${BUILD_TMP}/WhiteSur-icon-theme"
-    (
-        cd "${BUILD_TMP}/WhiteSur-icon-theme"
-        ./install.sh -d "${ICON_DEST}" -t default -a
-    )
-    log_success "WhiteSur Icon theme cloned and installed."
-else
-    log_warn "WhiteSur Icon source not available. Proceeding with existing icons if present."
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Install Custom Assets (Apple Logo SVG)
+# 5. Extract and Install WhiteSur Cursor Theme (Named Flags Only)
+# ------------------------------------------------------------------------------
+CURSOR_TARBALL="${VENDOR_DIR}/archives/WhiteSur-cursors.tar.gz"
+
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would install WhiteSur cursor theme to ${ICON_DEST} with:"
+    log_dry "  ./install.sh -d ${ICON_DEST}"
+else
+    mkdir -p "${ICON_DEST}"
+    if [[ -f "${CURSOR_TARBALL}" ]]; then
+        if [[ ! -d "${ICON_DEST}/WhiteSur-cursors" ]]; then
+            log_info "Extracting and installing vendored WhiteSur cursor theme..."
+            BUILD_TMP="$(mktemp -d -t whitesur-cursor-XXXXXX)"
+            tar -zxf "${CURSOR_TARBALL}" -C "${BUILD_TMP}"
+            (
+                cd "${BUILD_TMP}/WhiteSur-cursors-master"
+                ./install.sh -d "${ICON_DEST}"
+            )
+            rm -rf "${BUILD_TMP}"
+            log_success "WhiteSur Cursor theme installed."
+        else
+            log_success "WhiteSur Cursor theme already present in ${ICON_DEST}"
+        fi
+    elif [[ "${OFFLINE_MODE}" -eq 0 ]] && command -v git &>/dev/null; then
+        log_info "Vendored Cursor tarball missing. Attempting online git clone fallback..."
+        BUILD_TMP="$(mktemp -d -t whitesur-cursor-XXXXXX)"
+        if git clone --depth=1 https://github.com/vinceliuice/WhiteSur-cursors.git "${BUILD_TMP}/WhiteSur-cursors" 2>/dev/null; then
+            (
+                cd "${BUILD_TMP}/WhiteSur-cursors"
+                ./install.sh -d "${ICON_DEST}"
+            )
+            log_success "WhiteSur Cursor theme cloned and installed."
+        else
+            log_warn "Cursor git clone failed. Using default cursor."
+        fi
+        rm -rf "${BUILD_TMP}"
+    else
+        log_warn "WhiteSur Cursor source not available. Proceeding with existing cursor."
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# 6. Install Custom Assets (Apple Logo SVG)
 # ------------------------------------------------------------------------------
 APPLE_ICON_SRC="${REPO_ROOT}/assets/icons/apple-logo.svg"
 APPLE_ICON_DEST="${HOME}/.local/share/icons/apple-logo.svg"
@@ -146,19 +211,19 @@ if [[ -f "${APPLE_ICON_SRC}" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 6. Install Light/Dark Theme Switcher Script
+# 7. Install Light/Dark Theme Switcher Script
 # ------------------------------------------------------------------------------
-mkdir -p "${LOCAL_BIN}"
+run mkdir -p "${LOCAL_BIN}"
 TOGGLE_SRC="${REPO_ROOT}/scripts/toggle-theme.sh"
 TOGGLE_DEST="${LOCAL_BIN}/toggle-theme.sh"
 if [[ -f "${TOGGLE_SRC}" ]]; then
     safe_copy "${TOGGLE_SRC}" "${TOGGLE_DEST}"
-    chmod +x "${TOGGLE_DEST}"
-    log_success "Theme toggle utility installed: ${TOGGLE_DEST}"
+    run chmod +x "${TOGGLE_DEST}"
+    log_success "Theme toggle utility configured: ${TOGGLE_DEST}"
 fi
 
 # ------------------------------------------------------------------------------
-# 7. Apply XFCE Settings via xfconf
+# 8. Apply XFCE Settings via xfconf
 # ------------------------------------------------------------------------------
 log_info "Applying macOS Sequoia desktop settings via xfconf..."
 
@@ -166,18 +231,18 @@ log_info "Applying macOS Sequoia desktop settings via xfconf..."
 set_xfconf_prop "xsettings" "/Net/ThemeName" "string" "WhiteSur-Dark"
 
 # Icon Theme
-if [[ -d "${ICON_DEST}/WhiteSur-dark" ]]; then
+if [[ -d "${ICON_DEST}/WhiteSur-dark" || "${DRY_RUN}" -eq 1 ]]; then
     set_xfconf_prop "xsettings" "/Net/IconThemeName" "string" "WhiteSur-dark"
 elif [[ -d "${ICON_DEST}/WhiteSur" ]]; then
     set_xfconf_prop "xsettings" "/Net/IconThemeName" "string" "WhiteSur"
 fi
 
-# Cursor Theme
-if [[ -d "${ICON_DEST}/WhiteSur-cursors" || -d "${HOME}/.icons/WhiteSur-cursors" ]]; then
+# Cursor Theme (if WhiteSur-cursors available or dry-run)
+if [[ -d "${ICON_DEST}/WhiteSur-cursors" || -d "${HOME}/.icons/WhiteSur-cursors" || "${DRY_RUN}" -eq 1 ]]; then
     set_xfconf_prop "xsettings" "/Gtk/CursorThemeName" "string" "WhiteSur-cursors"
 fi
 
-# Fonts: Set Inter font per design tokens
+# Fonts: Inter 10
 set_xfconf_prop "xsettings" "/Gtk/FontName" "string" "Inter 10"
 set_xfconf_prop "xsettings" "/Gtk/MonospaceFontName" "string" "JetBrains Mono 10"
 
@@ -185,11 +250,10 @@ set_xfconf_prop "xsettings" "/Gtk/MonospaceFontName" "string" "JetBrains Mono 10
 set_xfconf_prop "xfwm4" "/general/theme" "string" "WhiteSur-Dark"
 set_xfconf_prop "xfwm4" "/general/title_font" "string" "Inter Medium 10"
 
-# Window Control Buttons on the Left (macOS Sequoia layout)
-# 'C' = Close, 'H' = Hide (minimize), 'M' = Maximize, '|' = Title separator
+# Window Control Buttons on the Left: 'C' Close, 'H' Hide, 'M' Maximize
 set_xfconf_prop "xfwm4" "/general/button_layout" "string" "CHM|"
 set_xfconf_prop "xfwm4" "/general/title_alignment" "string" "center"
 
-log_success "Phase 1 Complete: WhiteSur themes, Inter font, and macOS window buttons applied."
+log_success "Phase 1 Complete: WhiteSur themes, Inter font, and left window buttons configured."
 log_info "Test switching modes anytime with: ~/.local/bin/toggle-theme.sh"
 log_info "Undo this phase anytime with: ./phases/01-theme.sh --undo (or ./uninstall.sh -p 1)"

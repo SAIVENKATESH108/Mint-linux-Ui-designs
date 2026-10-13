@@ -43,7 +43,7 @@ REFERENCE_DIR="${REPO_ROOT}/reference"
 VENDOR_DIR="${REPO_ROOT}/vendor"
 SCRIPTS_DIR="${REPO_ROOT}/scripts"
 
-# Environment Flags (can be set by install.sh)
+# Environment Flags (propagated from install.sh or sub-shells)
 DRY_RUN="${DRY_RUN:-0}"
 OFFLINE_MODE="${OFFLINE_MODE:-0}"
 PROFILE_MODE="${PROFILE_MODE:-lite}"
@@ -56,13 +56,24 @@ CURRENT_PHASE_NUM="0"
 CURRENT_PHASE_DIR="${SESSION_BACKUP_DIR}"
 BACKUP_INITIALIZED=0
 
+# Universal side-effect wrapper: only prints in dry-run mode
+run() {
+    if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
+        log_dry "Would execute: $*"
+        return 0
+    else
+        "$@"
+    fi
+}
+
 init_phase_backup() {
     local phase_num="${1:-0}"
     CURRENT_PHASE_NUM="${phase_num}"
     CURRENT_PHASE_DIR="${SESSION_BACKUP_DIR}/phase${phase_num}"
 
     if [[ "${DRY_RUN}" -eq 1 ]]; then
-        log_dry "Would create backup directory at: ${CURRENT_PHASE_DIR}"
+        log_dry "Would initialize backup directory at: ${CURRENT_PHASE_DIR}"
+        log_dry "Would dump active xfconf channels for Phase ${phase_num}"
         return 0
     fi
 
@@ -94,7 +105,6 @@ init_backup() {
     init_phase_backup "${CURRENT_PHASE_NUM}"
 }
 
-# Ensure execution safety
 verify_environment() {
     if [[ "${EUID}" -eq 0 ]]; then
         log_error "Do NOT run this script as root/sudo! Desktop settings belong to user: ${USER}."
@@ -107,7 +117,6 @@ verify_environment() {
     fi
 }
 
-# Backup a file or directory before modifying
 backup_item() {
     local target="$1"
     if [[ -e "${target}" || -L "${target}" ]]; then
@@ -129,7 +138,6 @@ backup_item() {
     fi
 }
 
-# Idempotent file copy with backup
 safe_copy() {
     local src="$1"
     local dest="$2"
@@ -155,7 +163,6 @@ safe_copy() {
     log_success "Installed: ${dest}"
 }
 
-# Idempotent directory sync with backup
 safe_sync_dir() {
     local src="$1"
     local dest="$2"
@@ -176,7 +183,6 @@ safe_sync_dir() {
     log_success "Synced directory: ${dest}"
 }
 
-# Idempotent xfconf property modification with rollback script recording
 set_xfconf_prop() {
     local channel="$1"
     local property="$2"
@@ -201,26 +207,23 @@ set_xfconf_prop() {
         return 0
     fi
 
-    # Record previous value into restore script
     if [[ -n "${current_val}" ]]; then
         echo "xfconf-query -c \"${channel}\" -p \"${property}\" -s \"${current_val}\"" >> "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
     else
         echo "xfconf-query -c \"${channel}\" -p \"${property}\" -r -R 2>/dev/null || true" >> "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
     fi
 
-    # Apply new value
     xfconf-query -c "${channel}" -p "${property}" --create -t "${type}" -s "${new_val}"
     log_success "xfconf [${channel}] ${property} updated: '${current_val}' -> '${new_val}'"
 }
 
-# Prompt confirmation before any sudo/apt command
 run_sudo_cmd() {
     local cmd_str="$*"
     log_warn "Privileged action requested:"
     printf "      ${C_BOLD}%s${C_RESET}\n" "${cmd_str}"
 
     if [[ "${DRY_RUN}" -eq 1 ]]; then
-        log_dry "Would execute: ${cmd_str}"
+        log_dry "Would execute privileged command: ${cmd_str}"
         return 0
     fi
 
@@ -240,7 +243,6 @@ run_sudo_cmd() {
     fi
 }
 
-# Check if packages are installed and prompt with exact command
 check_required_packages() {
     local missing=()
     for pkg in "$@"; do
@@ -250,6 +252,11 @@ check_required_packages() {
     done
 
     if [[ ${#missing[@]} -gt 0 ]]; then
+        if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
+            log_dry "Missing package(s) detected: ${missing[*]}. Would prompt: sudo apt update && sudo apt install -y ${missing[*]}"
+            return 0
+        fi
+
         log_warn "Missing required package(s): ${missing[*]}"
         local install_cmd="sudo apt update && sudo apt install -y ${missing[*]}"
         run_sudo_cmd "${install_cmd}" || {
@@ -258,7 +265,6 @@ check_required_packages() {
     fi
 }
 
-# Safely install an autostart desktop entry with a 5-second startup delay
 install_delayed_autostart() {
     local name="$1"
     local exec_cmd="$2"
@@ -267,7 +273,7 @@ install_delayed_autostart() {
     local dest_file="${autostart_dir}/${name}.desktop"
 
     if [[ "${DRY_RUN}" -eq 1 ]]; then
-        log_dry "Would register autostart with 5s delay: ${dest_file} -> 'sleep 5 && ${exec_cmd}'"
+        log_dry "Would register autostart (5s delay): ${dest_file} -> 'sleep 5 && ${exec_cmd}'"
         return 0
     fi
 

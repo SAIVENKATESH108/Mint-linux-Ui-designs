@@ -22,6 +22,11 @@ LOCAL_BIN="${HOME}/.local/bin"
 undo_phase() {
     log_info "==> Reverting Phase 2: Restoring xfwm4 Native Compositor..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would restore xfwm4 native compositing and stop Picom"
+        return 0
+    fi
+
     # Re-enable built-in xfwm4 compositing
     set_xfconf_prop "xfwm4" "/general/use_compositing" "bool" "true"
 
@@ -70,7 +75,7 @@ set_xfconf_prop "xfwm4" "/general/use_compositing" "bool" "false"
 # ------------------------------------------------------------------------------
 # 4. Deploy Picom 10.2 Configurations
 # ------------------------------------------------------------------------------
-mkdir -p "${PICOM_CONFIG_DIR}"
+run mkdir -p "${PICOM_CONFIG_DIR}"
 
 safe_copy "${CONFIG_DIR}/picom/picom-lite.conf" "${PICOM_CONFIG_DIR}/picom-lite.conf"
 safe_copy "${CONFIG_DIR}/picom/picom-glass.conf" "${PICOM_CONFIG_DIR}/picom-glass.conf"
@@ -87,9 +92,9 @@ fi
 # ------------------------------------------------------------------------------
 # 5. Install Profile Switcher Utility
 # ------------------------------------------------------------------------------
-mkdir -p "${LOCAL_BIN}"
+run mkdir -p "${LOCAL_BIN}"
 safe_copy "${SCRIPTS_DIR}/lite-mode.sh" "${LOCAL_BIN}/lite-mode.sh"
-chmod +x "${LOCAL_BIN}/lite-mode.sh"
+run chmod +x "${LOCAL_BIN}/lite-mode.sh"
 log_success "Installed profile switcher: ${LOCAL_BIN}/lite-mode.sh"
 
 # ------------------------------------------------------------------------------
@@ -97,7 +102,10 @@ log_success "Installed profile switcher: ${LOCAL_BIN}/lite-mode.sh"
 # ------------------------------------------------------------------------------
 log_info "Testing picom configuration syntax..."
 TEST_PASSED=0
-if command -v picom &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would test picom configuration syntax"
+    TEST_PASSED=1
+elif command -v picom &>/dev/null; then
     # Validate syntax with --config dry-run / diagnostic check
     if picom --config "${PICOM_CONFIG_DIR}/picom.conf" --diagnostics &>/dev/null || true; then
         TEST_PASSED=1

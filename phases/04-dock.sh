@@ -22,6 +22,11 @@ DCONF_PATH="/net/launchpad/plank/docks/dock1"
 undo_phase() {
     log_info "==> Reverting Phase 4: Stopping Plank & Restoring Bottom Panel..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would stop Plank and remove dock config files"
+        return 0
+    fi
+
     if command -v pkill &>/dev/null; then
         pkill -x plank 2>/dev/null || true
     fi
@@ -62,17 +67,21 @@ check_required_packages "${REQUIRED_PKGS[@]}"
 # ------------------------------------------------------------------------------
 # 3. Deploy Custom Sequoia Dock Theme
 # ------------------------------------------------------------------------------
-mkdir -p "${PLANK_THEME_DEST}"
+run mkdir -p "${PLANK_THEME_DEST}"
 safe_copy "${CONFIG_DIR}/plank/theme/Sequoia/dock.theme" "${PLANK_THEME_DEST}/dock.theme"
 
 # ------------------------------------------------------------------------------
 # 4. Deploy Unified 10-Item Dock Launchers
 # ------------------------------------------------------------------------------
-mkdir -p "${PLANK_LAUNCHERS_DIR}"
+run mkdir -p "${PLANK_LAUNCHERS_DIR}"
 backup_item "${PLANK_LAUNCHERS_DIR}"
 
 # Remove existing stale launchers to ensure clean 10-icon order
-rm -f "${PLANK_LAUNCHERS_DIR}/"*.dockitem
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would clean stale launchers in ${PLANK_LAUNCHERS_DIR}"
+else
+    rm -f "${PLANK_LAUNCHERS_DIR}/"*.dockitem
+fi
 
 # Copy 10 unified dock launchers
 for item in "${CONFIG_DIR}/plank/launchers/"*.dockitem; do
@@ -86,7 +95,9 @@ done
 # ------------------------------------------------------------------------------
 log_info "Configuring Plank dock geometry (48px icon, zoom 118%, dodge-window)..."
 
-if command -v dconf &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would configure Plank preferences via dconf (theme: Sequoia, icon-size: 48, zoom: 118%, hide-mode: dodge-window)"
+elif command -v dconf &>/dev/null; then
     # Backup existing dconf tree
     mkdir -p "${CURRENT_PHASE_DIR}"
     dconf dump "${DCONF_PATH}/" > "${CURRENT_PHASE_DIR}/plank-dconf-backup.txt" 2>/dev/null || true
@@ -119,7 +130,10 @@ fi
 # 7. Safety Test & Register Delayed Autostart
 # ------------------------------------------------------------------------------
 TEST_PASSED=0
-if command -v plank &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would verify plank binary"
+    TEST_PASSED=1
+elif command -v plank &>/dev/null; then
     TEST_PASSED=1
     log_success "Plank binary verified."
 fi
@@ -129,7 +143,9 @@ if [[ "${TEST_PASSED}" -eq 1 ]]; then
 fi
 
 # Reload in active X11 session if present
-if [[ -n "${DISPLAY:-}" ]] && command -v plank &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would reload Plank daemon"
+elif [[ -n "${DISPLAY:-}" ]] && command -v plank &>/dev/null; then
     pkill -x plank 2>/dev/null || true
     sleep 0.5
     plank &>/dev/null & disown || log_warn "Plank launch deferred."

@@ -20,6 +20,11 @@ GTK_CONFIG_DIR="${HOME}/.config/gtk-3.0"
 undo_phase() {
     log_info "==> Reverting Phase 5: Removing Left Sidebar (panel-2)..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would revert left sidebar (panel-2) and restore xfconf settings"
+        return 0
+    fi
+
     # Replay backup if available
     local latest_backup
     latest_backup="$(ls -td "${BACKUP_ROOT}"/*/phase5 2>/dev/null | head -n1 || true)"
@@ -69,14 +74,16 @@ log_info "Configuring 4 virtual desktop spaces (Desk 1..4)..."
 set_xfconf_prop "xfwm4" "/general/workspace_count" "int" "4"
 
 # Set friendly names for the 4 spaces
-if command -v xfconf-query &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would set workspace names: Desk 1, Desk 2, Desk 3, Desk 4"
+elif command -v xfconf-query &>/dev/null; then
     xfconf-query -c xfwm4 -p /general/workspace_names --create -t string -s "Desk 1" -t string -s "Desk 2" -t string -s "Desk 3" -t string -s "Desk 4" 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------------------------
 # 4. Deploy Updated GTK 3.0 CSS (Panel-2 Sidebar Styling)
 # ------------------------------------------------------------------------------
-mkdir -p "${GTK_CONFIG_DIR}"
+run mkdir -p "${GTK_CONFIG_DIR}"
 safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 
 # ------------------------------------------------------------------------------
@@ -85,7 +92,9 @@ safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 log_info "Configuring panel-2 as a 76px vertical sidebar on left edge..."
 
 # Add panel-2 to panels array if not already present
-if command -v xfconf-query &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would ensure panel-2 is in xfce4-panel panels array"
+elif command -v xfconf-query &>/dev/null; then
     CURRENT_PANELS="$(xfconf-query -c xfce4-panel -p /panels 2>/dev/null || echo "1")"
     if [[ "${CURRENT_PANELS}" != *"2"* ]]; then
         xfconf-query -c xfce4-panel -p /panels --create -t int -s 1 -t int -s 2 2>/dev/null || true
@@ -104,7 +113,9 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-2/background-style" "uint" "0"
 # ------------------------------------------------------------------------------
 # 6. Safety Check & Panel Reload
 # ------------------------------------------------------------------------------
-if [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would reload xfce4-panel to activate left sidebar"
+elif [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
     log_info "Reloading xfce4-panel to activate left sidebar..."
     xfce4-panel -r 2>/dev/null || log_warn "Panel reload deferred."
 fi

@@ -22,6 +22,11 @@ GTK_CONFIG_DIR="${HOME}/.config/gtk-3.0"
 undo_phase() {
     log_info "==> Reverting Phase 3: Restoring Top Panel Defaults & GTK CSS..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would restore top panel defaults and revert GTK CSS"
+        return 0
+    fi
+
     rm -f "${GTK_CONFIG_DIR}/gtk.css"
 
     # Replay backup if available
@@ -67,7 +72,7 @@ check_required_packages "${REQUIRED_PKGS[@]}"
 # ------------------------------------------------------------------------------
 # 3. Deploy GTK 3.0 CSS Stylesheet
 # ------------------------------------------------------------------------------
-mkdir -p "${GTK_CONFIG_DIR}"
+run mkdir -p "${GTK_CONFIG_DIR}"
 safe_copy "${CONFIG_DIR}/gtk-3.0/gtk.css" "${GTK_CONFIG_DIR}/gtk.css"
 
 # ------------------------------------------------------------------------------
@@ -121,7 +126,9 @@ fi
 # ------------------------------------------------------------------------------
 # 6. Safety Check & Panel Reload
 # ------------------------------------------------------------------------------
-if [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would reload xfce4-panel"
+elif [[ -n "${DISPLAY:-}" ]] && command -v xfce4-panel &>/dev/null; then
     log_info "Reloading xfce4-panel to apply updated geometry and CSS..."
     xfce4-panel -r 2>/dev/null || log_warn "Panel reload deferred."
 fi

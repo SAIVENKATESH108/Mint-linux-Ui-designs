@@ -22,6 +22,11 @@ KB_CHANNEL="xfce4-keyboard-shortcuts"
 undo_phase() {
     log_info "==> Reverting Phase 8: Removing Extras & macOS Hotkeys..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would revert system extras, scripts, and hotkeys"
+        return 0
+    fi
+
     if command -v xfconf-query &>/dev/null; then
         xfconf-query -c "${KB_CHANNEL}" -p "/commands/custom/<Super>c" -r -R 2>/dev/null || true
         xfconf-query -c "${KB_CHANNEL}" -p "/commands/custom/<Super>Up" -r -R 2>/dev/null || true
@@ -70,16 +75,16 @@ check_required_packages "${REQUIRED_PKGS[@]}"
 # ------------------------------------------------------------------------------
 # 3. Deploy Executable Wrappers
 # ------------------------------------------------------------------------------
-mkdir -p "${LOCAL_BIN}"
+run mkdir -p "${LOCAL_BIN}"
 safe_copy "${SCRIPTS_DIR}/mission-control.sh" "${LOCAL_BIN}/mission-control.sh"
 safe_copy "${SCRIPTS_DIR}/control-center.sh" "${LOCAL_BIN}/control-center.sh"
-chmod +x "${LOCAL_BIN}/mission-control.sh" "${LOCAL_BIN}/control-center.sh"
+run chmod +x "${LOCAL_BIN}/mission-control.sh" "${LOCAL_BIN}/control-center.sh"
 
 # ------------------------------------------------------------------------------
 # 4. Deploy xfdashboard Theme (if source exists)
 # ------------------------------------------------------------------------------
 if [[ -d "${CONFIG_DIR}/xfdashboard" ]]; then
-    mkdir -p "${XFDASHBOARD_THEME_DIR}"
+    run mkdir -p "${XFDASHBOARD_THEME_DIR}"
     safe_sync_dir "${CONFIG_DIR}/xfdashboard" "${XFDASHBOARD_THEME_DIR}"
 fi
 

@@ -22,6 +22,11 @@ LOCAL_BIN="${HOME}/.local/bin"
 undo_phase() {
     log_info "==> Reverting Phase 6: Stopping Conky Widgets..."
 
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log_dry "Would stop Conky, remove widget configs and autostart"
+        return 0
+    fi
+
     if command -v pkill &>/dev/null; then
         pkill -x conky 2>/dev/null || true
     fi
@@ -60,20 +65,24 @@ check_required_packages "${REQUIRED_PKGS[@]}"
 # ------------------------------------------------------------------------------
 # 3. Deploy Conky Helper Utilities
 # ------------------------------------------------------------------------------
-mkdir -p "${LOCAL_BIN}"
+run mkdir -p "${LOCAL_BIN}"
 safe_copy "${SCRIPTS_DIR}/weather-cache.sh" "${LOCAL_BIN}/weather-cache.sh"
-chmod +x "${LOCAL_BIN}/weather-cache.sh"
+run chmod +x "${LOCAL_BIN}/weather-cache.sh"
 
 safe_copy "${SCRIPTS_DIR}/conky-manager.sh" "${LOCAL_BIN}/conky-manager.sh"
-chmod +x "${LOCAL_BIN}/conky-manager.sh"
+run chmod +x "${LOCAL_BIN}/conky-manager.sh"
 
 # Pre-populate weather cache
-bash "${LOCAL_BIN}/weather-cache.sh" >/dev/null 2>&1 || true
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would populate weather cache via weather-cache.sh"
+else
+    bash "${LOCAL_BIN}/weather-cache.sh" >/dev/null 2>&1 || true
+fi
 
 # ------------------------------------------------------------------------------
 # 4. Deploy 3 Conky Window Configurations
 # ------------------------------------------------------------------------------
-mkdir -p "${CONKY_CONFIG_DIR}"
+run mkdir -p "${CONKY_CONFIG_DIR}"
 
 safe_copy "${CONFIG_DIR}/conky/clock-weather.conkyrc" "${CONKY_CONFIG_DIR}/clock-weather.conkyrc"
 safe_copy "${CONFIG_DIR}/conky/calendar-system.conkyrc" "${CONKY_CONFIG_DIR}/calendar-system.conkyrc"
@@ -83,7 +92,10 @@ safe_copy "${CONFIG_DIR}/conky/media-notes.conkyrc" "${CONKY_CONFIG_DIR}/media-n
 # 5. Safety Test & Register Delayed Autostart
 # ------------------------------------------------------------------------------
 TEST_PASSED=0
-if command -v conky &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would verify conky binary"
+    TEST_PASSED=1
+elif command -v conky &>/dev/null; then
     TEST_PASSED=1
     log_success "Conky binary verified."
 fi
@@ -93,7 +105,9 @@ if [[ "${TEST_PASSED}" -eq 1 ]]; then
 fi
 
 # Reload in active X11 session if present
-if [[ -n "${DISPLAY:-}" ]] && command -v conky &>/dev/null; then
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_dry "Would start Conky widget manager"
+elif [[ -n "${DISPLAY:-}" ]] && command -v conky &>/dev/null; then
     bash "${LOCAL_BIN}/conky-manager.sh" start || log_warn "Conky start deferred."
 fi
 
