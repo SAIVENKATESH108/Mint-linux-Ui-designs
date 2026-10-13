@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Top Menu Bar (macOS Sequoia XFCE)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
+
+    :root {
+      --bar-height: 28px;
+      --font-size: 13px;
+      --light-bg: rgba(255, 255, 255, 0.45);
+      --light-border: rgba(255, 255, 255, 0.45);
+      --dark-bg: rgba(18, 20, 31, 0.72);
+      --dark-border: rgba(255, 255, 255, 0.08);
+      --blur: 28px;
+    }
+
+    .desktop-bg-light {
+      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
+    }
+
+    .desktop-bg-dark {
+      background: linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
+    }
+
+    .glass-light {
+      background: var(--light-bg);
+      backdrop-filter: blur(var(--blur)) saturate(190%);
+      -webkit-backdrop-filter: blur(var(--blur)) saturate(190%);
+      border-bottom: 1px solid var(--light-border);
+      box-shadow: 0 16px 38px 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .glass-dark {
+      background: var(--dark-bg);
+      backdrop-filter: blur(var(--blur)) saturate(180%);
+      -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+      border-bottom: 1px solid var(--dark-border);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+  </style>
+</head>
+<body id="body" class="desktop-bg-light min-h-screen text-slate-800 flex flex-col justify-between transition-colors duration-300">
+
+  <!-- ================= TOP MENU BAR COMPONENT ================= -->
+  <header id="menubar" class="w-full h-[28px] glass-light px-4 flex items-center justify-between text-[13px] font-medium z-50 transition-all">
+    <!-- Left Navigation -->
+    <div class="flex items-center space-x-5">
+      <!-- Mint / Apple Logo -->
+      <div class="flex items-center space-x-1 cursor-pointer hover:opacity-80 transition" title="System Menu">
+        <svg id="logo-icon" class="w-4 h-4 text-emerald-600 fill-current drop-shadow-sm" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-4h2v4zm-1-8c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-4 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+        </svg>
+      </div>
+
+      <!-- Active Application Name -->
+      <span id="app-name" class="font-bold tracking-tight text-slate-900 cursor-pointer">Files</span>
+
+      <!-- Dynamic App Menus -->
+      <div id="menu-items" class="flex items-center space-x-4 text-slate-700 font-normal text-[13px]">
+        <span class="cursor-pointer hover:text-slate-950 transition">File</span>
+        <span class="cursor-pointer hover:text-slate-950 transition">Edit</span>
+        <span class="cursor-pointer hover:text-slate-950 transition">View</span>
+        <span class="cursor-pointer hover:text-slate-950 transition">Go</span>
+        <span class="cursor-pointer hover:text-slate-950 transition">Window</span>
+        <span class="cursor-pointer hover:text-slate-950 transition">Help</span>
+      </div>
+    </div>
+
+    <!-- Right System Tray & Status Bar -->
+    <div id="tray-items" class="flex items-center space-x-4 text-slate-700">
+      <div class="flex items-center space-x-3 text-[12px]">
+        <span id="lang-badge" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/5 text-slate-700">EN</span>
+        <i class="fa-solid fa-wifi cursor-pointer hover:text-black"></i>
+        <i class="fa-brands fa-bluetooth-b cursor-pointer hover:text-black"></i>
+        <i class="fa-solid fa-volume-high cursor-pointer hover:text-black"></i>
+        <div class="flex items-center space-x-1 cursor-pointer">
+          <span class="text-[11px] font-medium">94%</span>
+          <i class="fa-solid fa-battery-three-quarters text-emerald-600"></i>
+        </div>
+      </div>
+
+      <!-- Control Center Toggle -->
+      <div class="cursor-pointer hover:text-black transition px-1" title="Control Center">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+          <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+        </svg>
+      </div>
+
+      <!-- Spotlight Search -->
+      <i class="fa-solid fa-magnifying-glass text-[11px] cursor-pointer hover:text-black" title="Spotlight (Super+Space)"></i>
+
+      <!-- Date & Time -->
+      <div class="text-[13px] font-medium tracking-tight cursor-pointer pl-1">
+        Mon 12 Oct &nbsp;10:45 AM
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= LEVEL 1 INTERACTIVE INSPECTION / TUNING DOCK ================= -->
+  <div class="max-w-xl mx-auto mb-10 p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-white/40 dark:border-white/10 text-slate-900 dark:text-slate-100">
+    <div class="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Level 1 Preview Inspector</h2>
+        <p class="text-xs text-slate-500">Component: <code>menubar.html</code> (XFCE Top Panel)</p>
+      </div>
+      <div class="flex space-x-2">
+        <button onclick="toggleTheme()" class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
+          Toggle Light / Dark
+        </button>
+        <a href="index.html" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+          ← Gallery
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mt-4 text-xs">
+      <div>
+        <label class="block font-semibold mb-1">Height: <span id="val-height">28px</span></label>
+        <input type="range" min="24" max="36" value="28" class="w-full" oninput="updateHeight(this.value)">
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Blur: <span id="val-blur">28px</span></label>
+        <input type="range" min="0" max="50" value="28" class="w-full" oninput="updateBlur(this.value)">
+      </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 flex justify-between">
+      <span>Mapped XFCE Tool: <code>xfce4-panel</code> + GTK3 CSS</span>
+      <span>Target Height: <code>28px</code></span>
+    </div>
+  </div>
+
+  <script>
+    let isDark = false;
+    function toggleTheme() {
+      isDark = !isDark;
+      const body = document.getElementById('body');
+      const menubar = document.getElementById('menubar');
+      const appName = document.getElementById('app-name');
+      const menuItems = document.getElementById('menu-items');
+      const trayItems = document.getElementById('tray-items');
+      const langBadge = document.getElementById('lang-badge');
+
+      if (isDark) {
+        body.className = "desktop-bg-dark min-h-screen text-slate-100 flex flex-col justify-between transition-colors duration-300";
+        menubar.className = "w-full h-[28px] glass-dark px-4 flex items-center justify-between text-[13px] font-medium z-50 transition-all text-slate-200";
+        appName.className = "font-bold tracking-tight text-white cursor-pointer";
+        menuItems.className = "flex items-center space-x-4 text-slate-300 font-normal text-[13px]";
+        trayItems.className = "flex items-center space-x-4 text-slate-300";
+        langBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-slate-200 border border-white/5";
+      } else {
+        body.className = "desktop-bg-light min-h-screen text-slate-800 flex flex-col justify-between transition-colors duration-300";
+        menubar.className = "w-full h-[28px] glass-light px-4 flex items-center justify-between text-[13px] font-medium z-50 transition-all text-slate-800";
+        appName.className = "font-bold tracking-tight text-slate-900 cursor-pointer";
+        menuItems.className = "flex items-center space-x-4 text-slate-700 font-normal text-[13px]";
+        trayItems.className = "flex items-center space-x-4 text-slate-700";
+        langBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/5 text-slate-700";
+      }
+    }
+
+    function updateHeight(val) {
+      document.getElementById('menubar').style.height = val + 'px';
+      document.getElementById('val-height').innerText = val + 'px';
+    }
+
+    function updateBlur(val) {
+      document.documentElement.style.setProperty('--blur', val + 'px');
+      document.getElementById('val-blur').innerText = val + 'px';
+    }
+  </script>
+</body>
+</html>

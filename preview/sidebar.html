@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Left Sidebar (Workspace & App Switcher)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
+
+    :root {
+      --sidebar-width: 92px;
+      --sidebar-radius: 16px;
+      --sidebar-blur: 32px;
+      --light-sidebar-bg: rgba(255, 255, 255, 0.45);
+      --light-sidebar-border: rgba(255, 255, 255, 0.45);
+      --dark-sidebar-bg: rgba(18, 20, 31, 0.72);
+      --dark-sidebar-border: rgba(255, 255, 255, 0.08);
+    }
+
+    .desktop-bg-light {
+      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
+    }
+
+    .desktop-bg-dark {
+      background: linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
+    }
+
+    .sidebar-glass-light {
+      background: var(--light-sidebar-bg);
+      backdrop-filter: blur(var(--sidebar-blur)) saturate(190%);
+      -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(190%);
+      border: 1px solid var(--light-sidebar-border);
+      box-shadow: 0 16px 38px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(255, 255, 255, 0.5) inset;
+    }
+
+    .sidebar-glass-dark {
+      background: var(--dark-sidebar-bg);
+      backdrop-filter: blur(var(--sidebar-blur)) saturate(180%);
+      -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(180%);
+      border: 1px solid var(--dark-sidebar-border);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 1px 1px rgba(255, 255, 255, 0.08) inset;
+    }
+  </style>
+</head>
+<body id="body" class="desktop-bg-light min-h-screen text-slate-800 p-8 flex items-start gap-10 transition-colors duration-300">
+
+  <!-- ================= LEFT SIDEBAR COMPONENT ================= -->
+  <aside id="sidebar" class="sidebar-glass-light w-[92px] h-[640px] rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all">
+    <!-- Top: 4 Virtual Desktops with Text Labels -->
+    <div class="flex flex-col items-center space-y-3.5 w-full">
+      <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Desktops</div>
+
+      <!-- Desk 1 (Active) -->
+      <div class="flex flex-col items-center group cursor-pointer">
+        <div class="w-14 h-10 rounded-lg bg-white/75 dark:bg-blue-900/30 border-2 border-[#0A84FF] shadow-sm flex flex-col justify-between p-1 transition transform group-hover:scale-105">
+          <div class="flex justify-between items-center text-[8px] text-slate-500 dark:text-blue-200 font-bold">
+            <span>1</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0A84FF]"></span>
+          </div>
+          <div class="w-full h-3.5 bg-blue-100 dark:bg-blue-500/30 rounded-[3px] border border-blue-200 dark:border-blue-400/40"></div>
+        </div>
+        <span class="text-[11px] font-semibold text-[#0A84FF] mt-1">Desk 1</span>
+      </div>
+
+      <!-- Desk 2 -->
+      <div class="flex flex-col items-center group cursor-pointer">
+        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
+          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">2</span>
+          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+        </div>
+        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 2</span>
+      </div>
+
+      <!-- Desk 3 -->
+      <div class="flex flex-col items-center group cursor-pointer">
+        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
+          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">3</span>
+          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+        </div>
+        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 3</span>
+      </div>
+
+      <!-- Desk 4 -->
+      <div class="flex flex-col items-center group cursor-pointer">
+        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 group-hover:bg-white/50 shadow-sm flex flex-col justify-between p-1 transition">
+          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">4</span>
+          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+        </div>
+        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 4</span>
+      </div>
+
+      <div class="w-10 h-[1px] bg-slate-300/60 dark:bg-white/10 my-1"></div>
+
+      <!-- Quick Launch Favorites (44px x 44px buttons) -->
+      <div class="flex flex-col space-y-2.5">
+        <div class="relative group flex justify-center">
+          <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 flex items-center justify-center text-slate-800 dark:text-slate-200 shadow-sm transition transform hover:scale-105">
+            <i class="fa-solid fa-terminal text-sm font-bold text-slate-900 dark:text-emerald-400"></i>
+          </button>
+          <div class="absolute left-14 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
+            Terminal
+          </div>
+        </div>
+
+        <div class="relative group flex justify-center">
+          <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-sm transition transform hover:scale-105">
+            <i class="fa-solid fa-code text-sm"></i>
+          </button>
+          <div class="absolute left-14 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
+            VS Code
+          </div>
+        </div>
+
+        <div class="relative group flex justify-center">
+          <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 flex items-center justify-center text-emerald-600 dark:text-teal-400 shadow-sm transition transform hover:scale-105">
+            <i class="fa-solid fa-bag-shopping text-sm"></i>
+          </button>
+          <div class="absolute left-14 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
+            Software Manager
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: User & Power Profile -->
+    <div class="flex flex-col items-center space-y-2.5">
+      <div class="relative group flex justify-center">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer">
+          <div class="w-full h-full rounded-full bg-white dark:bg-[#161828] flex items-center justify-center font-bold text-xs text-indigo-700 dark:text-indigo-300">
+            LM
+          </div>
+        </div>
+        <div class="absolute left-12 top-2 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
+          Mint User
+        </div>
+      </div>
+
+      <div class="relative group flex justify-center">
+        <button class="w-9 h-9 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition">
+          <i class="fa-solid fa-power-off text-xs"></i>
+        </button>
+        <div class="absolute left-12 top-1.5 px-2 py-1 bg-slate-900/85 backdrop-blur text-white text-[11px] rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition z-50">
+          Power Off
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= LEVEL 1 INSPECTOR PANEL ================= -->
+  <div class="max-w-md w-full p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-white/40 dark:border-white/10 text-slate-900 dark:text-slate-100">
+    <div class="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Level 1 Inspector</h2>
+        <p class="text-xs text-slate-500">Component: <code>sidebar.html</code> (XFCE Panel 2)</p>
+      </div>
+      <div class="flex space-x-2">
+        <button onclick="toggleTheme()" class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
+          Toggle Light / Dark
+        </button>
+        <a href="index.html" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+          ← Gallery
+        </a>
+      </div>
+    </div>
+
+    <div class="mt-4 space-y-4 text-xs">
+      <div>
+        <label class="block font-semibold mb-1">Sidebar Width: <span id="val-width">92px</span></label>
+        <input type="range" min="70" max="110" value="92" class="w-full" oninput="updateWidth(this.value)">
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Border Radius: <span id="val-radius">16px</span></label>
+        <input type="range" min="8" max="24" value="16" class="w-full" oninput="updateRadius(this.value)">
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Blur: <span id="val-blur">32px</span></label>
+        <input type="range" min="0" max="50" value="32" class="w-full" oninput="updateBlur(this.value)">
+      </div>
+    </div>
+
+    <div class="mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 space-y-1">
+      <div>Mapped Tool: Secondary vertical autohide <code>xfce4-panel</code></div>
+      <div>Plugins: <code>xfce4-pager-plugin</code> (Desktops) + Custom Launchers</div>
+    </div>
+  </div>
+
+  <script>
+    let isDark = false;
+    function toggleTheme() {
+      isDark = !isDark;
+      const body = document.getElementById('body');
+      const sidebar = document.getElementById('sidebar');
+      if (isDark) {
+        body.className = "desktop-bg-dark min-h-screen text-slate-100 p-8 flex items-start gap-10 transition-colors duration-300";
+        sidebar.className = "sidebar-glass-dark w-[92px] h-[640px] rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all";
+      } else {
+        body.className = "desktop-bg-light min-h-screen text-slate-800 p-8 flex items-start gap-10 transition-colors duration-300";
+        sidebar.className = "sidebar-glass-light w-[92px] h-[640px] rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl shrink-0 transition-all";
+      }
+    }
+
+    function updateWidth(val) {
+      document.getElementById('sidebar').style.width = val + 'px';
+      document.getElementById('val-width').innerText = val + 'px';
+    }
+
+    function updateRadius(val) {
+      document.getElementById('sidebar').style.borderRadius = val + 'px';
+      document.getElementById('val-radius').innerText = val + 'px';
+    }
+
+    function updateBlur(val) {
+      document.documentElement.style.setProperty('--sidebar-blur', val + 'px');
+      document.getElementById('val-blur').innerText = val + 'px';
+    }
+  </script>
+</body>
+</html>

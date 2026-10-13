@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Full Desktop (macOS Sequoia XFCE Glass Edition)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
+
+    .desktop-bg-light {
+      background: radial-gradient(at 10% 20%, rgba(138, 180, 248, 0.9) 0px, transparent 50%),
+                  radial-gradient(at 85% 15%, rgba(192, 132, 252, 0.85) 0px, transparent 50%),
+                  radial-gradient(at 80% 80%, rgba(244, 114, 182, 0.8) 0px, transparent 55%),
+                  radial-gradient(at 25% 85%, rgba(167, 139, 250, 0.75) 0px, transparent 50%),
+                  linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
+      background-size: 100% 100%;
+    }
+
+    .desktop-bg-dark {
+      background: radial-gradient(circle at 18% 22%, rgba(99, 102, 241, 0.22), transparent 45%),
+                  radial-gradient(circle at 82% 18%, rgba(168, 85, 247, 0.24), transparent 42%),
+                  radial-gradient(circle at 45% 82%, rgba(59, 130, 246, 0.2), transparent 50%),
+                  radial-gradient(circle at 88% 78%, rgba(236, 72, 153, 0.16), transparent 45%),
+                  linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
+      background-size: cover;
+    }
+
+    /* Light glass styles */
+    .glass-panel-light {
+      background: rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 16px 38px 0 rgba(0, 0, 0, 0.08);
+    }
+    .glass-window-light {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(40px) saturate(210%);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+    }
+    .glass-dock-light {
+      background: rgba(255, 255, 255, 0.40);
+      backdrop-filter: blur(35px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14);
+    }
+    .glass-card-light {
+      background: rgba(255, 255, 255, 0.52);
+      backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.40);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Dark glass styles */
+    .glass-panel-dark {
+      background: rgba(18, 20, 31, 0.72);
+      backdrop-filter: blur(32px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .glass-window-dark {
+      background: rgba(17, 20, 30, 0.82);
+      backdrop-filter: blur(44px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.60);
+    }
+    .glass-dock-dark {
+      background: rgba(15, 17, 26, 0.75);
+      backdrop-filter: blur(38px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55);
+    }
+    .glass-card-dark {
+      background: rgba(22, 25, 38, 0.72);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .traffic-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 9999px;
+      display: inline-flex;
+    }
+  </style>
+</head>
+<body id="desktop-root" class="desktop-bg-light w-screen h-screen overflow-hidden relative text-slate-800 antialiased select-none transition-colors duration-300">
+
+  <!-- ================= TOP MENU BAR ================= -->
+  <header id="top-bar" class="w-full h-[28px] glass-panel-light !rounded-none !border-x-0 !border-t-0 px-4 flex items-center justify-between text-[13px] font-medium z-50">
+    <div class="flex items-center space-x-5">
+      <div class="flex items-center space-x-1 cursor-pointer hover:opacity-80 transition" title="Linux Mint Menu">
+        <svg class="w-4 h-4 text-emerald-600 fill-current drop-shadow-sm" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-4h2v4zm-1-8c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-4 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+        </svg>
+      </div>
+      <span class="font-bold tracking-tight text-slate-900 dark:text-white cursor-pointer">Files</span>
+      <div class="hidden sm:flex items-center space-x-4 text-slate-700 dark:text-slate-300 font-normal text-[13px]">
+        <span class="cursor-pointer hover:text-slate-950 dark:hover:text-white transition">File</span>
+        <span class="cursor-pointer hover:text-slate-950 dark:hover:text-white transition">Edit</span>
+        <span class="cursor-pointer hover:text-slate-950 dark:hover:text-white transition">View</span>
+        <span class="cursor-pointer hover:text-slate-950 dark:hover:text-white transition">Go</span>
+        <span class="cursor-pointer hover:text-slate-950 dark:hover:text-white transition">Window</span>
+        <span class="cursor-pointer hover:text-slate-950 dark:hover:text-white transition">Help</span>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-4 text-slate-700 dark:text-slate-300">
+      <div class="flex items-center space-x-3 text-[12px]">
+        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-black/5 dark:bg-white/10 text-slate-700 dark:text-slate-200">EN</span>
+        <i class="fa-solid fa-wifi cursor-pointer"></i>
+        <i class="fa-brands fa-bluetooth-b cursor-pointer"></i>
+        <i class="fa-solid fa-volume-high cursor-pointer"></i>
+        <div class="flex items-center space-x-1 cursor-pointer">
+          <span class="text-[11px] font-medium">94%</span>
+          <i class="fa-solid fa-battery-three-quarters text-emerald-600 dark:text-emerald-400"></i>
+        </div>
+      </div>
+
+      <!-- Quick Light/Dark Switcher in Menu Bar -->
+      <button onclick="toggleTheme()" class="px-2 py-0.5 rounded text-[11px] bg-black/5 dark:bg-white/15 hover:opacity-80 transition flex items-center space-x-1">
+        <i class="fa-solid fa-circle-half-stroke"></i>
+        <span id="theme-btn-label">Dark</span>
+      </button>
+
+      <i class="fa-solid fa-magnifying-glass text-[11px] cursor-pointer" title="Spotlight"></i>
+      <div class="text-[13px] font-medium tracking-tight cursor-pointer pl-1">
+        Mon 12 Oct &nbsp;10:45 AM
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= LEFT SIDEBAR (Workspace & App Switcher) ================= -->
+  <aside id="left-sidebar" class="absolute left-4 top-11 bottom-20 w-[88px] glass-panel-light rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl">
+    <div class="flex flex-col items-center space-y-3.5 w-full">
+      <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Desktops</div>
+      <div class="flex flex-col items-center cursor-pointer">
+        <div class="w-14 h-10 rounded-lg bg-white/75 dark:bg-blue-900/30 border-2 border-[#0A84FF] shadow-sm flex flex-col justify-between p-1">
+          <div class="flex justify-between items-center text-[8px] text-slate-500 dark:text-blue-200 font-bold">
+            <span>1</span><span class="w-1.5 h-1.5 rounded-full bg-[#0A84FF]"></span>
+          </div>
+          <div class="w-full h-3.5 bg-blue-100 dark:bg-blue-500/30 rounded-[3px] border border-blue-200 dark:border-blue-400/40"></div>
+        </div>
+        <span class="text-[11px] font-semibold text-[#0A84FF] mt-1">Desk 1</span>
+      </div>
+      <div class="flex flex-col items-center cursor-pointer">
+        <div class="w-14 h-10 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 shadow-sm flex flex-col justify-between p-1">
+          <span class="text-[8px] text-slate-500 dark:text-slate-400 font-bold">2</span>
+          <div class="w-full h-3.5 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
+        </div>
+        <span class="text-[11px] font-medium text-slate-600 dark:text-slate-400 mt-1">Desk 2</span>
+      </div>
+      <div class="w-10 h-[1px] bg-slate-300/60 dark:bg-white/10 my-1"></div>
+      <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-slate-800 dark:text-slate-200 shadow-sm">
+        <i class="fa-solid fa-terminal text-sm font-bold text-slate-900 dark:text-emerald-400"></i>
+      </button>
+      <button class="w-[44px] h-[44px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 shadow-sm">
+        <i class="fa-solid fa-code text-sm"></i>
+      </button>
+    </div>
+    <div class="flex flex-col items-center space-y-2.5">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer">
+        <div class="w-full h-full rounded-full bg-white dark:bg-[#161828] flex items-center justify-center font-bold text-xs text-indigo-700 dark:text-indigo-300">LM</div>
+      </div>
+      <button class="w-9 h-9 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition">
+        <i class="fa-solid fa-power-off text-xs"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= CENTER SAMPLE WINDOW (Thunar / Files) ================= -->
+  <main id="center-window" class="absolute left-[130px] top-[70px] w-[680px] h-[480px] glass-window-light rounded-2xl flex flex-col overflow-hidden z-20 shadow-2xl">
+    <div class="h-11 bg-white/40 dark:bg-white/5 border-b border-white/40 dark:border-white/10 px-3.5 flex items-center justify-between shrink-0">
+      <div class="flex items-center space-x-2">
+        <div class="traffic-dot bg-[#FF5F56] border border-[#E0443E]/60 cursor-pointer"></div>
+        <div class="traffic-dot bg-[#FFBD2E] border border-[#DEA123]/60 cursor-pointer"></div>
+        <div class="traffic-dot bg-[#27C93F] border border-[#1AAB29]/60 cursor-pointer"></div>
+      </div>
+      <span class="text-[13px] font-semibold text-slate-800 dark:text-white">Home — Mint User</span>
+      <div class="w-16"></div>
+    </div>
+    <div class="flex-1 p-4 grid grid-cols-4 gap-4 overflow-y-auto bg-white/20 dark:bg-black/20 text-xs">
+      <div class="flex flex-col items-center p-2 rounded-xl hover:bg-white/40 dark:hover:bg-white/5 cursor-pointer">
+        <i class="fa-regular fa-folder-open text-blue-500 text-3xl mb-1.5"></i>
+        <span class="font-medium text-slate-800 dark:text-slate-200">Documents</span>
+      </div>
+      <div class="flex flex-col items-center p-2 rounded-xl hover:bg-white/40 dark:hover:bg-white/5 cursor-pointer">
+        <i class="fa-solid fa-download text-emerald-500 text-3xl mb-1.5"></i>
+        <span class="font-medium text-slate-800 dark:text-slate-200">Downloads</span>
+      </div>
+      <div class="flex flex-col items-center p-2 rounded-xl bg-blue-500/15 border border-[#0A84FF]/40 cursor-pointer">
+        <i class="fa-solid fa-code-branch text-purple-500 text-3xl mb-1.5"></i>
+        <span class="font-semibold text-[#0A84FF]">Projects</span>
+      </div>
+      <div class="flex flex-col items-center p-2 rounded-xl hover:bg-white/40 dark:hover:bg-white/5 cursor-pointer">
+        <i class="fa-regular fa-image text-pink-500 text-3xl mb-1.5"></i>
+        <span class="font-medium text-slate-800 dark:text-slate-200">Wallpapers</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= RIGHT DESKTOP WIDGET GRID ================= -->
+  <aside id="desktop-widgets" class="absolute right-[24px] top-[48px] w-[456px] flex flex-col space-y-4 z-20">
+    <div class="grid grid-cols-3 gap-4 h-[145px]">
+      <div class="widget-card glass-card-light p-3 flex flex-col items-center justify-center rounded-2xl shadow-lg">
+        <div class="w-16 h-16 rounded-full border-2 border-slate-700/20 relative flex items-center justify-center bg-white/40 shadow-inner">
+          <div class="w-1.5 h-1.5 rounded-full bg-slate-800 z-10"></div>
+          <div class="absolute w-[2px] h-5 bg-slate-800 top-3 origin-bottom rotate-45 rounded"></div>
+          <div class="absolute w-[1px] h-7 bg-rose-500 top-1 origin-bottom rotate-180 rounded"></div>
+        </div>
+        <span class="text-[10px] font-semibold text-slate-800 dark:text-slate-200 mt-1">Clock</span>
+      </div>
+
+      <div class="col-span-2 widget-card glass-card-light p-3 flex flex-col justify-between rounded-2xl shadow-lg">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-slate-800 dark:text-slate-100">San Francisco</div>
+            <div class="text-[11px] text-slate-500 dark:text-slate-400">Mostly Sunny • 72°</div>
+          </div>
+          <i class="fa-solid fa-sun text-amber-500 text-2xl"></i>
+        </div>
+        <div class="text-[10px] text-slate-500 dark:text-slate-400 border-t border-white/40 dark:border-white/10 pt-1">
+          H:74° &nbsp; L:58° &nbsp; UV: 4
+        </div>
+      </div>
+    </div>
+
+    <!-- Music Player Card -->
+    <div class="widget-card glass-card-light p-3 flex items-center space-x-3 rounded-2xl shadow-lg h-[86px]">
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white text-lg shrink-0">
+        <i class="fa-solid fa-music"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-bold text-slate-900 dark:text-white truncate">Midnight In Monterey</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">Sequoia Ambient Collective</div>
+      </div>
+      <button class="w-7 h-7 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-xs"><i class="fa-solid fa-pause"></i></button>
+    </div>
+  </aside>
+
+  <!-- ================= BOTTOM FLOATING DOCK ================= -->
+  <footer class="absolute bottom-[14px] left-1/2 transform -translate-x-1/2 z-40">
+    <div id="bottom-dock" class="glass-dock-light px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative">
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-b from-[#2998ff] to-[#006ee6] shadow-md flex items-center justify-center cursor-pointer hover:-translate-y-2 transition">
+        <i class="fa-solid fa-folder text-white text-2xl drop-shadow"></i>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-400 to-blue-600 shadow-md flex items-center justify-center cursor-pointer hover:-translate-y-2 transition">
+        <i class="fa-brands fa-firefox-browser text-white text-2xl drop-shadow"></i>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-b from-slate-800 to-black shadow-md flex items-center justify-center cursor-pointer hover:-translate-y-2 transition">
+        <i class="fa-solid fa-terminal text-emerald-400 text-xl font-mono"></i>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 shadow-md flex items-center justify-center cursor-pointer hover:-translate-y-2 transition">
+        <i class="fa-solid fa-pen-nib text-white text-xl drop-shadow"></i>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-b from-slate-400 to-slate-600 shadow-md flex items-center justify-center cursor-pointer hover:-translate-y-2 transition">
+        <i class="fa-solid fa-gear text-white text-xl drop-shadow"></i>
+      </div>
+      <div class="w-[1px] h-10 bg-slate-400/50 my-auto mx-1 self-center"></div>
+      <div class="w-12 h-12 rounded-xl bg-white/70 shadow-md flex items-center justify-center cursor-pointer hover:-translate-y-2 transition">
+        <i class="fa-regular fa-trash-can text-slate-700 text-xl"></i>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    let isDark = false;
+    function toggleTheme() {
+      isDark = !isDark;
+      const root = document.getElementById('desktop-root');
+      const topBar = document.getElementById('top-bar');
+      const leftSidebar = document.getElementById('left-sidebar');
+      const centerWindow = document.getElementById('center-window');
+      const bottomDock = document.getElementById('bottom-dock');
+      const widgetCards = document.querySelectorAll('.widget-card');
+      const btnLabel = document.getElementById('theme-btn-label');
+
+      if (isDark) {
+        root.className = "desktop-bg-dark w-screen h-screen overflow-hidden relative text-slate-100 antialiased select-none transition-colors duration-300";
+        topBar.className = "w-full h-[28px] glass-panel-dark !rounded-none !border-x-0 !border-t-0 px-4 flex items-center justify-between text-[13px] font-medium z-50 text-slate-200";
+        leftSidebar.className = "absolute left-4 top-11 bottom-20 w-[88px] glass-panel-dark rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl";
+        centerWindow.className = "absolute left-[130px] top-[70px] w-[680px] h-[480px] glass-window-dark rounded-2xl flex flex-col overflow-hidden z-20 shadow-2xl";
+        bottomDock.className = "glass-dock-dark px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative";
+        widgetCards.forEach(c => { c.classList.remove('glass-card-light'); c.classList.add('glass-card-dark'); });
+        btnLabel.innerText = "Light";
+      } else {
+        root.className = "desktop-bg-light w-screen h-screen overflow-hidden relative text-slate-800 antialiased select-none transition-colors duration-300";
+        topBar.className = "w-full h-[28px] glass-panel-light !rounded-none !border-x-0 !border-t-0 px-4 flex items-center justify-between text-[13px] font-medium z-50 text-slate-800";
+        leftSidebar.className = "absolute left-4 top-11 bottom-20 w-[88px] glass-panel-light rounded-2xl flex flex-col items-center py-4 justify-between z-30 shadow-2xl";
+        centerWindow.className = "absolute left-[130px] top-[70px] w-[680px] h-[480px] glass-window-light rounded-2xl flex flex-col overflow-hidden z-20 shadow-2xl";
+        bottomDock.className = "glass-dock-light px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative";
+        widgetCards.forEach(c => { c.classList.remove('glass-card-dark'); c.classList.add('glass-card-light'); });
+        btnLabel.innerText = "Dark";
+      }
+    }
+  </script>
+</body>
+</html>

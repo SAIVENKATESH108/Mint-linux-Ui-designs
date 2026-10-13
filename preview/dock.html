@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: Bottom Dock (macOS Sequoia Plank)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
+
+    :root {
+      --dock-radius: 22px;
+      --icon-size: 48px;
+      --zoom-size: 60px;
+      --dock-blur: 35px;
+      --light-dock-bg: rgba(255, 255, 255, 0.40);
+      --light-dock-border: rgba(255, 255, 255, 0.45);
+      --dark-dock-bg: rgba(15, 17, 26, 0.75);
+      --dark-dock-border: rgba(255, 255, 255, 0.12);
+    }
+
+    .desktop-bg-light {
+      background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 40%, #f472b6 75%, #fda4af 100%);
+    }
+
+    .desktop-bg-dark {
+      background: linear-gradient(135deg, #070810 0%, #0d0f1d 30%, #151128 65%, #191436 100%);
+    }
+
+    .dock-glass-light {
+      background: var(--light-dock-bg);
+      backdrop-filter: blur(var(--dock-blur)) saturate(200%);
+      -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(200%);
+      border: 1px solid var(--light-dock-border);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14), 0 1px 1px rgba(255, 255, 255, 0.8) inset;
+    }
+
+    .dock-glass-dark {
+      background: var(--dark-dock-bg);
+      backdrop-filter: blur(var(--dock-blur)) saturate(200%);
+      -webkit-backdrop-filter: blur(var(--dock-blur)) saturate(200%);
+      border: 1px solid var(--dark-dock-border);
+      box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55), 0 1px 1px rgba(255, 255, 255, 0.15) inset;
+    }
+
+    .dock-item {
+      transition: transform 150ms cubic-bezier(0.2, 0, 0.1, 1), margin 150ms ease;
+    }
+
+    .dock-item:hover {
+      transform: translateY(-8px) scale(1.18);
+    }
+  </style>
+</head>
+<body id="body" class="desktop-bg-light min-h-screen text-slate-800 flex flex-col justify-between p-6 transition-colors duration-300">
+
+  <!-- ================= TOP CONTROLS & INSPECTOR ================= -->
+  <div class="max-w-2xl mx-auto w-full p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-white/40 dark:border-white/10 text-slate-900 dark:text-slate-100">
+    <div class="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">Level 1 Preview Inspector</h2>
+        <p class="text-xs text-slate-500">Component: <code>dock.html</code> (Plank Sequoia Theme)</p>
+      </div>
+      <div class="flex space-x-2">
+        <button onclick="toggleTheme()" class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 transition">
+          Toggle Light / Dark
+        </button>
+        <a href="index.html" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-200 dark:bg-slate-800 hover:opacity-80 transition">
+          ← Gallery
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mt-4 text-xs">
+      <div>
+        <label class="block font-semibold mb-1">Corner Radius: <span id="val-radius">22px</span></label>
+        <input type="range" min="10" max="32" value="22" class="w-full" oninput="updateRadius(this.value)">
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Blur: <span id="val-blur">35px</span></label>
+        <input type="range" min="0" max="50" value="35" class="w-full" oninput="updateBlur(this.value)">
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">Icon Size: <span id="val-size">48px</span></label>
+        <input type="range" min="36" max="64" value="48" class="w-full" oninput="updateIconSize(this.value)">
+      </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 flex justify-between">
+      <span>Mapped X11 Tool: <code>Plank</code> (dodge-window, zoom-enabled)</span>
+      <span>Config File: <code>~/.local/share/plank/themes/Sequoia/dock.theme</code></span>
+    </div>
+  </div>
+
+  <!-- ================= DOCK COMPONENT ================= -->
+  <footer class="w-full flex justify-center pb-2">
+    <div id="dock" class="dock-glass-light px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative transition-all">
+
+      <!-- 1. Files / Thunar -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Files
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-b from-[#2998ff] to-[#006ee6] shadow-md flex items-center justify-center border-t border-white/60">
+          <i class="fa-solid fa-folder text-white text-2xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white mt-1"></div>
+      </div>
+
+      <!-- 2. Firefox -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Firefox
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-400 to-blue-600 shadow-md flex items-center justify-center border-t border-white/60">
+          <i class="fa-brands fa-firefox-browser text-white text-2xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white mt-1"></div>
+      </div>
+
+      <!-- 3. Terminal -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Terminal
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-b from-slate-800 to-black shadow-md flex items-center justify-center border-t border-slate-600">
+          <i class="fa-solid fa-terminal text-emerald-400 text-xl font-mono"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white mt-1"></div>
+      </div>
+
+      <!-- 4. Text Editor -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Text Editor
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 shadow-md flex items-center justify-center border-t border-white/60">
+          <i class="fa-solid fa-pen-nib text-white text-xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+      <!-- 5. Music Player -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Music
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-600 shadow-md flex items-center justify-center border-t border-white/60">
+          <i class="fa-solid fa-music text-white text-xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white mt-1"></div>
+      </div>
+
+      <!-- 6. Calendar -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Calendar
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-white shadow-md flex flex-col items-center justify-center border-t border-slate-200">
+          <span class="text-[8px] font-bold text-rose-500 tracking-wider">OCT</span>
+          <span class="text-base font-bold text-slate-800 leading-tight">12</span>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+      <!-- 7. Settings -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Settings
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-b from-slate-400 to-slate-600 shadow-md flex items-center justify-center border-t border-white/50">
+          <i class="fa-solid fa-gear text-white text-xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+      <!-- 8. Software Manager -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Software Manager
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-400 to-teal-600 shadow-md flex items-center justify-center border-t border-white/60">
+          <i class="fa-solid fa-shapes text-white text-xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+      <!-- Divider -->
+      <div class="w-[1px] h-10 bg-slate-400/50 my-auto mx-1 self-center"></div>
+
+      <!-- 9. Downloads Stack -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Downloads
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-300 to-blue-500 shadow-md flex items-center justify-center border-t border-white/60">
+          <i class="fa-solid fa-inbox text-white text-xl drop-shadow"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+      <!-- 10. Trash -->
+      <div class="flex flex-col items-center group relative cursor-pointer dock-item">
+        <div class="absolute -top-9 px-2 py-0.5 bg-slate-900/85 backdrop-blur text-white text-[11px] font-medium rounded shadow opacity-0 group-hover:opacity-100 pointer-events-none transition whitespace-nowrap">
+          Trash
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-white/70 shadow-md flex items-center justify-center border-t border-white/80">
+          <i class="fa-regular fa-trash-can text-slate-700 text-xl"></i>
+        </div>
+        <div class="w-1.5 h-1.5 rounded-full bg-transparent mt-1"></div>
+      </div>
+
+    </div>
+  </footer>
+
+  <script>
+    let isDark = false;
+    function toggleTheme() {
+      isDark = !isDark;
+      const body = document.getElementById('body');
+      const dock = document.getElementById('dock');
+      if (isDark) {
+        body.className = "desktop-bg-dark min-h-screen text-slate-100 flex flex-col justify-between p-6 transition-colors duration-300";
+        dock.className = "dock-glass-dark px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative transition-all";
+      } else {
+        body.className = "desktop-bg-light min-h-screen text-slate-800 flex flex-col justify-between p-6 transition-colors duration-300";
+        dock.className = "dock-glass-light px-3.5 py-2.5 rounded-[22px] flex items-end space-x-2.5 shadow-2xl relative transition-all";
+      }
+    }
+
+    function updateRadius(val) {
+      document.getElementById('dock').style.borderRadius = val + 'px';
+      document.getElementById('val-radius').innerText = val + 'px';
+    }
+
+    function updateBlur(val) {
+      document.documentElement.style.setProperty('--dock-blur', val + 'px');
+      document.getElementById('val-blur').innerText = val + 'px';
+    }
+
+    function updateIconSize(val) {
+      document.querySelectorAll('.dock-item > div:nth-child(2)').forEach(el => {
+        el.style.width = val + 'px';
+        el.style.height = val + 'px';
+      });
+      document.getElementById('val-size').innerText = val + 'px';
+    }
+  </script>
+</body>
+</html>
