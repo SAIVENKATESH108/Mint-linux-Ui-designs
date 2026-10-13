@@ -1,5 +1,7 @@
 /* ==============================================================================
- * Phase 3 Fragment: Top Menu Bar (panel-1, 28px height)
+ * Phase 3 Fragment: macOS Sequoia Modern Glass Top Menu Bar (panel-1, 28px)
+ * Designed to match LinuxScoop macOS Big Sur/Sequoia aesthetic.
+ * Clean transparent glass, rounded hover pills, crisp typography.
  * ============================================================================== */
 
 /* Top Panel Bar */
@@ -7,23 +9,24 @@
     background-color: @sequoia_bg_panel;
     color: @sequoia_fg;
     border-bottom: 1px solid @sequoia_border;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.2);
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 10pt;
     font-weight: 500;
 }
 
-/* Panel Buttons (Calibrated for 28px panel to prevent negative width allocations) */
+/* Panel Buttons: macOS Pill Buttons */
 .xfce4-panel button {
     background-color: transparent;
     background-image: none;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     color: @sequoia_fg;
     box-shadow: none;
-    padding: 0 3px;
-    margin: 1px 1px;
-    min-height: 20px;
-    min-width: 20px;
+    padding: 0 4px;
+    margin: 2px 1px;
+    min-height: 22px;
+    min-width: 22px;
     transition: background-color 150ms ease, color 150ms ease;
 }
 
@@ -34,15 +37,16 @@
 
 .xfce4-panel button:checked,
 .xfce4-panel button:active {
-    background-color: @sequoia_accent;
+    background-color: @sequoia_active;
     color: @sequoia_fg_hover;
 }
 
 /* Whisker / Apple Menu Launcher Button */
 #whiskermenu-button,
 .xfce4-panel button#whiskermenu-button {
-    padding: 0 4px;
-    margin: 1px 2px;
+    padding: 0 6px;
+    margin: 2px 3px 2px 2px;
+    border-radius: 6px;
 }
 
 #whiskermenu-button:hover {
@@ -55,29 +59,40 @@
     font-weight: 600;
     color: @sequoia_fg;
     letter-spacing: 0.2px;
+    padding: 0 4px;
 }
 
-/* StatusNotifier & Systray items */
+#clock-button:hover {
+    background-color: @sequoia_hover;
+    border-radius: 6px;
+}
+
+/* StatusNotifier, Systray & PulseAudio Controls */
 #sn-button,
-.xfce4-panel .systray {
+.xfce4-panel .systray,
+.xfce4-panel #pulseaudio-button,
+.xfce4-panel #power-manager-plugin,
+.xfce4-panel #notification-plugin {
     margin: 0 2px;
+    border-radius: 6px;
 }
 
-/* Menus & Popups */
+/* Menus & Popups (macOS Frosted Floating Glass Menu) */
 menu,
 .xfce4-panel menu {
     background-color: @sequoia_bg_menu;
     color: @sequoia_fg;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px solid @sequoia_border;
-    padding: 4px;
-    box-shadow: 0 8px 24px @sequoia_shadow;
+    padding: 6px;
+    box-shadow: 0 10px 30px @sequoia_shadow;
 }
 
 menuitem {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 5px 12px;
+    border-radius: 6px;
     color: @sequoia_fg;
+    margin: 1px 0;
 }
 
 menuitem:hover {
@@ -90,13 +105,15 @@ separator {
     background-color: @sequoia_border;
     min-height: 1px;
     min-width: 1px;
+    margin: 2px 0;
 }
 
 /* Tooltips */
 tooltip.background {
-    background-color: @sequoia_bg_panel;
+    background-color: @sequoia_bg_menu;
     border-radius: 6px;
     border: 1px solid @sequoia_border;
     color: @sequoia_fg;
     padding: 4px 8px;
+    box-shadow: 0 4px 12px @sequoia_shadow;
 }

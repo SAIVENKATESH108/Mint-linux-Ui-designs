@@ -90,6 +90,16 @@ set_xfconf_prop "xfce4-panel" "/panels/panel-1/length" "uint" "100"
 set_xfconf_prop "xfce4-panel" "/panels/panel-1/position-locked" "bool" "true"
 set_xfconf_prop "xfce4-panel" "/panels/panel-1/autohide-behavior" "uint" "0"
 set_xfconf_prop "xfce4-panel" "/panels/panel-1/background-style" "uint" "0"
+set_xfconf_prop "xfce4-panel" "/panels/panel-1/enable-struts" "bool" "true"
+
+# Eliminate any workspace margin gaps between top bar and application windows
+if command -v xfconf-query &>/dev/null; then
+    set_xfconf_prop "xfwm4" "/general/margin_top" "int" "0"
+    set_xfconf_prop "xfwm4" "/general/margin_bottom" "int" "0"
+    set_xfconf_prop "xfwm4" "/general/margin_left" "int" "0"
+    set_xfconf_prop "xfwm4" "/general/margin_right" "int" "0"
+    set_xfconf_prop "xfwm4" "/general/snap_to_border" "bool" "true"
+fi
 
 KEEP_TOP_LAUNCHERS="${KEEP_TOP_LAUNCHERS:-0}"
 for arg in "$@"; do

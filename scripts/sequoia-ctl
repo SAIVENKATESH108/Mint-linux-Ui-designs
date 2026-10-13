@@ -236,10 +236,16 @@ cmd_import() {
     log_success "Profile imported from: ${in_file}"
 }
 
+cmd_apps() {
+    log_info "Configuring application window frames (macOS traffic lights & 0 top gap)..."
+    "${SCRIPT_DIR}/app-window-theming.sh"
+}
+
 case "${1:-status}" in
     status) cmd_status ;;
     preset) shift; cmd_preset "$@" ;;
     apply) cmd_apply ;;
+    apps|fix-windows) cmd_apps ;;
     edit) shift; cmd_edit "$@" ;;
     safe-mode) shift; cmd_safe_mode "$@" ;;
     export) shift; cmd_export "$@" ;;
@@ -251,6 +257,7 @@ case "${1:-status}" in
         echo "Commands:"
         echo "  status                Show running session state and components"
         echo "  preset [name]         List presets or apply a preset (default, vibrant, sequoia-dark, enterprise)"
+        echo "  apps                  Configure Brave/browsers/apps for native macOS traffic lights and remove top gap"
         echo "  edit on|off           Unlock or lock panel layout for drag/reposition"
         echo "  safe-mode on|off      Toggle Picom vs xfwm4 safe compositing"
         echo "  export <file.json>    Export active configuration"
