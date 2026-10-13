@@ -58,7 +58,7 @@
   </header>
 
   <!-- ================= CANVAS (1280x1024 DEFAULT) ================= -->
-  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1280px] h-[1024px] max-w-full origin-top">
+  <div id="viewport-canvas" class="viewport-container relative overflow-hidden rounded-2xl shadow-2xl border border-slate-800 w-[1280px] h-[1024px] max-w-full origin-top" style="background: var(--wallpaper-gradient); background-size: cover; background-position: center;">
 
     <!-- ================= 1. TOP MENU BAR (28px) ================= -->
     <header class="ui-menubar w-full px-4 flex items-center justify-between text-[13px] font-medium z-50 absolute top-0 left-0">
@@ -102,78 +102,8 @@
       </div>
     </header>
 
-    <!-- ================= 2. LEFT SIDEBAR (76px UNIFIED) ================= -->
-    <!-- Position: left 10px, top 38px, height 580px (space used on left: 86px) -->
-    <aside class="ui-sidebar absolute left-[10px] top-[38px] h-[580px] flex flex-col items-center py-3.5 justify-between z-30 shadow-2xl">
-      <div class="flex flex-col items-center space-y-3 w-full px-1">
-        <div class="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Desktops</div>
-
-        <!-- Desk 1 (Active) -->
-        <div class="flex flex-col items-center cursor-pointer w-full">
-          <div class="w-14 h-9 rounded-lg bg-white/75 dark:bg-blue-900/40 border-2 border-[#0a84ff] shadow-sm flex flex-col justify-between p-1">
-            <div class="flex justify-between items-center text-[7px] text-slate-500 dark:text-blue-200 font-bold">
-              <span>1</span><span class="w-1.5 h-1.5 rounded-full bg-[#0a84ff]"></span>
-            </div>
-            <div class="w-full h-3 bg-blue-100 dark:bg-blue-500/30 rounded-[3px] border border-blue-200 dark:border-blue-400/40"></div>
-          </div>
-          <span class="text-[10px] font-semibold text-[#0a84ff] mt-0.5">Desk 1</span>
-        </div>
-
-        <!-- Desk 2 -->
-        <div class="flex flex-col items-center cursor-pointer w-full">
-          <div class="w-14 h-9 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 shadow-sm flex flex-col justify-between p-1">
-            <span class="text-[7px] text-slate-500 dark:text-slate-400 font-bold">2</span>
-            <div class="w-full h-3 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
-          </div>
-          <span class="text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">Desk 2</span>
-        </div>
-
-        <!-- Desk 3 -->
-        <div class="flex flex-col items-center cursor-pointer w-full">
-          <div class="w-14 h-9 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 shadow-sm flex flex-col justify-between p-1">
-            <span class="text-[7px] text-slate-500 dark:text-slate-400 font-bold">3</span>
-            <div class="w-full h-3 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
-          </div>
-          <span class="text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">Desk 3</span>
-        </div>
-
-        <!-- Desk 4 -->
-        <div class="flex flex-col items-center cursor-pointer w-full">
-          <div class="w-14 h-9 rounded-lg bg-white/30 dark:bg-white/5 border border-white/40 dark:border-white/10 shadow-sm flex flex-col justify-between p-1">
-            <span class="text-[7px] text-slate-500 dark:text-slate-400 font-bold">4</span>
-            <div class="w-full h-3 bg-slate-200/50 dark:bg-white/10 rounded-[3px]"></div>
-          </div>
-          <span class="text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-0.5">Desk 4</span>
-        </div>
-
-        <div class="w-10 h-[1px] bg-slate-300/60 dark:bg-white/10 my-1"></div>
-
-        <div class="flex flex-col space-y-2">
-          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center shadow-sm" title="Terminal">
-            <i class="fa-solid fa-terminal text-sm text-emerald-500"></i>
-          </button>
-          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-blue-600 shadow-sm" title="VS Code">
-            <i class="fa-solid fa-code text-sm"></i>
-          </button>
-          <button class="w-[42px] h-[42px] rounded-xl bg-white/45 dark:bg-white/10 hover:bg-white/75 border border-white/50 dark:border-white/10 flex items-center justify-center text-emerald-600 shadow-sm" title="Software Manager">
-            <i class="fa-solid fa-bag-shopping text-sm"></i>
-          </button>
-        </div>
-      </div>
-
-      <div class="flex flex-col items-center space-y-2">
-        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 p-[1.5px] shadow cursor-pointer" title="Mint User">
-          <div class="w-full h-full rounded-full bg-white dark:bg-[#161828] flex items-center justify-center font-bold text-xs text-indigo-700 dark:text-indigo-300">LM</div>
-        </div>
-        <button class="w-8 h-8 rounded-full bg-black/10 dark:bg-white/10 hover:bg-rose-500 hover:text-white flex items-center justify-center text-slate-700 dark:text-slate-300 transition" title="Power Off">
-          <i class="fa-solid fa-power-off text-xs"></i>
-        </button>
-      </div>
-    </aside>
-
-    <!-- ================= 3. CENTER SAMPLE WINDOW (600px wide, no overlap) ================= -->
-    <!-- Position: left 104px (gap 18px from sidebar), top 48px, width 600px (ends at 704px; widget grid starts at 946px; 242px margin!) -->
-    <main class="ui-window absolute left-[104px] top-[48px] w-[600px] h-[480px] flex flex-col overflow-hidden z-20 shadow-2xl">
+    <!-- ================= 2. SAMPLE WINDOW (Clean macOS styling, traffic lights on left) ================= -->
+    <main class="ui-window absolute left-[48px] top-[48px] w-[620px] h-[480px] flex flex-col overflow-hidden z-20 shadow-2xl">
       <div class="h-11 bg-white/40 dark:bg-white/5 border-b border-white/40 dark:border-white/10 px-3.5 flex items-center justify-between shrink-0">
         <div class="flex items-center space-x-2">
           <div class="traffic-dot bg-[#FF5F56] border border-[#E0443E]/60 cursor-pointer"></div>

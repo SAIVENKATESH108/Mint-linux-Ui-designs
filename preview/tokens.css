@@ -116,33 +116,33 @@ html.dark.mode-glass {
   --box-shadow-card: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
-/* LITE MODE (Default Old PC Profile: opaque-ish flat translucent, NO blur) */
+/* LITE MODE (Default Old PC Profile: smooth translucent RGBA, NO blur) */
 html.mode-lite {
   --filter-blur: none;
-  --bg-menubar: rgba(245, 245, 247, 0.90);
+  --bg-menubar: rgba(245, 245, 247, 0.85);
   --border-menubar: rgba(0, 0, 0, 0.12);
-  --bg-sidebar: rgba(245, 245, 247, 0.90);
+  --bg-sidebar: rgba(245, 245, 247, 0.85);
   --border-sidebar: rgba(0, 0, 0, 0.12);
-  --bg-window: rgba(255, 255, 255, 0.96);
+  --bg-window: rgba(255, 255, 255, 0.92);
   --border-window: rgba(0, 0, 0, 0.15);
-  --bg-dock: rgba(240, 240, 245, 0.90);
-  --border-dock: rgba(0, 0, 0, 0.12);
-  --bg-card: rgba(255, 255, 255, 0.92);
-  --border-card: rgba(0, 0, 0, 0.10);
+  --bg-dock: rgba(255, 255, 255, 0.52);
+  --border-dock: rgba(255, 255, 255, 0.65);
+  --bg-card: rgba(255, 255, 255, 0.58);
+  --border-card: rgba(255, 255, 255, 0.50);
 }
 
 html.dark.mode-lite {
   --filter-blur: none;
-  --bg-menubar: rgba(24, 26, 36, 0.94);
+  --bg-menubar: rgba(24, 26, 36, 0.88);
   --border-menubar: rgba(255, 255, 255, 0.10);
-  --bg-sidebar: rgba(24, 26, 36, 0.94);
+  --bg-sidebar: rgba(24, 26, 36, 0.88);
   --border-sidebar: rgba(255, 255, 255, 0.10);
-  --bg-window: rgba(20, 22, 32, 0.96);
+  --bg-window: rgba(20, 22, 32, 0.92);
   --border-window: rgba(255, 255, 255, 0.12);
-  --bg-dock: rgba(20, 22, 32, 0.92);
-  --border-dock: rgba(255, 255, 255, 0.12);
-  --bg-card: rgba(28, 31, 46, 0.92);
-  --border-card: rgba(255, 255, 255, 0.10);
+  --bg-dock: rgba(22, 24, 34, 0.68);
+  --border-dock: rgba(255, 255, 255, 0.18);
+  --bg-card: rgba(20, 24, 38, 0.52);
+  --border-card: rgba(255, 255, 255, 0.12);
 }
 
 /* Universal Base Styles */
