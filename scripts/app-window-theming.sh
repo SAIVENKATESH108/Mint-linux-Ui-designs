@@ -26,8 +26,10 @@ if command -v xfconf-query &>/dev/null; then
     set_xfconf_prop "xfwm4" "/general/margin_left" "int" "0"
     set_xfconf_prop "xfwm4" "/general/margin_right" "int" "0"
 
+    set_xfce_prop() { set_xfconf_prop "$@"; }
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/size" "uint" "28"
-    set_xfconf_prop "xfce4-panel" "/panels/panel-1/enable-struts" "bool" "true"
+    set_xfconf_prop "xfce4-panel" "/panels/panel-1/autohide-behavior" "uint" "1"
+    set_xfconf_prop "xfce4-panel" "/panels/panel-1/enable-struts" "bool" "false"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/position" "string" "p=6;x=0;y=0"
 
     # Snap to screen edge with 0 resistance gap

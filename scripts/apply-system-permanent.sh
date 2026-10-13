@@ -227,9 +227,9 @@ if command -v xfconf-query &>/dev/null; then
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/icon-size" "uint" "16"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/length" "uint" "100"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/position-locked" "bool" "true"
-    set_xfconf_prop "xfce4-panel" "/panels/panel-1/autohide-behavior" "uint" "0"
+    set_xfconf_prop "xfce4-panel" "/panels/panel-1/autohide-behavior" "uint" "1"
     set_xfconf_prop "xfce4-panel" "/panels/panel-1/background-style" "uint" "0"
-    set_xfconf_prop "xfce4-panel" "/panels/panel-1/enable-struts" "bool" "true"
+    set_xfconf_prop "xfce4-panel" "/panels/panel-1/enable-struts" "bool" "false"
 
     # Ensure panel-2 is purged cleanly without syntax errors
     if xfconf-query -c xfce4-panel -p /panels/panel-2 &>/dev/null; then
