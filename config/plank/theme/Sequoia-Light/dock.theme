@@ -1,0 +1,27 @@
+# ==============================================================================
+# macOS Sequoia Light Plank Dock Theme
+# Clean frosted crystal glass for Light Mode
+# ==============================================================================
+
+[PlankTheme]
+TopRoundness=14
+BottomRoundness=14
+
+LineWidth=1
+
+# Outer stroke subtle border
+OuterStrokeColor=0;;0;;0;;25
+
+# Light frosted crystal glass background
+FillStartColor=245;;245;;250;;205
+FillEndColor=245;;245;;250;;205
+
+# Inner subtle glow stroke
+InnerStrokeColor=255;;255;;255;;180
+
+BottomPadding=2
+TopPadding=2
+ItemPadding=4
+IndicatorSize=4
+IconShadowSize=1
+FadeOpacity=1

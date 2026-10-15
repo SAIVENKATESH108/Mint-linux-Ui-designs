@@ -1,0 +1,12 @@
+/* Design Tokens for GTK 3.0 - Light Mode */
+@define-color sequoia_bg_panel rgba(250, 250, 252, 0.82);
+@define-color sequoia_bg_menu rgba(255, 255, 255, 0.96);
+@define-color sequoia_bg_card rgba(255, 255, 255, 0.00);
+@define-color sequoia_accent #007aff;
+@define-color sequoia_accent_active #0051a8;
+@define-color sequoia_fg #0f172a;
+@define-color sequoia_fg_hover #007aff;
+@define-color sequoia_border rgba(0, 0, 0, 0.12);
+@define-color sequoia_hover rgba(0, 0, 0, 0.08);
+@define-color sequoia_active rgba(0, 122, 255, 0.20);
+@define-color sequoia_shadow rgba(0, 0, 0, 0.12);

@@ -5,10 +5,8 @@
        MAC_OPTS (file with the widget's options), MAC_WIDGET_DIR, MAC_RUN, MAC_DEMO.
      Everything is drawn in "base" units: a small card is 170x170, a medium 2 cells wide,
      a large 2x2 cells. The global size setting scales the whole canvas. ]]
+if not cairo_create then pcall(require, 'cairo') end
 
-require 'cairo'
-
-local L = {}
 local env = os.getenv
 
 L.HOME = env('HOME')

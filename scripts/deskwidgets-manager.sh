@@ -8,8 +8,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WIDGETS_DIR="${REPO_DIR}/lib/deskwidgets"
-BIN_RUNNER="${WIDGETS_DIR}/bin/deskwidgets"
+WIDGETS_SRC="${REPO_DIR}/lib/deskwidgets"
 
 CONFIG_DIR="${HOME}/.config/deskwidgets"
 LAYOUT_FILE="${CONFIG_DIR}/layout.json"
@@ -17,24 +16,47 @@ SETTINGS_FILE="${CONFIG_DIR}/settings.json"
 FONT_DIR="${HOME}/.local/share/fonts"
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/deskwidgets"
 LOG_FILE="${HOME}/.cache/deskwidgets/service.log"
+BIN_RUNNER="${HOME}/.local/bin/deskwidgets"
 
 mkdir -p "${CONFIG_DIR}" "${FONT_DIR}" "${HOME}/.cache/deskwidgets" "${RUN_DIR}"
 
-# 1. Install & Cache MaterialDesignIcons Font
-install_fonts() {
-    local src_font="${WIDGETS_DIR}/fonts/MaterialDesignIcons.ttf"
+# 1. Install DeskWidgets package to ~/.local and install fonts
+install_deskwidgets() {
+    # Copy Material Design Icons font
+    local src_font="${WIDGETS_SRC}/fonts/MaterialDesignIcons.ttf"
     local dest_font="${FONT_DIR}/MaterialDesignIcons.ttf"
     if [[ -f "${src_font}" ]] && [[ ! -f "${dest_font}" ]]; then
         cp -f "${src_font}" "${dest_font}"
         fc-cache -f "${FONT_DIR}" 2>/dev/null || true
     fi
+
+    # Run DeskWidgets installer if binary does not exist or needs update
+    if [[ ! -x "${BIN_RUNNER}" ]] || [[ "${WIDGETS_SRC}/bin/deskwidgets" -nt "${BIN_RUNNER}" ]]; then
+        echo "Installing DeskWidgets suite into ~/.local..."
+        if [[ -f "${WIDGETS_SRC}/install.sh" ]]; then
+            sh "${WIDGETS_SRC}/install.sh" --prefix "${HOME}/.local" >/dev/null 2>&1 || true
+        fi
+    fi
 }
 
-# 2. Setup 1280x1024 Calibrated Layout & Settings
+# 2. Get current system appearance mode (dark vs light)
+get_current_theme_mode() {
+    local theme
+    theme="$(xfconf-query -c xsettings -p /Net/ThemeName 2>/dev/null || echo "WhiteSur-Dark")"
+    if [[ "${theme}" =~ [Dd]ark ]]; then
+        echo "glass"
+    else
+        echo "light"
+    fi
+}
+
+# 3. Setup 1280x1024 Calibrated Layout & Settings matching DeskWidgets Showcase
 setup_config() {
-    # Generate settings optimized for 1280x1024 resolution and GT 610 hardware
-    if [[ ! -f "${SETTINGS_FILE}" ]]; then
-        cat > "${SETTINGS_FILE}" << 'EOF'
+    local target_style
+    target_style="${1:-$(get_current_theme_mode)}"
+
+    # Generate global settings
+    cat > "${SETTINGS_FILE}" << EOF
 {
   "language": "en",
   "scale": 0.95,
@@ -43,18 +65,16 @@ setup_config() {
   "margin_bottom": 72,
   "margin_side": 16,
   "font": "Ubuntu Sans",
-  "default_style": "glass",
+  "default_style": "${target_style}",
   "default_accent": "blue",
   "autostart": true,
   "hotkey": false,
   "grid_overlay": false
 }
 EOF
-    fi
 
-    # Generate layout on the right-hand columns of the 1280x1024 screen
-    if [[ ! -f "${LAYOUT_FILE}" ]]; then
-        cat > "${LAYOUT_FILE}" << 'EOF'
+    # Provision calibrated 1280x1024 macOS widget stack (columns 5 and 6 on right)
+    cat > "${LAYOUT_FILE}" << EOF
 {
   "version": 3,
   "instances": [
@@ -62,7 +82,7 @@ EOF
       "id": "clock-1",
       "type": "clock",
       "size": "small",
-      "style": "glass",
+      "style": "${target_style}",
       "accent": "blue",
       "options": {},
       "col": 5,
@@ -72,7 +92,7 @@ EOF
       "id": "calendar-1",
       "type": "calendar",
       "size": "small",
-      "style": "glass",
+      "style": "${target_style}",
       "accent": "blue",
       "options": {},
       "col": 6,
@@ -82,7 +102,7 @@ EOF
       "id": "weather-1",
       "type": "weather",
       "size": "medium",
-      "style": "glass",
+      "style": "${target_style}",
       "accent": "blue",
       "options": {},
       "col": 5,
@@ -92,7 +112,7 @@ EOF
       "id": "system-1",
       "type": "system",
       "size": "medium",
-      "style": "glass",
+      "style": "${target_style}",
       "accent": "blue",
       "options": {},
       "col": 5,
@@ -102,7 +122,7 @@ EOF
       "id": "media-1",
       "type": "media",
       "size": "medium",
-      "style": "glass",
+      "style": "${target_style}",
       "accent": "blue",
       "options": {},
       "col": 5,
@@ -111,84 +131,64 @@ EOF
   ]
 }
 EOF
-    fi
 }
 
-# 3. Process Management
-is_running() {
-    pgrep -f "deskwidgets run" >/dev/null 2>&1
-}
-
+# 4. Stop All Widgets (DeskWidgets and Old Conky)
 stop_widgets() {
-    echo "Stopping DeskWidgets service and widgets..."
+    echo "Stopping DeskWidgets service and widget instances..."
     pkill -f "deskwidgets run" 2>/dev/null || true
-    # Kill any conky instances spawned by deskwidgets
+    # Stop legacy conky cards permanently
+    pkill -f "calendar-system.conkyrc" 2>/dev/null || true
+    pkill -f "clock-weather.conkyrc" 2>/dev/null || true
+    pkill -f "media-notes.conkyrc" 2>/dev/null || true
+    
+    # Kill any conky instances spawned by DeskWidgets
     for pid in $(pgrep conky 2>/dev/null || true); do
         if grep -q "deskwidgets" "/proc/${pid}/cmdline" 2>/dev/null; then
             kill -15 "${pid}" 2>/dev/null || true
         fi
     done
-    # Also stop legacy static conky widgets if still running
-    pkill -f "calendar-system.conkyrc" 2>/dev/null || true
-    pkill -f "clock-weather.conkyrc" 2>/dev/null || true
-    pkill -f "media-notes.conkyrc" 2>/dev/null || true
-    sleep 0.5
-}
-
-start_widgets() {
-    install_fonts
-    setup_config
-
-    echo "==> Launching desktop widgets..."
-    pkill -f "deskwidgets run" 2>/dev/null || true
-    pkill -f "calendar-system.conkyrc" 2>/dev/null || true
-    pkill -f "clock-weather.conkyrc" 2>/dev/null || true
-    pkill -f "media-notes.conkyrc" 2>/dev/null || true
     sleep 0.3
-
-    local started_cairo=0
-    if [[ -x "${BIN_RUNNER}" ]] && command -v python3 &>/dev/null; then
-        echo "Attempting to start DeskWidgets Cairo vector suite..."
-        nohup python3 "${BIN_RUNNER}" run > "${LOG_FILE}" 2>&1 &
-        local new_pid=$!
-        echo "${new_pid}" > "${HOME}/.cache/deskwidgets/service.pid"
-
-        # Check if deskwidgets successfully spawned conky windows within 2 seconds
-        for _ in {1..5}; do
-            sleep 0.4
-            if kill -0 "${new_pid}" 2>/dev/null && pgrep -f "conky -c.*widget.conf" >/dev/null 2>&1; then
-                started_cairo=1
-                break
-            fi
-        done
-    fi
-
-    if [[ "${started_cairo}" -eq 1 ]]; then
-        echo "✔ DeskWidgets Cairo suite successfully active."
-    else
-        echo "ℹ Activating high-reliability native macOS Sequoia Conky cards..."
-        pkill -f "deskwidgets run" 2>/dev/null || true
-        if [[ -x "${SCRIPT_DIR}/conky-manager.sh" ]]; then
-            "${SCRIPT_DIR}/conky-manager.sh" start
-        elif [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
-            "${HOME}/.local/bin/conky-manager.sh" start
-        fi
-        echo "✔ macOS Sequoia Conky cards active."
-    fi
 }
 
-open_gallery() {
-    install_fonts
-    setup_config
-    python3 "${BIN_RUNNER}" gallery &
+# 5. Start DeskWidgets
+start_widgets() {
+    install_deskwidgets
+    local current_mode
+    current_mode="$(get_current_theme_mode)"
+    if [[ ! -f "${LAYOUT_FILE}" ]]; then
+        setup_config "${current_mode}"
+    fi
+
+    echo "==> Starting DeskWidgets macOS Suite (${current_mode} mode)..."
+    stop_widgets
+
+    local runner="${BIN_RUNNER}"
+    if [[ ! -x "${runner}" ]]; then
+        runner="${WIDGETS_SRC}/bin/deskwidgets"
+    fi
+
+    nohup python3 "${runner}" run > "${LOG_FILE}" 2>&1 &
+    local new_pid=$!
+    echo "${new_pid}" > "${HOME}/.cache/deskwidgets/service.pid"
+    echo "✔ DeskWidgets service active (PID: ${new_pid})."
+}
+
+# 6. Change Style (glass, light, graphite, colour, sakura, manga, neon)
+set_style() {
+    local new_style="${1:-glass}"
+    echo "Applying DeskWidgets style: ${new_style}..."
+    setup_config "${new_style}"
+    stop_widgets
+    start_widgets
 }
 
 status_widgets() {
-    if is_running; then
-        local pid
-        pid=$(pgrep -f "deskwidgets run" | head -n1)
-        local count
-        count=$(pgrep -fc "deskwidget:" || true)
+    local pid
+    pid="$(pgrep -f "deskwidgets run" | head -n1 || true)"
+    local count
+    count="$(pgrep -fc "deskwidget:" 2>/dev/null || echo 0)"
+    if [[ -n "${pid}" ]]; then
         echo "[RUNNING] DeskWidgets service active (PID: ${pid}, active widget windows: ${count})"
     else
         echo "[STOPPED] DeskWidgets service is not running."
@@ -210,20 +210,21 @@ case "${cmd}" in
     status)
         status_widgets
         ;;
+    style)
+        set_style "${2:-glass}"
+        ;;
     gallery)
-        open_gallery
+        install_deskwidgets
+        "${BIN_RUNNER}" gallery &
         ;;
     reset-layout)
         rm -f "${LAYOUT_FILE}" "${SETTINGS_FILE}"
         setup_config
-        echo "Reset layout to default macOS 1280x1024 stack."
-        if is_running; then
-            stop_widgets
-            start_widgets
-        fi
+        stop_widgets
+        start_widgets
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status|gallery|reset-layout}"
+        echo "Usage: $0 {start|stop|restart|status|style <name>|gallery|reset-layout}"
         exit 1
         ;;
 esac

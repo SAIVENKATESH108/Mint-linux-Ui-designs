@@ -43,6 +43,8 @@ rm -f "${GTK_DIR}/sidebar.css"
 
 # Deploy clean, strictly scoped stylesheets
 safe_copy "${REPO_ROOT}/config/gtk-3.0/sequoia/tokens.css" "${GTK_DIR}/sequoia/tokens.css"
+safe_copy "${REPO_ROOT}/config/gtk-3.0/sequoia/tokens-dark.css" "${GTK_DIR}/sequoia/tokens-dark.css"
+safe_copy "${REPO_ROOT}/config/gtk-3.0/sequoia/tokens-light.css" "${GTK_DIR}/sequoia/tokens-light.css"
 safe_copy "${REPO_ROOT}/config/gtk-3.0/sequoia/panel-top.css" "${GTK_DIR}/sequoia/panel-top.css"
 safe_copy "${REPO_ROOT}/config/gtk-3.0/gtk.css" "${GTK_DIR}/gtk.css"
 log_success "GTK 3.0 stylesheets cleanly consolidated and strictly scoped."
@@ -68,12 +70,16 @@ fi
 log_success "Picom compositor configurations deployed."
 
 # ------------------------------------------------------------------------------
-# 3. Deploy Sequoia Dock Theme (DO NOT MODIFY PINNED DOCK LAUNCHERS)
+# 3. Deploy Sequoia Dock Themes (Dark & Light, DO NOT MODIFY PINNED LAUNCHERS)
 # ------------------------------------------------------------------------------
-log_info "Step 3: Ensuring Sequoia Dock theme file exists (dock items untouched)..."
+log_info "Step 3: Ensuring Sequoia Dock theme files exist (dock items untouched)..."
 PLANK_THEME_DEST="${HOME}/.local/share/plank/themes/Sequoia"
 mkdir -p "${PLANK_THEME_DEST}"
 safe_copy "${REPO_ROOT}/config/plank/theme/Sequoia/dock.theme" "${PLANK_THEME_DEST}/dock.theme"
+
+PLANK_LIGHT_DEST="${HOME}/.local/share/plank/themes/Sequoia-Light"
+mkdir -p "${PLANK_LIGHT_DEST}"
+safe_copy "${REPO_ROOT}/config/plank/theme/Sequoia-Light/dock.theme" "${PLANK_LIGHT_DEST}/dock.theme"
 
 if command -v dconf &>/dev/null; then
     DCONF_PATH="/net/launchpad/plank/docks/dock1"
@@ -86,16 +92,16 @@ if command -v dconf &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Deploy Conky Desktop Widgets (3 Non-Overlapping Translucent Glass Cards)
+# 4. Deploy DeskWidgets Cairo Vector Suite (21 Widgets, 9 Styles, Snapping Grid)
 # ------------------------------------------------------------------------------
-log_info "Step 4: Deploying Conky desktop widget configurations..."
-CONKY_CONFIG_DIR="${HOME}/.config/conky"
-mkdir -p "${CONKY_CONFIG_DIR}"
+log_info "Step 4: Installing and launching DeskWidgets Cairo vector suite..."
+# Permanently remove old static conky configs from memory
+pkill -f "calendar-system.conkyrc" 2>/dev/null || true
+pkill -f "clock-weather.conkyrc" 2>/dev/null || true
+pkill -f "media-notes.conkyrc" 2>/dev/null || true
 
-safe_copy "${REPO_ROOT}/config/conky/clock-weather.conkyrc" "${CONKY_CONFIG_DIR}/clock-weather.conkyrc"
-safe_copy "${REPO_ROOT}/config/conky/calendar-system.conkyrc" "${CONKY_CONFIG_DIR}/calendar-system.conkyrc"
-safe_copy "${REPO_ROOT}/config/conky/media-notes.conkyrc" "${CONKY_CONFIG_DIR}/media-notes.conkyrc"
-log_success "Conky non-overlapping translucent glass card configurations deployed."
+bash "${SCRIPT_DIR}/deskwidgets-manager.sh" start
+log_success "DeskWidgets Cairo vector suite active on calibrated 1280x1024 grid."
 
 # ------------------------------------------------------------------------------
 # 5. Deploy Rofi Themes (Launchpad 7x5, Spotlight, Control Center)
@@ -373,15 +379,15 @@ if [[ -n "${DISPLAY:-}" ]]; then
         picom --config "${PICOM_DIR}/picom.conf" -b 2>/dev/null || true
     fi
 
-    # 13b. Restart Desktop Widgets (DeskWidgets with Conky fallback)
+    # 13b. Restart Desktop Widgets (DeskWidgets Cairo vector suite)
+    pkill -f "calendar-system.conkyrc" 2>/dev/null || true
+    pkill -f "clock-weather.conkyrc" 2>/dev/null || true
+    pkill -f "media-notes.conkyrc" 2>/dev/null || true
+    log_info "Restarting DeskWidgets Cairo vector suite (1280x1024 calibrated)..."
     if [[ -x "${HOME}/.local/bin/deskwidgets-manager.sh" ]]; then
-        log_info "Restarting DeskWidgets Cairo vector suite (1280x1024 calibrated)..."
         "${HOME}/.local/bin/deskwidgets-manager.sh" restart >/dev/null 2>&1 || true
-    elif command -v conky &>/dev/null; then
-        log_info "Restarting Conky widgets with translucent glass cards (zero overlap)..."
-        if [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
-            "${HOME}/.local/bin/conky-manager.sh" restart >/dev/null 2>&1 || true
-        fi
+    elif [[ -x "${SCRIPT_DIR}/deskwidgets-manager.sh" ]]; then
+        "${SCRIPT_DIR}/deskwidgets-manager.sh" restart >/dev/null 2>&1 || true
     fi
 
     # 13c. Reload Top Panel

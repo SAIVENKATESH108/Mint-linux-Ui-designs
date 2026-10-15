@@ -258,6 +258,10 @@ check_item "Conky manager script executable at ~/.local/bin/conky-manager.sh" \
     "[[ -x '${HOME}/.local/bin/conky-manager.sh' ]]" \
     "conky-manager.sh missing or not executable"
 
+check_item "DeskWidgets manager script executable at ~/.local/bin/deskwidgets-manager.sh" \
+    "[[ -x '${HOME}/.local/bin/deskwidgets-manager.sh' ]]" \
+    "deskwidgets-manager.sh missing or not executable"
+
 if [[ -n "${DISPLAY:-}" ]]; then
     check_item "3 Conky windows currently running" \
         "[[ \$(pgrep -c -x conky || echo 0) -ge 3 ]]" \
