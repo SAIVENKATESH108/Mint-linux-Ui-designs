@@ -34,6 +34,9 @@ class X11:
             raise RuntimeError('cannot open the X display (is DISPLAY set?)')
         self.root = x.XDefaultRootWindow(self.dpy)
         self.client_list = x.XInternAtom(self.dpy, b'_NET_CLIENT_LIST', 0)
+        x.XGetGeometry.restype = i
+        x.XGetGeometry.argtypes = [vp, ul, P(ul), P(i), P(i), P(i), P(i), P(i), P(i)]
+        self.net_wm_pid = x.XInternAtom(self.dpy, b'_NET_WM_PID', 0)
 
     def screen_size(self):
         return self.x.XDisplayWidth(self.dpy, 0), self.x.XDisplayHeight(self.dpy, 0)
@@ -65,6 +68,32 @@ class X11:
                                             c.byref(px), c.byref(py), c.byref(child)):
             return None
         return px.value, py.value
+
+    def geometry(self, win):
+        """Returns (x, y, w, h) of the window relative to root, or None."""
+        pos = self.position(win)
+        if pos is None:
+            return None
+        c = ctypes
+        root = c.c_ulong()
+        rx, ry, rw, rh, border, depth = c.c_int(), c.c_int(), c.c_int(), c.c_int(), c.c_int(), c.c_int()
+        if not self.x.XGetGeometry(self.dpy, win, c.byref(root), c.byref(rx), c.byref(ry),
+                                   c.byref(rw), c.byref(rh), c.byref(border), c.byref(depth)):
+            return None
+        return pos[0], pos[1], rw.value, rh.value
+
+    def pid(self, win):
+        """Reads _NET_WM_PID property from window, or None."""
+        x, c = self.x, ctypes
+        typ, fmt, n, after, prop = c.c_ulong(), c.c_int(), c.c_ulong(), c.c_ulong(), c.c_void_p()
+        XA_CARDINAL = 6
+        if x.XGetWindowProperty(self.dpy, win, self.net_wm_pid, 0, 1, 0, XA_CARDINAL,
+                                c.byref(typ), c.byref(fmt), c.byref(n), c.byref(after), c.byref(prop)) != 0 \
+                or not prop.value:
+            return None
+        val = c.cast(prop, c.POINTER(c.c_ulong)).contents.value
+        x.XFree(prop)
+        return int(val)
 
     def move(self, win, x, y):
         self.x.XMoveWindow(self.dpy, win, x, y)

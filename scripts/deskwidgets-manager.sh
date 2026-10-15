@@ -15,10 +15,10 @@ LAYOUT_FILE="${CONFIG_DIR}/layout.json"
 SETTINGS_FILE="${CONFIG_DIR}/settings.json"
 FONT_DIR="${HOME}/.local/share/fonts"
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/deskwidgets"
-LOG_FILE="${HOME}/.cache/deskwidgets/service.log"
+LOG_FILE="${HOME}/.cache/sequoia/deskwidgets.log"
 BIN_RUNNER="${HOME}/.local/bin/deskwidgets"
 
-mkdir -p "${CONFIG_DIR}" "${FONT_DIR}" "${HOME}/.cache/deskwidgets" "${RUN_DIR}"
+mkdir -p "${CONFIG_DIR}" "${FONT_DIR}" "${HOME}/.cache/deskwidgets" "${HOME}/.cache/sequoia" "${RUN_DIR}"
 
 # 1. Install DeskWidgets package to ~/.local and install fonts
 install_deskwidgets() {
@@ -138,14 +138,27 @@ stop_widgets() {
         local pid
         pid="$(cat "${pid_file}" 2>/dev/null || true)"
         if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
-            echo "Stopping DeskWidgets daemon (PID: ${pid})..."
-            kill -TERM "${pid}" 2>/dev/null || true
-            for _ in {1..15}; do
-                if ! kill -0 "${pid}" 2>/dev/null; then
-                    break
+            local is_dw=0
+            if [[ -f "/proc/${pid}/cmdline" ]]; then
+                local pcmd
+                pcmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+                if [[ "${pcmd}" == *"deskwidgets"* ]]; then
+                    is_dw=1
                 fi
-                sleep 0.1
-            done
+            fi
+
+            if [[ "${is_dw}" -eq 1 ]]; then
+                echo "Stopping DeskWidgets daemon (PID: ${pid})..."
+                kill -TERM "${pid}" 2>/dev/null || true
+                for _ in {1..15}; do
+                    if ! kill -0 "${pid}" 2>/dev/null; then
+                        break
+                    fi
+                    sleep 0.1
+                done
+            else
+                echo "Notice: PID ${pid} is an unrelated process. Removing stale PID file."
+            fi
         fi
         rm -f "${pid_file}"
     fi
@@ -187,7 +200,7 @@ start_widgets() {
     current_mode="$(get_current_theme_mode)"
     setup_config "${current_mode}"
 
-    echo "==> Starting DeskWidgets macOS Suite (${current_mode} colorful mode)..."
+    echo "==> Starting DeskWidgets macOS Suite (${current_mode} mode)..."
     stop_widgets
 
     local runner="${BIN_RUNNER}"
@@ -195,10 +208,20 @@ start_widgets() {
         runner="${WIDGETS_SRC}/bin/deskwidgets"
     fi
 
+    mkdir -p "$(dirname "${LOG_FILE}")"
     nohup python3 "${runner}" run > "${LOG_FILE}" 2>&1 &
     local new_pid=$!
     echo "${new_pid}" > "${HOME}/.cache/deskwidgets/service.pid"
-    echo "✔ DeskWidgets service active (PID: ${new_pid})."
+
+    # Liveness check: verify process didn't crash on startup
+    sleep 0.5
+    if kill -0 "${new_pid}" 2>/dev/null; then
+        echo "✔ DeskWidgets service active (PID: ${new_pid})."
+    else
+        echo "✘ ERROR: DeskWidgets service process ${new_pid} failed to start. Last log lines from ${LOG_FILE}:"
+        tail -n 15 "${LOG_FILE}" 2>/dev/null || true
+        return 1
+    fi
 }
 
 # 6. Change Style (glass, light, graphite, colour, sakura, manga, neon)
@@ -211,15 +234,11 @@ set_style() {
 }
 
 status_widgets() {
-    local pid
-    pid="$(pgrep -f "deskwidgets run" | head -n1 || true)"
-    local count
-    count="$(pgrep -fc "deskwidget:" 2>/dev/null || echo 0)"
-    if [[ -n "${pid}" ]]; then
-        echo "[RUNNING] DeskWidgets service active (PID: ${pid}, active widget windows: ${count})"
-    else
-        echo "[STOPPED] DeskWidgets service is not running."
+    local runner="${BIN_RUNNER}"
+    if [[ ! -x "${runner}" ]]; then
+        runner="${WIDGETS_SRC}/bin/deskwidgets"
     fi
+    python3 "${runner}" status
 }
 
 cmd="${1:-status}"

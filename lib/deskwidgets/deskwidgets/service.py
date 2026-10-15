@@ -23,7 +23,7 @@ from .grid import Grid
 from .providers import Events, HidBatteries, Media
 from .util import log, write_atomic
 
-POLL_MS = 500
+POLL_MS = 2000
 SNAP_AFTER = 2   # polls without movement before a dropped widget snaps to the grid
 
 # first-run layout: (type, size, col, row); negative columns count from the right edge
@@ -58,8 +58,8 @@ class Runner:
     def __init__(self, daemon, inst_id):
         self.d, self.id = daemon, inst_id
         self.proc = None
+        self.pid = None
         self.stopping = False
-        self.crashes = []
         self.window = None
         self.requested = (0, 0)
         self.offset = None     # where the WM put the window relative to where it was asked to
@@ -67,6 +67,11 @@ class Runner:
         self.still = 0         # polls the window has not moved
         self.cooldown = 0      # polls to wait after we moved the window ourselves
         self.settling = False  # just snapped it: accept the WM's final spot
+        self.started_at = 0
+        self.recovery_attempts = []  # timestamps of recoveries in the last hour
+        self.backoff_level = 0
+        self.disabled = False
+        self.next_retry = 0
 
     @property
     def running(self):
@@ -76,7 +81,43 @@ class Runner:
     def inst(self):
         return self.d.instance(self.id)
 
+    def get_backoff_delay(self):
+        # Exponential backoff: 10s, 30s, 90s, capped at 300s (5 min)
+        delays = [10, 30, 90]
+        if self.backoff_level < len(delays):
+            delay = delays[self.backoff_level]
+        else:
+            delay = min(300, 90 * (3 ** (self.backoff_level - 2)))
+        return min(delay, 300)
+
+    def schedule_recovery(self, reason="exit"):
+        now = time.monotonic()
+        self.recovery_attempts = [t for t in self.recovery_attempts if now - t < 3600]
+        if len(self.recovery_attempts) >= 8:
+            if not self.disabled:
+                self.disabled = True
+                log(f'[SELF-HEAL-DISABLED] Widget {self.id} exceeded limit of 8 recovery attempts per hour (reason: {reason}). Recovery stopped.')
+                try:
+                    subprocess.Popen([
+                        'notify-send', '-u', 'critical',
+                        'DeskWidgets Alert',
+                        f'Widget {self.id} disabled after 8 failed recovery attempts.'
+                    ])
+                except Exception:
+                    pass
+            return False
+
+        delay = self.get_backoff_delay()
+        self.backoff_level += 1
+        self.recovery_attempts.append(now)
+        self.next_retry = now + delay
+        log(f'[SELF-HEAL-BACKOFF] Widget {self.id} ({reason}): scheduling recovery #{len(self.recovery_attempts)}/8 in {delay}s (backoff level {self.backoff_level})')
+        self.start_later(int(delay * 1000))
+        return True
+
     def start(self):
+        if self.disabled:
+            return
         inst = self.inst
         t = self.d.types.get(inst['type']) if inst else None
         if t is None:
@@ -91,8 +132,12 @@ class Runner:
         launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_SILENCE)
         for key, value in env.items():
             launcher.setenv(key, str(value), True)
+        cmd = ['conky', '-c', paths.CONF]
         try:
-            self.proc = launcher.spawnv(['conky', '-c', paths.CONF])
+            self.proc = launcher.spawnv(cmd)
+            self.pid = int(self.proc.get_identifier()) if self.proc.get_identifier() else None
+            self.started_at = time.monotonic()
+            log(f'[SPAWN] Widget {self.id} ({inst["type"]}:{inst["size"]}) at ({x}, {y}) [PID {self.pid}]. Command: {" ".join(cmd)}')
         except GLib.Error as e:
             log(f'{self.id}: cannot start conky: {e.message}')
             return
@@ -104,12 +149,13 @@ class Runner:
         if self.proc:
             self.proc.send_signal(signal.SIGTERM)
         self.proc = None
+        self.pid = None
         self.window = None
 
     def start_later(self, delay_ms=0):
         """Starts after `delay_ms` unless the widget got started or removed meanwhile."""
         def go():
-            if not self.running and self.inst is not None and not self.d.quitting:
+            if not self.running and self.inst is not None and not self.d.quitting and not self.disabled:
                 self.start()
             return False
         GLib.timeout_add(delay_ms, go)
@@ -131,17 +177,30 @@ class Runner:
             pass
         if proc is not self.proc or self.stopping:
             return
-        self.proc = None
-        self.window = None
+
         now = time.monotonic()
-        self.crashes = [t for t in self.crashes if now - t < 60] + [now]
-        if len(self.crashes) > 4:
-            log(f'[SELF-HEAL] {self.id}: conky crashed {len(self.crashes)} times in 60s; backing off 10s before auto-recovery')
-            self.start_later(10000)
-            return
-        status = proc.get_exit_status() if proc.get_if_exited() else f'signal {proc.get_term_sig()}'
-        log(f'{self.id}: conky exited ({status}), restarting in 2s')
-        self.start_later(2000)
+        uptime = now - self.started_at if self.started_at else 0
+        if proc.get_if_exited():
+            code = proc.get_exit_status()
+            exit_reason = f'exit code {code}'
+        elif proc.get_if_signaled():
+            sig = proc.get_term_sig()
+            exit_reason = f'signal {sig}'
+        else:
+            exit_reason = 'abnormal exit'
+
+        old_pid = self.pid
+        self.proc = None
+        self.pid = None
+        self.window = None
+
+        log(f'[EXIT] Widget {self.id} [PID {old_pid}] terminated after {uptime:.1f}s via {exit_reason}.')
+
+        if uptime > 60:
+            self.backoff_level = 0
+
+        if not self.d.quitting and not self.stopping:
+            self.schedule_recovery(reason=exit_reason)
 
 
 class Daemon(Gio.Application):
@@ -191,7 +250,7 @@ class Daemon(Gio.Application):
             self.runners[inst['id']].start_later(i * 150)
         self.sync_providers()
         GLib.timeout_add(POLL_MS, self.poll)
-        log(f'starting {len(self.instances)} widgets on a {self.grid.cols}×{self.grid.rows} grid')
+        log(f'DeskWidgets Daemon active (PID: {os.getpid()}) on screen {self.screen[0]}x{self.screen[1]}, grid: {self.grid.cols}x{self.grid.rows}, types: {list(self.types.keys())}')
 
     def do_shutdown(self):
         self.quitting = True
@@ -501,33 +560,37 @@ class Daemon(Gio.Application):
             self.screen = curr_screen
             self.grid = Grid(*self.screen, self.settings)
 
+        now = time.monotonic()
+        windows = self.x.widget_windows()
+
         for inst in self.instances:
             r = self.runners.get(inst['id'])
             if not r:
                 r = Runner(self, inst['id'])
                 self.runners[inst['id']] = r
 
-            # Self-heal: check if runner process died unexpectedly
-            if not r.running and not r.stopping and not self.quitting:
-                log(f'[SELF-HEAL] Widget {inst["id"]} conky process died or missing. Reviving instance.')
-                r.start()
+            # Check if conky process is dead
+            if not r.running and not r.stopping and not self.quitting and not r.disabled:
+                if now >= r.next_retry:
+                    log(f'[SELF-HEAL] Widget {inst["id"]} conky process missing during health check.')
+                    r.schedule_recovery(reason="missing_process")
                 continue
 
             if not r.running:
                 continue
 
+            r.window = windows.get(inst['id'])
             if r.window is None:
-                if windows is None:
-                    windows = self.x.widget_windows()
-                r.window = windows.get(inst['id'])
-                if r.window is None:
-                    continue
+                uptime = now - r.started_at if r.started_at else 0
+                if uptime > 10:  # Allow 10s for conky to map window
+                    log(f'[SELF-HEAL] Widget {inst["id"]} window missing on X11 after {uptime:.1f}s. Restarting conky.')
+                    r.restart(delay_ms=500)
+                continue
 
             pos = self.x.position(r.window)
             if pos is None:
-                log(f'[SELF-HEAL] Widget {inst["id"]} window handle unmapped/invalid. Restarting conky.')
+                log(f'[SELF-HEAL] Widget {inst["id"]} window handle unmapped/invalid. Resetting handle.')
                 r.window = None
-                r.restart(delay_ms=300)
                 continue
 
             gx, gy = self.grid.window_xy(inst['col'], inst['row'])

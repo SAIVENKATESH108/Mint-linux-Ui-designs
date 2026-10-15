@@ -48,3 +48,7 @@ jobs:
       - name: Run DeskWidgets Layout & Overlap Tests
         run: |
           python3 -m unittest tests/test_deskwidgets_layout.py -v
+
+      - name: Run DeskWidgets Self-Healing Limits Tests
+        run: |
+          python3 -m unittest tests/test_deskwidgets_self_heal.py -v

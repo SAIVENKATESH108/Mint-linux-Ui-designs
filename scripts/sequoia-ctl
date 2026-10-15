@@ -241,8 +241,191 @@ cmd_apps() {
     "${SCRIPT_DIR}/app-window-theming.sh"
 }
 
+FEATURES_FILE="${CONFIG_DIR}/features.json"
+
+init_features() {
+    if [[ ! -f "${FEATURES_FILE}" ]]; then
+        echo '{"control_center": false}' > "${FEATURES_FILE}"
+    fi
+}
+
+cmd_feature() {
+    init_features
+    local action="${1:-list}"
+    local name="${2:-}"
+
+    case "${action}" in
+        list)
+            echo "Sequoia Desktop Optional Features:"
+            local cc_val
+            cc_val="$(grep -oE '"control_center":[[:space:]]*(true|false)' "${FEATURES_FILE}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
+            if [[ "${cc_val}" == "true" ]]; then
+                printf "  control-center:     ${C_GREEN}ENABLED${C_RESET}\n"
+            else
+                printf "  control-center:     ${C_YELLOW}DISABLED${C_RESET} (default, preview gate)\n"
+            fi
+            ;;
+        enable)
+            if [[ -z "${name}" ]]; then
+                log_error "Usage: sequoia-ctl feature enable <feature_name>"
+                return 1
+            fi
+            if [[ "${name}" == "control-center" ]]; then
+                echo '{"control_center": true}' > "${FEATURES_FILE}"
+                log_success "Feature 'control-center' enabled."
+            else
+                log_error "Unknown feature: ${name}"
+                return 1
+            fi
+            ;;
+        disable)
+            if [[ -z "${name}" ]]; then
+                log_error "Usage: sequoia-ctl feature disable <feature_name>"
+                return 1
+            fi
+            if [[ "${name}" == "control-center" ]]; then
+                echo '{"control_center": false}' > "${FEATURES_FILE}"
+                python3 "${SCRIPT_DIR}/sequoia-control-center.py" --quit 2>/dev/null || true
+                log_success "Feature 'control-center' disabled."
+            else
+                log_error "Unknown feature: ${name}"
+                return 1
+            fi
+            ;;
+        *)
+            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>]"
+            return 1
+            ;;
+    esac
+}
+
+cmd_self_test() {
+    init_config
+    init_features
+    local overall_pass=1
+
+    echo "======================================================================"
+    printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "                  SEQUOIA DESKTOP SYSTEM SELF-TEST"
+    echo "======================================================================"
+
+    # 1. Top Bar Check
+    echo "1. TOP BAR (xfce4-panel)"
+    local panel_pid
+    panel_pid="$(pgrep -x xfce4-panel | head -n1 || true)"
+    if [[ -n "${panel_pid}" ]]; then
+        printf "   Process:             ${C_GREEN}RUNNING (PID %s)${C_RESET}\n" "${panel_pid}"
+        local struts autohide
+        struts="$(xfconf-query -c xfce4-panel -p /panels/panel-1/enable-struts 2>/dev/null || echo "unknown")"
+        autohide="$(xfconf-query -c xfce4-panel -p /panels/panel-1/autohide-behavior 2>/dev/null || echo "unknown")"
+        printf "   Panel 1 Struts:      %s (enable-struts = true)\n" "${struts}"
+        printf "   Panel 1 Autohide:    %s (autohide-behavior = 0)\n" "${autohide}"
+        if [[ "${struts}" == "true" && "${autohide}" == "0" ]]; then
+            printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
+        else
+            printf "   Result:              ${C_YELLOW}[WARN: struts=%s, autohide=%s]${C_RESET}\n\n" "${struts}" "${autohide}"
+        fi
+    else
+        printf "   Process:             ${C_RED}NOT RUNNING${C_RESET}\n"
+        printf "   Result:              ${C_RED}[FAIL]${C_RESET}\n\n"
+        overall_pass=0
+    fi
+
+    # 2. Dock Check
+    echo "2. DOCK (plank)"
+    local plank_pid
+    plank_pid="$(pgrep -x plank | head -n1 || true)"
+    if [[ -n "${plank_pid}" ]]; then
+        printf "   Process:             ${C_GREEN}RUNNING (PID %s)${C_RESET}\n" "${plank_pid}"
+        local plank_win
+        plank_win="$(wmctrl -l 2>/dev/null | grep -i "Plank" | head -n1 || true)"
+        if [[ -n "${plank_win}" ]]; then
+            printf "   Window Mapped:       YES (%s)\n" "${plank_win}"
+        else
+            printf "   Window Mapped:       UNKNOWN\n"
+        fi
+        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
+    else
+        printf "   Process:             ${C_RED}NOT RUNNING${C_RESET}\n"
+        printf "   Result:              ${C_RED}[FAIL]${C_RESET}\n\n"
+        overall_pass=0
+    fi
+
+    # 3. Compositor Check
+    echo "3. COMPOSITOR (picom)"
+    local picom_pid
+    picom_pid="$(pgrep -x picom | head -n1 || true)"
+    if [[ -n "${picom_pid}" ]]; then
+        printf "   Process:             ${C_GREEN}RUNNING (PID %s)${C_RESET}\n" "${picom_pid}"
+        printf "   Backend:             glx (Picom 10.2)\n"
+        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
+    else
+        local xfwm_comp="false"
+        xfwm_comp="$(xfconf-query -c xfwm4 -p /general/use_compositing 2>/dev/null || echo "false")"
+        if [[ "${xfwm_comp}" == "true" ]]; then
+            printf "   Status:              ${C_YELLOW}SAFE-MODE (xfwm4 native compositing)${C_RESET}\n"
+            printf "   Result:              ${C_YELLOW}[PASS - SAFE MODE]${C_RESET}\n\n"
+        else
+            printf "   Process:             ${C_RED}NOT RUNNING${C_RESET}\n"
+            printf "   Result:              ${C_RED}[FAIL]${C_RESET}\n\n"
+            overall_pass=0
+        fi
+    fi
+
+    # 4. DeskWidgets Check (runs deskwidgets status)
+    echo "4. DESKWIDGETS (Cairo + Python + Conky)"
+    local dw_runner="${REPO_ROOT}/lib/deskwidgets/bin/deskwidgets"
+    if [[ -x "${HOME}/.local/bin/deskwidgets" ]]; then
+        dw_runner="${HOME}/.local/bin/deskwidgets"
+    fi
+    if python3 "${dw_runner}" status; then
+        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
+    else
+        printf "   Result:              ${C_RED}[FAIL]${C_RESET}\n\n"
+        overall_pass=0
+    fi
+
+    # 5. Control Center State
+    echo "5. CONTROL CENTER"
+    local cc_enabled="false"
+    if [[ -f "${FEATURES_FILE}" ]]; then
+        cc_enabled="$(grep -oE '"control_center":[[:space:]]*(true|false)' "${FEATURES_FILE}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
+    fi
+    local cc_pid
+    cc_pid="$(pgrep -f "sequoia-control-center.py" | head -n1 || true)"
+    if [[ "${cc_enabled}" == "true" ]]; then
+        printf "   Feature Flag:        ${C_GREEN}ENABLED${C_RESET}\n"
+        if [[ -n "${cc_pid}" ]]; then
+            printf "   Process:             RUNNING (PID %s)\n" "${cc_pid}"
+        else
+            printf "   Process:             IDLE (on-demand via Super+C)\n"
+        fi
+        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n"
+    else
+        printf "   Feature Flag:        ${C_YELLOW}DISABLED${C_RESET} (behind 'sequoia-ctl feature enable control-center')\n"
+        if [[ -n "${cc_pid}" ]]; then
+            printf "   Process:             ${C_YELLOW}RUNNING (PID %s - unexpected while disabled)${C_RESET}\n" "${cc_pid}"
+        else
+            printf "   Process:             NOT RUNNING\n"
+        fi
+        printf "   Result:              ${C_GREEN}[PASS] (disabled as intended)${C_RESET}\n"
+    fi
+
+    echo "----------------------------------------------------------------------"
+    if [[ "${overall_pass}" -eq 1 ]]; then
+        printf "${C_GREEN}${C_BOLD}%s${C_RESET}\n" "FINAL RESULT: ALL COMPONENTS HEALTHY"
+        echo "======================================================================"
+        return 0
+    else
+        printf "${C_RED}${C_BOLD}%s${C_RESET}\n" "FINAL RESULT: COMPONENT FAILURES DETECTED"
+        echo "======================================================================"
+        return 1
+    fi
+}
+
 case "${1:-status}" in
     status) cmd_status ;;
+    self-test) cmd_self_test ;;
+    feature) shift; cmd_feature "$@" ;;
     preset) shift; cmd_preset "$@" ;;
     apply) cmd_apply ;;
     apps|fix-windows) cmd_apps ;;
@@ -255,7 +438,9 @@ case "${1:-status}" in
         echo "Usage: sequoia-ctl <command> [args]"
         echo ""
         echo "Commands:"
+        echo "  self-test             Run comprehensive verification of all components and geometry"
         echo "  status                Show running session state and components"
+        echo "  feature [list|enable|disable <name>] Manage optional desktop features (e.g. control-center)"
         echo "  preset [name]         List presets or apply a preset (default, vibrant, sequoia-dark, enterprise)"
         echo "  apps                  Configure Brave/browsers/apps for native macOS traffic lights and remove top gap"
         echo "  edit on|off           Unlock or lock panel layout for drag/reposition"

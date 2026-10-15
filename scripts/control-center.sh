@@ -6,6 +6,23 @@
 
 set -euo pipefail
 
+# Feature gate: disabled by default until explicitly enabled
+FEATURE_FILE="${HOME}/.config/sequoia/features.json"
+IS_ENABLED=0
+if [[ -f "${FEATURE_FILE}" ]]; then
+    if grep -q '"control_center":[[:space:]]*true' "${FEATURE_FILE}" 2>/dev/null; then
+        IS_ENABLED=1
+    fi
+fi
+
+if [[ "${IS_ENABLED}" -eq 0 ]]; then
+    echo "Control Center is currently disabled (enable with: sequoia-ctl feature enable control-center)" >&2
+    if command -v notify-send &>/dev/null; then
+        notify-send "Control Center" "Control Center is disabled.\nEnable via: sequoia-ctl feature enable control-center" -i dialog-information
+    fi
+    exit 0
+fi
+
 # Try native GTK3 Control Center popover first (macOS style window)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY_POPUP="${SCRIPT_DIR}/sequoia-control-center.py"

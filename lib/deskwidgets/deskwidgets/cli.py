@@ -300,6 +300,154 @@ def cmd_doctor(_a):
     return 0 if ok else 1
 
 
+def cmd_status(_a):
+    ok = True
+    print("=== DeskWidgets Status ===")
+
+    # 1. Check Service PID and stale PID handling
+    pid_file = os.path.join(paths.CACHE, 'service.pid')
+    service_pid = None
+    pid_status = "STOPPED"
+
+    if os.path.isfile(pid_file):
+        try:
+            with open(pid_file, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if content.isdigit():
+                    service_pid = int(content)
+        except Exception:
+            pass
+
+    if service_pid is not None:
+        try:
+            os.kill(service_pid, 0)
+            is_alive = True
+        except (OSError, ProcessLookupError):
+            is_alive = False
+
+        if is_alive:
+            try:
+                with open(f'/proc/{service_pid}/cmdline', 'rb') as f:
+                    cmdline = f.read().replace(b'\0', b' ').decode('utf-8', 'ignore')
+                if 'deskwidgets' in cmdline:
+                    pid_status = f"{service_pid} (running) [PID file valid]"
+                else:
+                    pid_status = f"{service_pid} [STALE - PID corresponds to an unrelated process: {cmdline[:30]}]"
+                    ok = False
+            except Exception:
+                pid_status = f"{service_pid} (running) [PID file valid]"
+        else:
+            pid_status = f"{service_pid} [STALE - process not alive]"
+            ok = False
+    else:
+        try:
+            for p in os.listdir('/proc'):
+                if p.isdigit():
+                    try:
+                        with open(f'/proc/{p}/cmdline', 'rb') as f:
+                            c = f.read().replace(b'\0', b' ').decode('utf-8', 'ignore')
+                        if 'deskwidgets run' in c or 'bin/deskwidgets run' in c:
+                            service_pid = int(p)
+                            pid_status = f"{service_pid} (running) [WARNING: PID file missing]"
+                            break
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        if service_pid is None:
+            pid_status = "NOT RUNNING"
+            ok = False
+
+    print(f"Service PID: {pid_status}")
+
+    # 2. X11 Window and Geometry Checks
+    s = settings_mod.load()
+    screen_w, screen_h = 1280, 1024
+    from .grid import Grid
+    grid = Grid(screen_w, screen_h, s)
+
+    live_windows = {}
+    try:
+        from .x11 import X11
+        x = X11()
+        screen_w, screen_h = x.screen_size()
+        grid = Grid(screen_w, screen_h, s)
+        widget_wins = x.widget_windows()
+        for wid, win_handle in widget_wins.items():
+            geom = x.geometry(win_handle)
+            pid = x.pid(win_handle)
+            if geom:
+                live_windows[wid] = {
+                    'x': geom[0], 'y': geom[1],
+                    'w': geom[2], 'h': geom[3],
+                    'pid': pid
+                }
+    except Exception as e:
+        try:
+            wm_res = subprocess.run(['wmctrl', '-lpG'], capture_output=True, text=True)
+            for line in wm_res.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 8 and 'deskwidget:' in line:
+                    for token in parts:
+                        if token.startswith('deskwidget:'):
+                            wid = token[len('deskwidget:'):]
+                            live_windows[wid] = {
+                                'x': int(parts[3]), 'y': int(parts[4]),
+                                'w': int(parts[5]), 'h': int(parts[6]),
+                                'pid': int(parts[2]) if parts[2].isdigit() else None
+                            }
+        except Exception:
+            pass
+
+    print(f"Screen Geometry: {screen_w}x{screen_h}\n")
+    print("Widget Instances:")
+
+    instances = _layout()
+    if not instances:
+        print("  No widgets configured in layout.json")
+        return 1
+
+    passed_count = 0
+    total_count = len(instances)
+
+    for inst in instances:
+        wid = inst.get('id', 'unknown')
+        wtype = inst.get('type', 'unknown')
+        size = inst.get('size', 'small')
+        col, row = inst.get('col', 0), inst.get('row', 0)
+        calc_x, calc_y, calc_w, calc_h = grid.window_rect(col, row, size)
+
+        real = live_windows.get(wid)
+        if not real:
+            print(f"[FAIL] {wid} ({wtype}:{size}): NO RUNNING PROCESS / NO WINDOW")
+            print(f"       Real geometry:       NONE")
+            print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+            ok = False
+        else:
+            rx, ry, rw, rh = real['x'], real['y'], real['w'], real['h']
+            cpid = real.get('pid') or 'unknown'
+            dx = abs(rx - calc_x)
+            dy = abs(ry - calc_y)
+            if dx <= 4 and dy <= 4:
+                print(f"[PASS] {wid} ({wtype}:{size}): conky PID {cpid}")
+                print(f"       Real geometry:       x={rx:<4} y={ry:<4} w={rw:<4} h={rh:<4}")
+                print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+                passed_count += 1
+            else:
+                print(f"[FAIL] {wid} ({wtype}:{size}): GEOMETRY MISPLACED (dx={rx-calc_x}, dy={ry-calc_y})")
+                print(f"       Real geometry:       x={rx:<4} y={ry:<4} w={rw:<4} h={rh:<4}")
+                print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+                ok = False
+
+    print(f"\nSummary: {passed_count}/{total_count} widgets passing geometry and process checks.")
+    if not ok:
+        print("RESULT: FAILURES DETECTED")
+        return 1
+    else:
+        print("RESULT: ALL CHECKS PASSED")
+        return 0
+
+
 def main(argv=None):
     set_lang(settings_mod.language())
     p = argparse.ArgumentParser(prog='deskwidgets', description=tr(
@@ -319,6 +467,7 @@ def main(argv=None):
                     ('quit', tr('зупинити сервіс', 'stop the service'))):
         sub.add_parser(name, help=h).set_defaults(func=cmd_simple)
     sub.add_parser('list', help=tr('віджети на столі', 'widgets on the desktop')).set_defaults(func=cmd_list)
+    sub.add_parser('status', help=tr('статус віджетів і геометрія', 'widget status and geometry')).set_defaults(func=cmd_status)
     sub.add_parser('types', help=tr('усі доступні віджети', 'all available widgets')).set_defaults(func=cmd_types)
     c = sub.add_parser('new', help=tr('створити свій віджет', 'create your own widget'))
     c.add_argument('id'); c.add_argument('--name'); c.set_defaults(func=cmd_new)
