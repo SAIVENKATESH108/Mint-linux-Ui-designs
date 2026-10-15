@@ -1123,6 +1123,7 @@ class ControlCenterApp(Gtk.Application):
 
     def do_command_line(self, command_line):
         args = command_line.get_arguments()[1:]
+        exit_code = 0
         if "--quit" in args:
             self.quit_app()
         elif "--hide" in args:
@@ -1131,11 +1132,27 @@ class ControlCenterApp(Gtk.Application):
             self.show_window()
         elif "--status" in args:
             vis = self.win is not None and self.win.get_visible()
-            sys.stdout.write("visible\n" if vis else "hidden\n")
+            status_str = "visible\n" if vis else "hidden\n"
+            try:
+                command_line.print_literal(status_str)
+            except AttributeError:
+                try:
+                    command_line.print_("%s", status_str)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            sys.stdout.write(status_str)
             sys.stdout.flush()
+            exit_code = 0 if vis else 1
         else:
             self.toggle_window()
-        return 0
+
+        try:
+            command_line.set_exit_status(exit_code)
+        except Exception:
+            pass
+        return exit_code
 
     def get_or_create_window(self):
         if self.win is None:
