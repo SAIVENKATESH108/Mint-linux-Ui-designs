@@ -248,15 +248,19 @@ if command -v xfconf-query &>/dev/null; then
         set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
     fi
 
-    # Copy Apple Logo Icon & Control Center Icon
+    # Copy Apple Logo Icon, Control Center Icon, and Spotlight Icon
     APPLE_ICON_PATH="${HOME}/.local/share/icons/apple-logo.svg"
     CONTROL_CENTER_ICON_PATH="${HOME}/.local/share/icons/control-center.svg"
+    SPOTLIGHT_ICON_PATH="${HOME}/.local/share/icons/spotlight.svg"
     mkdir -p "${HOME}/.local/share/icons"
     if [[ -f "${REPO_ROOT}/assets/icons/apple-logo.svg" ]]; then
         safe_copy "${REPO_ROOT}/assets/icons/apple-logo.svg" "${APPLE_ICON_PATH}"
     fi
     if [[ -f "${REPO_ROOT}/assets/icons/control-center.svg" ]]; then
         safe_copy "${REPO_ROOT}/assets/icons/control-center.svg" "${CONTROL_CENTER_ICON_PATH}"
+    fi
+    if [[ -f "${REPO_ROOT}/assets/icons/spotlight.svg" ]]; then
+        safe_copy "${REPO_ROOT}/assets/icons/spotlight.svg" "${SPOTLIGHT_ICON_PATH}"
     fi
 
     # Setup Popover Launchers for Top Bar: Spotlight (plugin-101) & Control Center (plugin-102)
@@ -269,7 +273,7 @@ Type=Application
 Name=Spotlight Search
 Comment=macOS Sequoia Universal Search
 Exec=${HOME}/.local/bin/spotlight.sh
-Icon=system-search
+Icon=${SPOTLIGHT_ICON_PATH}
 Terminal=false
 StartupNotify=false
 EOF

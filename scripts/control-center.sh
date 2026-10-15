@@ -22,7 +22,18 @@ fi
 if [[ -f "${PY_POPUP}" ]] && command -v python3 &>/dev/null; then
     mkdir -p "${HOME}/.cache"
     nohup python3 "${PY_POPUP}" > "${HOME}/.cache/control-center.log" 2>&1 &
-    exit 0
+    PID=$!
+    sleep 0.15
+    if ! kill -0 "${PID}" 2>/dev/null; then
+        if [[ -s "${HOME}/.cache/control-center.log" ]]; then
+            ERR_MSG="$(head -n 2 "${HOME}/.cache/control-center.log")"
+            if command -v notify-send &>/dev/null; then
+                notify-send "Control Center Error" "${ERR_MSG}" -i dialog-error 2>/dev/null || true
+            fi
+        fi
+    else
+        exit 0
+    fi
 fi
 
 # Fallback: text-based quick settings menu

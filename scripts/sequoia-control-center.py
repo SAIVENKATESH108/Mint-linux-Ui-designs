@@ -449,7 +449,7 @@ class SequoiaControlCenter(Gtk.Window):
         self.set_skip_taskbar_hint(True)
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
-        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
         self.set_app_paintable(True)
 
         screen = self.get_screen()
@@ -730,7 +730,7 @@ class SequoiaControlCenter(Gtk.Window):
         disp_card.pack_start(sun_icon, False, False, 0)
 
         cur_bright = get_display_brightness()
-        self.bright_adj = Gtk.Adjustment(value=cur_bright, lower=10, upper=100, step_increment=5, page_increment=10)
+        self.bright_adj = Gtk.Adjustment(float(cur_bright), 10.0, 100.0, 5.0, 10.0, 0.0)
         self.bright_slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=self.bright_adj)
         self.bright_slider.set_draw_value(False)
         self.bright_slider.connect("value-changed", self.on_brightness_changed)
@@ -748,7 +748,7 @@ class SequoiaControlCenter(Gtk.Window):
         vol_card.pack_start(spk_icon, False, False, 0)
 
         cur_vol = get_sound_volume()
-        self.vol_adj = Gtk.Adjustment(value=cur_vol, lower=0, upper=100, step_increment=5, page_increment=10)
+        self.vol_adj = Gtk.Adjustment(float(cur_vol), 0.0, 100.0, 5.0, 10.0, 0.0)
         self.vol_slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=self.vol_adj)
         self.vol_slider.set_draw_value(False)
         self.vol_slider.connect("value-changed", self.on_volume_changed)
@@ -983,10 +983,17 @@ def main():
     signal.signal(signal.SIGINT, cleanup_and_exit)
     signal.signal(signal.SIGTERM, cleanup_and_exit)
 
-    win = SequoiaControlCenter()
-    win.show_all()
-    win.present()
-    Gtk.main()
+    try:
+        win = SequoiaControlCenter()
+        win.show_all()
+        win.present()
+        Gtk.main()
+    except Exception as e:
+        sys.stderr.write(f"Control Center Exception: {e}\n")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
