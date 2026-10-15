@@ -52,3 +52,7 @@ jobs:
       - name: Run DeskWidgets Self-Healing Limits Tests
         run: |
           python3 -m unittest tests/test_deskwidgets_self_heal.py -v
+
+      - name: Run DeskWidgets Paths & Directories Tests
+        run: |
+          python3 -m unittest tests/test_deskwidgets_paths.py -v

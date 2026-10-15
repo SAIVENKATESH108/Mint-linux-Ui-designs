@@ -30,9 +30,13 @@ install_deskwidgets() {
         fc-cache -f "${FONT_DIR}" 2>/dev/null || true
     fi
 
-    # Always ensure latest engine and binary are synchronized to ~/.local
-    if [[ -f "${WIDGETS_SRC}/install.sh" ]]; then
-        sh "${WIDGETS_SRC}/install.sh" --prefix "${HOME}/.local" >/dev/null 2>&1 || true
+    # Ensure files are synchronized via sequoia-ctl deploy
+    local inst_paths="${HOME}/.local/share/deskwidgets/deskwidgets/paths.py"
+    local repo_paths="${WIDGETS_SRC}/deskwidgets/paths.py"
+    if [[ ! -f "${inst_paths}" ]] || ! cmp -s "${repo_paths}" "${inst_paths}"; then
+        if [[ -x "${REPO_DIR}/scripts/sequoia-ctl" ]]; then
+            "${REPO_DIR}/scripts/sequoia-ctl" deploy >/dev/null 2>&1 || true
+        fi
     fi
 }
 
