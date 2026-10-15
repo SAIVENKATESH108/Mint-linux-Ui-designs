@@ -473,8 +473,8 @@ function L.card(cr, x, y, w, h, top, bottom)
             L.set(cr, glow, a); cairo_set_line_width(cr, g); cairo_stroke(cr)
         end
     else
-        for i = 1, 8 do
-            L.rrect(cr, x - i + 1, y - i + 4, w + 2 * i - 2, h + 2 * i - 2, R + i - 1)
+        for i = 1, L.M do
+            L.rrect(cr, x - i + 1, y - i + 2, w + 2 * i - 2, h + 2 * i - 2, R + i - 1)
             cairo_set_source_rgba(cr, 0, 0, 0, T.shadow or 0.03)
             cairo_fill(cr)
         end

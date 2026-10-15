@@ -11,6 +11,8 @@ import json
 import os
 import shutil
 import signal
+import subprocess
+import threading
 import time
 
 import gi
@@ -32,6 +34,67 @@ DEFAULT_LAYOUT = [
     ('events', 'medium', -2, 0), ('media', 'medium', -2, 1), ('anime_quote', 'medium', -2, 2),
 ]
 OLD_LAYOUT = os.path.join(paths.HOME, '.config', 'conky', 'mac', 'layout.json')   # DeskWidgets 1.x
+
+
+class StderrManager:
+    """Caps per-widget stderr at 64 KB with rotation and de-duplicates repeated lines."""
+    def __init__(self, inst_id):
+        self.inst_id = inst_id
+        widget_err_dir = os.path.expanduser("~/.cache/sequoia/widgets")
+        os.makedirs(widget_err_dir, exist_ok=True)
+        self.err_path = os.path.join(widget_err_dir, f"{inst_id}.stderr")
+        self.last_line = None
+        self.repeat_count = 0
+        self.max_bytes = 64 * 1024
+
+    def handle_line(self, line):
+        line = line.strip()
+        if not line:
+            return
+        if line == self.last_line:
+            self.repeat_count += 1
+            return
+        to_write = []
+        if self.repeat_count > 0:
+            to_write.append(f"  [... last line repeated {self.repeat_count} times ...]\n")
+            self.repeat_count = 0
+        to_write.append(f"{line}\n")
+        self.last_line = line
+        self._write("".join(to_write))
+
+    def flush(self):
+        if self.repeat_count > 0:
+            self._write(f"  [... last line repeated {self.repeat_count} times ...]\n")
+            self.repeat_count = 0
+
+    def _write(self, text):
+        data = text.encode("utf-8", errors="ignore")
+        try:
+            if os.path.exists(self.err_path) and os.path.getsize(self.err_path) + len(data) > self.max_bytes:
+                rot_path = self.err_path + ".1"
+                try:
+                    os.replace(self.err_path, rot_path)
+                except OSError:
+                    pass
+            with open(self.err_path, "ab") as f:
+                f.write(data)
+        except Exception:
+            pass
+
+
+def _pipe_reader(stream, mgr):
+    try:
+        data_in = Gio.DataInputStream.new(stream)
+        while True:
+            res = data_in.read_line_utf8(None)
+            line = res[0] if isinstance(res, (tuple, list)) else res
+            if line is None:
+                break
+            mgr.handle_line(line)
+    except Exception:
+        pass
+    finally:
+        mgr.flush()
 
 
 def kill_stale_conkys():
@@ -130,19 +193,9 @@ class Runner:
         opts = engine.write_options(inst, t, lang=self.d.lang)
         env = engine.widget_env(inst, t, lang=self.d.lang, scale=grid.scale, size_px=grid.window_px(inst['size']),
                                 pos=(x, y), opts_path=opts)
-        launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_SILENCE)
+        launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_PIPE)
         for key, value in env.items():
             launcher.setenv(key, str(value), True)
-
-        # Capture stderr to dedicated per-widget log: ~/.cache/sequoia/widgets/<id>.stderr
-        widget_err_dir = os.path.expanduser("~/.cache/sequoia/widgets")
-        os.makedirs(widget_err_dir, exist_ok=True)
-        err_path = os.path.join(widget_err_dir, f"{self.id}.stderr")
-        try:
-            fd = os.open(err_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
-            launcher.take_stderr_fd(fd)
-        except Exception as e:
-            log(f"Warning: could not open stderr file for {self.id}: {e}")
 
         cmd = ['conky', '-c', paths.CONF]
         cwd = os.getcwd()
@@ -150,6 +203,24 @@ class Runner:
             self.proc = launcher.spawnv(cmd)
             self.pid = int(self.proc.get_identifier()) if self.proc.get_identifier() else None
             self.started_at = time.monotonic()
+
+            # Record PID in RUN/pids/<id>.pid for accurate status resolution
+            pids_dir = os.path.join(paths.RUN, 'pids')
+            os.makedirs(pids_dir, exist_ok=True)
+            if self.pid:
+                try:
+                    with open(os.path.join(pids_dir, f"{self.id}.pid"), 'w') as pf:
+                        pf.write(f"{self.pid}\n")
+                except OSError:
+                    pass
+
+            # Stream stderr into 64KB capped, rotating, deduplicating StderrManager
+            pipe = self.proc.get_stderr_pipe()
+            if pipe:
+                self.stderr_mgr = StderrManager(self.id)
+                t_th = threading.Thread(target=_pipe_reader, args=(pipe, self.stderr_mgr), daemon=True)
+                t_th.start()
+
             log(f'[SPAWN] Widget {self.id} ({inst["type"]}:{inst["size"]}) at ({x}, {y}) [PID {self.pid}]. Command: {" ".join(cmd)} [CWD: {cwd}] [CONF: {paths.CONF}]')
         except GLib.Error as e:
             log(f'[ERROR] {self.id}: cannot spawn conky via {" ".join(cmd)}: {e.message}')
@@ -159,6 +230,12 @@ class Runner:
 
     def stop(self):
         self.stopping = True
+        pid_file = os.path.join(paths.RUN, 'pids', f"{self.id}.pid")
+        if os.path.exists(pid_file):
+            try:
+                os.unlink(pid_file)
+            except OSError:
+                pass
         if self.proc:
             self.proc.send_signal(signal.SIGTERM)
         self.proc = None
@@ -203,6 +280,13 @@ class Runner:
             exit_reason = 'abnormal exit'
 
         old_pid = self.pid
+        pid_file = os.path.join(paths.RUN, 'pids', f"{self.id}.pid")
+        if os.path.exists(pid_file):
+            try:
+                os.unlink(pid_file)
+            except OSError:
+                pass
+
         self.proc = None
         self.pid = None
         self.window = None
@@ -255,30 +339,44 @@ class Daemon(Gio.Application):
     def do_activate(self):
         if self.started:
             return
-        self.started = True
-        from .x11 import X11
-        paths.ensure_dirs()
-        pid_file = os.path.join(paths.CACHE, 'service.pid')
         try:
-            with open(pid_file, 'w') as f:
-                f.write(f'{os.getpid()}\n')
-        except OSError:
-            pass
-        kill_stale_conkys()
-        self.x = X11()
-        self.screen = self.x.screen_size()
-        self.load_settings()
-        self.types = catalog.discover()
-        log(f"Discovered {len(self.types)} widget types from {paths.BUILTIN_WIDGETS}: {list(self.types.keys())}")
-        self.load_layout()
-        log(f"Loaded layout with {len(self.instances)} active instances: {[i['id'] for i in self.instances]}")
-        self.save_layout()
-        for i, inst in enumerate(self.instances):   # staggered: conkys starting together race on X windows
-            self.runners[inst['id']] = Runner(self, inst['id'])
-            self.runners[inst['id']].start_later(i * 150)
-        self.sync_providers()
-        GLib.timeout_add(POLL_MS, self.poll)
-        log(f'DeskWidgets Daemon active (PID: {os.getpid()}) on screen {self.screen[0]}x{self.screen[1]}, grid: {self.grid.cols}x{self.grid.rows}, types: {list(self.types.keys())}')
+            self.started = True
+            from .x11 import X11
+            paths.ensure_dirs()
+            pid_file = os.path.join(paths.CACHE, 'service.pid')
+            try:
+                with open(pid_file, 'w') as f:
+                    f.write(f'{os.getpid()}\n')
+            except OSError:
+                pass
+            kill_stale_conkys()
+            self.x = X11()
+            self.screen = self.x.screen_size()
+            self.load_settings()
+            self.types = catalog.discover()
+            log(f"Discovered {len(self.types)} widget types from {paths.BUILTIN_WIDGETS}: {list(self.types.keys())}")
+            self.load_layout()
+            log(f"Loaded layout with {len(self.instances)} active instances: {[i['id'] for i in self.instances]}")
+            self.save_layout()
+            for i, inst in enumerate(self.instances):   # staggered: conkys starting together race on X windows
+                self.runners[inst['id']] = Runner(self, inst['id'])
+                self.runners[inst['id']].start_later(i * 150)
+            self.sync_providers()
+            GLib.timeout_add(POLL_MS, self.poll)
+            log(f'DeskWidgets Daemon active (PID: {os.getpid()}) on screen {self.screen[0]}x{self.screen[1]}, grid: {self.grid.cols}x{self.grid.rows}, types: {list(self.types.keys())}')
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            log(f"[FATAL-STARTUP-EXCEPTION] DeskWidgets failed to activate:\n{tb}")
+            try:
+                subprocess.Popen([
+                    'notify-send', '-u', 'critical',
+                    'DeskWidgets Failed',
+                    f'Fatal error during startup: {e}\nSee ~/.cache/sequoia/deskwidgets.log'
+                ])
+            except Exception:
+                pass
+            os._exit(1)
 
     def do_shutdown(self):
         self.quitting = True
@@ -549,6 +647,13 @@ class Daemon(Gio.Application):
                 return cls()
             except Exception as e:   # a broken provider must not take the widgets down
                 log(f'{cls.__name__.lower()} provider failed: {e}')
+                if cls is Events:
+                    try:
+                        os.makedirs(paths.RUN, exist_ok=True)
+                        with open(os.path.join(paths.RUN, 'events'), 'w', encoding='utf-8') as f:
+                            f.write("status=unavailable\nreason=gir1.2-edataserver-1.2 missing\n")
+                    except Exception:
+                        pass
                 return None
         if not wanted and provider is not None:
             provider.stop()

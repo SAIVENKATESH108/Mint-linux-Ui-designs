@@ -6,11 +6,17 @@ local C, F, PAD = L.C, L.F, L.PAD
 local W = {}
 local WEEKNO = L.opt_bool('week_numbers', true)
 local busy = {}  -- 'YYYY-MM-DD' -> true
+local events_unavailable = false
 
 local function load_busy()
     busy = {}
+    events_unavailable = false
     local kv = L.read_kv(L.RUN .. '/events')
     if not kv then return end
+    if kv.status == 'unavailable' then
+        events_unavailable = true
+        return
+    end
     for k, v in pairs(kv) do
         if k:match('^e%d+$') then
             local f = L.fields(v)
@@ -89,6 +95,10 @@ function W.draw(cr, x, y, w, h)
         L.text(cr, L.day_month(t), x + PAD - 2, y + 76)
         L.font(cr, F.medium, 13); L.set(cr, C.text3)
         L.text(cr, L.MONTH[t.month] .. ' ' .. t.year .. (WEEKNO and (' · ' .. week) or ''), x + PAD, y + 98)
+        if events_unavailable then
+            L.font(cr, F.regular, 9); L.set(cr, C.text3)
+            L.text(cr, L.tr('події недоступні', 'events unavailable'), x + w - PAD, y + 98, 'r')
+        end
         L.divider(cr, x + PAD, y + 112, w - 2 * PAD)
         month(cr, x + PAD - 4, y + 140, w - 2 * PAD + 8, h - 150, t, accent, 15)
         return
@@ -99,6 +109,10 @@ function W.draw(cr, x, y, w, h)
         if WEEKNO then
             L.font(cr, F.regular, 11); L.set(cr, C.text3)
             L.text(cr, week, x + PAD, y + 150)
+        end
+        if events_unavailable then
+            L.font(cr, F.regular, 8.5); L.set(cr, C.text3)
+            L.text(cr, L.tr('події недоступні', 'events unavailable'), x + PAD, y + 164)
         end
         local gx = x + 150
         L.font(cr, F.semibold, 12); L.set(cr, C.text)
@@ -111,6 +125,10 @@ function W.draw(cr, x, y, w, h)
     if WEEKNO then
         L.font(cr, F.regular, 11); L.set(cr, C.text3)
         L.text(cr, L.tr('тиж. ', 'wk ') .. tonumber(os.date('%V')), x + w - PAD, y + 30, 'r')
+    end
+    if events_unavailable then
+        L.font(cr, F.regular, 8.5); L.set(cr, C.text3)
+        L.text(cr, L.tr('події недоступні', 'events unavailable'), x + w - PAD, y + 44, 'r')
     end
     local colw = (w - 2 * PAD) / 7
     local idx = (t.wday + 5) % 7  -- Monday = 0

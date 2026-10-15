@@ -5,11 +5,17 @@ local C, F, PAD, ICON = L.C, L.F, L.PAD, L.ICON
 
 local W = {}
 local events = {}
+local unavailable = false
 
 local function load_events()
     events = {}
+    unavailable = false
     local kv = L.read_kv(L.RUN .. '/events')
     if not kv then return end
+    if kv.status == 'unavailable' then
+        unavailable = true
+        return
+    end
     for i = 1, L.num(kv.count) do
         local v = kv['e' .. i]
         if v then
@@ -75,11 +81,18 @@ function W.draw(cr, x, y, w, h)
         local cy = y + h / 2
         L.set(cr, C.text3); L.icon_mid(cr, ICON.calendar_blank, 28, x + w / 2, cy - 7)
         L.font(cr, F.medium, small and 11.5 or 12.5); L.set(cr, C.text2)
-        L.text(cr, L.fit(cr, L.tr('Найближчим тижнем подій немає', 'Nothing this week'), w - 20), x + w / 2, cy + 37, 'c')
-        if not small then
-            L.font(cr, F.regular, 11); L.set(cr, C.text3)
-            L.text(cr, L.tr('Події з календарів GNOME (Google, локальні)', 'Events from GNOME calendars (Google, local)'),
+        if unavailable then
+            L.text(cr, L.fit(cr, L.tr('Події недоступні', 'Events unavailable'), w - 20), x + w / 2, cy + 37, 'c')
+            L.font(cr, F.regular, small and 9.5 or 11); L.set(cr, C.text3)
+            L.text(cr, L.fit(cr, L.tr('Встановіть gir1.2-edataserver-1.2', 'Install gir1.2-edataserver-1.2'), w - 20),
                    x + w / 2, cy + 56, 'c')
+        else
+            L.text(cr, L.fit(cr, L.tr('Найближчим тижнем подій немає', 'Nothing this week'), w - 20), x + w / 2, cy + 37, 'c')
+            if not small then
+                L.font(cr, F.regular, 11); L.set(cr, C.text3)
+                L.text(cr, L.tr('Події з календарів GNOME (Google, локальні)', 'Events from GNOME calendars (Google, local)'),
+                       x + w / 2, cy + 56, 'c')
+            end
         end
         return
     end

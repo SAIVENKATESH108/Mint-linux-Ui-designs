@@ -56,3 +56,11 @@ jobs:
       - name: Run DeskWidgets Paths & Directories Tests
         run: |
           python3 -m unittest tests/test_deskwidgets_paths.py -v
+
+      - name: Run DeskWidgets Integration Tests (Fake Conky under Xvfb)
+        run: |
+          xvfb-run -a -s "-screen 0 1280x1024x24" dbus-run-session bash -c "
+            xfwm4 --replace &
+            sleep 1
+            python3 -m unittest tests/test_deskwidgets_integration.py -v
+          "

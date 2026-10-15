@@ -30,7 +30,39 @@ local function uptime_text()
     return string.format(L.tr('%d хв', '%dm'), m)
 end
 
+local cpu_hwmon = nil
+local gpu_hwmon = nil
+local sensors_detected = false
+
+local function detect_sensors()
+    if sensors_detected then return end
+    sensors_detected = true
+    local names = {}
+    for i = 0, 9 do
+        local content = L.read_file('/sys/class/hwmon/hwmon' .. i .. '/name')
+        if content then
+            local n = content:match('^%s*(%S+)')
+            if n then names[n] = true end
+        end
+    end
+    -- Prioritized CPU temperature drivers
+    for _, cand in ipairs({ 'coretemp', 'k10temp', 'zenpower', 'cpu_thermal', 'acpitz' }) do
+        if names[cand] then
+            cpu_hwmon = cand
+            break
+        end
+    end
+    -- Prioritized GPU temperature drivers
+    for _, cand in ipairs({ 'nouveau', 'amdgpu', 'nvidia' }) do
+        if names[cand] then
+            gpu_hwmon = cand
+            break
+        end
+    end
+end
+
 local function items(n)
+    detect_sensors()
     local cp = L.cp
     local cpu = L.num(cp('${cpu cpu0}'))
     local used, total = meminfo()
@@ -40,14 +72,21 @@ local function items(n)
     }
     if n > 2 then
         local dperc = L.num(cp('${fs_used_perc /}'))
-        local ctemp = L.num(cp('${hwmon k10temp temp 1}'))
-        if ctemp == 0 then ctemp = L.num(cp('${hwmon coretemp temp 1}')) end
+        local ctemp = 0
+        if cpu_hwmon then
+            ctemp = L.num(cp('${hwmon ' .. cpu_hwmon .. ' temp 1}'))
+        end
         local tring = ctemp >= 85 and RING.hot or ctemp >= 70 and RING.warm or RING.warn
         out[3] = { dperc / 100, RING.disk, tostring(dperc), '%', L.tr('Диск', 'Disk'),
                    gib(bytes(cp('${fs_used /}'))) .. ' / ' .. gib(bytes(cp('${fs_size /}'))) .. GB }
-        local gpu = cp('${hwmon amdgpu temp 1}')
-        out[4] = { ctemp / 100, tring, ctemp .. '°', '', L.tr('Температура', 'Temperature'),
-                   (gpu ~= '' and gpu ~= '0') and ('GPU ' .. gpu .. '°') or '' }
+        local gpu_temp = ''
+        if gpu_hwmon then
+            local val = cp('${hwmon ' .. gpu_hwmon .. ' temp 1}')
+            if val ~= '' and val ~= '0' then
+                gpu_temp = 'GPU ' .. val .. '°'
+            end
+        end
+        out[4] = { ctemp / 100, tring, ctemp .. '°', '', L.tr('Температура', 'Temperature'), gpu_temp }
     end
     -- Keep individual vibrant colors for each sensor ring (Rose CPU, Cyan RAM, Green Disk, Amber Temp)
     return out

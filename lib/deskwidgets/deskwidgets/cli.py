@@ -434,7 +434,34 @@ def cmd_status(_a):
             ok = False
         else:
             rx, ry, rw, rh = real['x'], real['y'], real['w'], real['h']
-            cpid = real.get('pid') or 'unknown'
+            cpid = real.get('pid')
+            if not cpid:
+                pid_path = os.path.join(paths.RUN, 'pids', f'{wid}.pid')
+                if os.path.isfile(pid_path):
+                    try:
+                        with open(pid_path, 'r', encoding='utf-8') as pf:
+                            val = pf.read().strip()
+                            if val.isdigit():
+                                candidate = int(val)
+                                os.kill(candidate, 0)
+                                cpid = candidate
+                    except Exception:
+                        pass
+            if not cpid:
+                try:
+                    for p in os.listdir('/proc'):
+                        if p.isdigit():
+                            try:
+                                with open(f'/proc/{p}/environ', 'rb') as ef:
+                                    env_data = ef.read().split(b'\0')
+                                if f'MAC_ID={wid}'.encode() in env_data:
+                                    cpid = int(p)
+                                    break
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+            cpid = cpid or 'unknown'
             dx = abs(rx - calc_x)
             dy = abs(ry - calc_y)
             if dx <= 4 and dy <= 4:

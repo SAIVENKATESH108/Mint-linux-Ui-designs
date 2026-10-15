@@ -54,6 +54,9 @@ If the top bar ever disappears or fails to restart after configuration:
 ```
 This utility ensures `xfce4-panel` is running, checks that panel-1 has active plugins, automatically reloads from the last good snapshot if needed, and prints complete plugin diagnostics.
 
+### 4. Optional Dependencies
+- `gir1.2-edataserver-1.2`, `gir1.2-ecal-2.0`, `gir1.2-icalglib-3.0`: Enables Evolution Data Server calendar synchronization for the Desktop Widgets calendar and up-next events cards (`sudo apt install gir1.2-edataserver-1.2 gir1.2-ecal-2.0 gir1.2-icalglib-3.0`). If omitted, widgets run normally and display an "events unavailable" indicator.
+
 ---
 
 ## ↩️ Rollback & Emergency Recovery

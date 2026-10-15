@@ -204,7 +204,7 @@ start_widgets() {
     current_mode="$(get_current_theme_mode)"
     setup_config "${current_mode}"
 
-    echo "==> Starting DeskWidgets macOS Suite (${current_mode} mode)..."
+    echo "==> Starting DeskWidgets macOS Suite (${current_mode} card style)..."
     stop_widgets
 
     local runner="${BIN_RUNNER}"

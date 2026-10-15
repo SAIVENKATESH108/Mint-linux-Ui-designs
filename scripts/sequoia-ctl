@@ -355,6 +355,21 @@ cmd_deploy() {
         fc-cache -f "${font_dest}" 2>/dev/null || true
     fi
 
+    # 5b. Picom Configurations
+    if [[ -d "${HOME}/.config/picom" ]]; then
+        cp -p "${REPO_ROOT}/config/picom/picom-lite.conf" "${HOME}/.config/picom/picom-lite.conf"
+        cp -p "${REPO_ROOT}/config/picom/picom-glass.conf" "${HOME}/.config/picom/picom-glass.conf"
+        if grep -q "blur-background = false" "${HOME}/.config/picom/picom.conf" 2>/dev/null; then
+            cp -p "${REPO_ROOT}/config/picom/picom-lite.conf" "${HOME}/.config/picom/picom.conf"
+        elif grep -q "dual_kawase" "${HOME}/.config/picom/picom.conf" 2>/dev/null; then
+            cp -p "${REPO_ROOT}/config/picom/picom-glass.conf" "${HOME}/.config/picom/picom.conf"
+        fi
+        if pgrep -x picom >/dev/null 2>&1; then
+            pkill -x picom 2>/dev/null || true
+            picom --config "${HOME}/.config/picom/picom.conf" -b 2>/dev/null || true
+        fi
+    fi
+
     # 6. Checksum comparison
     log_info "Verifying deployment checksums (Repo vs Installed)..."
     local check_pairs=(
@@ -571,12 +586,12 @@ cmd_self_test() {
             fi
 
             printf "\n   [PREVIOUS RUN(S)]:\n"
-            grep -v -F "[PID ${dw_srv_pid}]" "${log_file}" 2>/dev/null | tail -n 15 | while IFS= read -r line; do
+            grep -v -F "[PID ${dw_srv_pid}]" "${log_file}" 2>/dev/null | tail -n 15 | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
                 printf "   | [previous run] %s\n" "${line}"
             done
         else
             printf "   (Service not running; showing last 25 lines of log):\n"
-            tail -n 25 "${log_file}" | while IFS= read -r line; do
+            tail -n 25 "${log_file}" | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
                 printf "   | [previous run] %s\n" "${line}"
             done
         fi
@@ -645,23 +660,54 @@ cmd_self_test() {
     # G. Conky Configuration & Lua Syntax Dry-Run Check
     echo "   --- Conky Configuration & Lua Syntax Dry-Run Check ---"
     local conf_to_test="${HOME}/.local/share/deskwidgets/engine/widget.conf"
+    local widget_dir_to_test="${HOME}/.local/share/deskwidgets/widgets/clock"
     if [[ ! -f "${conf_to_test}" ]]; then
         conf_to_test="${REPO_ROOT}/lib/deskwidgets/engine/widget.conf"
+        widget_dir_to_test="${REPO_ROOT}/lib/deskwidgets/widgets/clock"
     fi
+    local engine_dir="$(dirname "${conf_to_test}")"
     if command -v conky &>/dev/null; then
         printf "   Target File: [CONFIGURED] %s\n" "${conf_to_test}"
+        printf "   Widget Dir:  [CONFIGURED] %s\n" "${widget_dir_to_test}"
         if [[ -f "${conf_to_test}" ]]; then
             local syntax_out syntax_rc
             set +e
-            syntax_out="$(MAC_ENGINE="$(dirname "${conf_to_test}")" timeout 3s conky -c "${conf_to_test}" -i 1 2>&1)"
+            syntax_out="$(cd "${engine_dir}" && \
+                MAC_ENGINE="${engine_dir}" \
+                MAC_WIDGET_DIR="${widget_dir_to_test}" \
+                MAC_ID="dryrun-clock" \
+                MAC_TYPE="clock" \
+                MAC_SIZE="small" \
+                MAC_STYLE="auto" \
+                MAC_W="178" \
+                MAC_H="178" \
+                MAC_X="0" \
+                MAC_Y="0" \
+                MAC_SCALE="1.0" \
+                MAC_LANG="en" \
+                FONTCONFIG_FILE="${HOME}/.cache/deskwidgets/fontconfig.conf" \
+                MAC_RUN="${HOME}/.cache/deskwidgets/run" \
+                MAC_CONFIG="${HOME}/.config/deskwidgets" \
+                timeout 3s conky -c "${conf_to_test}" -i 1 2>&1)"
             syntax_rc=$?
             set -e
-            if [[ "${syntax_rc}" -eq 0 ]]; then
-                printf "   Syntax Result: [MEASURED] ${C_GREEN}[PASS]${C_RESET} (Exit code 0, 1 test iteration completed)\n"
+
+            local has_error=0
+            if [[ "${syntax_rc}" -ne 0 ]]; then
+                has_error=1
+            fi
+            if echo "${syntax_out}" | grep -i -E "cannot open|error|failed|syntax error|attempt to|nil value|fatal" >/dev/null; then
+                has_error=1
+            fi
+
+            if [[ "${has_error}" -eq 0 ]]; then
+                printf "   Syntax Result: [MEASURED] ${C_GREEN}[PASS]${C_RESET} (Exit code 0, 1 test iteration completed, zero errors)\n"
             elif [[ "${syntax_rc}" -eq 124 ]]; then
                 printf "   Syntax Result: [MEASURED] ${C_YELLOW}[TIMEOUT 3s]${C_RESET} (Command did not terminate in 3s)\n"
+                overall_pass=0
             else
-                printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} (Exit code %s)\n" "${syntax_rc}"
+                printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} (Exit code %s or error detected in output)\n" "${syntax_rc}"
+                overall_pass=0
             fi
             if [[ -n "${syntax_out}" ]]; then
                 printf "   Output [MEASURED]:\n"
@@ -671,9 +717,11 @@ cmd_self_test() {
             fi
         else
             printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} (File %s not found)\n" "${conf_to_test}"
+            overall_pass=0
         fi
     else
         printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} ('conky' binary not found in PATH)\n"
+        overall_pass=0
     fi
     echo ""
 

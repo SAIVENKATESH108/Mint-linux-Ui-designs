@@ -16,14 +16,8 @@ def _get_logger():
     _logger.setLevel(logging.INFO)
     _logger.propagate = False
 
-    # Console handler
-    ch = logging.StreamHandler(sys.stderr)
-    ch.setLevel(logging.INFO)
+    # Single rotating file handler: ~/.cache/sequoia/deskwidgets.log (1 MB rotation, 3 backups)
     formatter = logging.Formatter("[%(asctime)s] [PID %(process)d] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-    ch.setFormatter(formatter)
-    _logger.addHandler(ch)
-
-    # Rotating file handler: ~/.cache/sequoia/deskwidgets.log (1 MB rotation, 3 backups)
     log_dir = os.path.expanduser("~/.cache/sequoia")
     try:
         os.makedirs(log_dir, exist_ok=True)
