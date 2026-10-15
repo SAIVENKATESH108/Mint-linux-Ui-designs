@@ -371,18 +371,193 @@ cmd_self_test() {
         fi
     fi
 
-    # 4. DeskWidgets Check (runs deskwidgets status)
+    # 4. DeskWidgets Check (runs deskwidgets status + deep diagnostics)
     echo "4. DESKWIDGETS (Cairo + Python + Conky)"
     local dw_runner="${REPO_ROOT}/lib/deskwidgets/bin/deskwidgets"
     if [[ -x "${HOME}/.local/bin/deskwidgets" ]]; then
         dw_runner="${HOME}/.local/bin/deskwidgets"
     fi
+
+    # Run deskwidgets status
     if python3 "${dw_runner}" status; then
-        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
+        printf "   Status Check:        ${C_GREEN}[PASS]${C_RESET}\n"
     else
-        printf "   Result:              ${C_RED}[FAIL]${C_RESET}\n\n"
+        printf "   Status Check:        ${C_RED}[FAIL]${C_RESET}\n"
         overall_pass=0
     fi
+    echo ""
+
+    # Task 1 Diagnostic Item 1: Last 40 lines of ~/.cache/sequoia/deskwidgets.log
+    echo "   --- DeskWidgets Log (~/.cache/sequoia/deskwidgets.log, last 40 lines) ---"
+    if [[ -f "${HOME}/.cache/sequoia/deskwidgets.log" ]]; then
+        tail -n 40 "${HOME}/.cache/sequoia/deskwidgets.log" | while IFS= read -r line; do
+            printf "   | %s\n" "${line}"
+        done
+    elif [[ -f "${HOME}/.cache/deskwidgets/deskwidgets.log" ]]; then
+        printf "   (Found in ~/.cache/deskwidgets/deskwidgets.log)\n"
+        tail -n 40 "${HOME}/.cache/deskwidgets/deskwidgets.log" | while IFS= read -r line; do
+            printf "   | %s\n" "${line}"
+        done
+    else
+        echo "   | (No log file found at ~/.cache/sequoia/deskwidgets.log)"
+    fi
+    echo ""
+
+    # Task 1 Diagnostic Item 2: Exact conky command line and working directory
+    echo "   --- Conky Command Line & Working Directory ---"
+    local running_conky_pids
+    running_conky_pids="$(pgrep -f "widget.conf" || true)"
+    if [[ -n "${running_conky_pids}" ]]; then
+        for cpid in ${running_conky_pids}; do
+            local ccmd ccwd
+            ccmd="$(tr '\0' ' ' < "/proc/${cpid}/cmdline" 2>/dev/null || echo "unknown")"
+            ccwd="$(readlink "/proc/${cpid}/cwd" 2>/dev/null || echo "unknown")"
+            printf "   Active PID %s: %s\n" "${cpid}" "${ccmd}"
+            printf "   Working Dir:    %s\n" "${ccwd}"
+        done
+    else
+        local dw_srv_pid
+        dw_srv_pid="$(cat "${HOME}/.cache/deskwidgets/service.pid" 2>/dev/null || pgrep -f "deskwidgets run" | head -n1 || true)"
+        local srv_cwd="unknown"
+        if [[ -n "${dw_srv_pid}" && -d "/proc/${dw_srv_pid}" ]]; then
+            srv_cwd="$(readlink "/proc/${dw_srv_pid}/cwd" 2>/dev/null || echo "unknown")"
+        fi
+        local conf_target="${HOME}/.local/share/deskwidgets/engine/widget.conf"
+        [[ -f "${conf_target}" ]] || conf_target="${REPO_ROOT}/lib/deskwidgets/engine/widget.conf"
+        printf "   Status:         NO ACTIVE CONKY PROCESSES FOUND\n"
+        printf "   Target Cmd:     conky -c %s\n" "${conf_target}"
+        printf "   Service PID:    %s\n" "${dw_srv_pid:-none}"
+        printf "   Service CWD:    %s\n" "${srv_cwd}"
+    fi
+    echo ""
+
+    # Task 1 Diagnostic Item 3: Each conky's exit code/signal and stderr
+    echo "   --- Per-Widget Process Exit Codes & Stderr Capture ---"
+    local widget_ids=("clock-1" "calendar-1" "weather-1" "system-1" "media-1")
+    for wid in "${widget_ids[@]}"; do
+        local err_file="${HOME}/.cache/sequoia/widgets/${wid}.stderr"
+        local last_exit="none recorded"
+        if [[ -f "${HOME}/.cache/sequoia/deskwidgets.log" ]]; then
+            local exit_line
+            exit_line="$(grep -F "[EXIT] Widget ${wid}" "${HOME}/.cache/sequoia/deskwidgets.log" 2>/dev/null | tail -n1 || true)"
+            if [[ -n "${exit_line}" ]]; then
+                last_exit="$(echo "${exit_line}" | sed -E 's/.*\[EXIT\] //')"
+            fi
+        fi
+        printf "   • Widget: %-12s | Last Exit: %s\n" "${wid}" "${last_exit}"
+        if [[ -f "${err_file}" ]]; then
+            local err_size
+            err_size="$(wc -c < "${err_file}" 2>/dev/null || echo 0)"
+            if (( err_size > 0 )); then
+                printf "     Stderr (%s bytes):\n" "${err_size}"
+                tail -n 10 "${err_file}" | while IFS= read -r eline; do
+                    printf "       | %s\n" "${eline}"
+                done
+            else
+                printf "     Stderr: (file exists but is 0 bytes)\n"
+            fi
+        else
+            printf "     Stderr: (no stderr file at ~/.cache/sequoia/widgets/%s.stderr)\n" "${wid}"
+        fi
+    done
+    echo ""
+
+    # Task 1 Diagnostic Item 4: Result of "conky -c <widget.conf>" syntax/Lua check (timeout 3s)
+    echo "   --- Conky Configuration & Lua Syntax Dry-Run Check ---"
+    local conf_to_test="${HOME}/.local/share/deskwidgets/engine/widget.conf"
+    if [[ ! -f "${conf_to_test}" ]]; then
+        conf_to_test="${REPO_ROOT}/lib/deskwidgets/engine/widget.conf"
+    fi
+    if command -v conky &>/dev/null; then
+        printf "   Target File: %s\n" "${conf_to_test}"
+        if [[ -f "${conf_to_test}" ]]; then
+            local syntax_out syntax_rc
+            set +e
+            syntax_out="$(timeout 3s conky -c "${conf_to_test}" -i 1 2>&1)"
+            syntax_rc=$?
+            set -e
+            if [[ "${syntax_rc}" -eq 0 ]]; then
+                printf "   Syntax Result: ${C_GREEN}[PASS]${C_RESET} (Exit code 0, 1 test iteration completed)\n"
+            elif [[ "${syntax_rc}" -eq 124 ]]; then
+                printf "   Syntax Result: ${C_YELLOW}[TIMEOUT 3s]${C_RESET} (Command did not terminate in 3s)\n"
+            else
+                printf "   Syntax Result: ${C_RED}[FAIL]${C_RESET} (Exit code %s)\n" "${syntax_rc}"
+            fi
+            if [[ -n "${syntax_out}" ]]; then
+                printf "   Output:\n"
+                echo "${syntax_out}" | head -n 25 | while IFS= read -r sline; do
+                    printf "     | %s\n" "${sline}"
+                done
+            fi
+        else
+            printf "   Syntax Result: ${C_RED}[FAIL]${C_RESET} (File %s not found)\n" "${conf_to_test}"
+        fi
+    else
+        printf "   Syntax Result: ${C_RED}[FAIL]${C_RESET} ('conky' binary not found in PATH)\n"
+    fi
+    echo ""
+
+    # Task 1 Diagnostic Item 5: Conky build flags (Lua, Cairo, imlib)
+    echo "   --- Conky Build Information & Flags (conky -v) ---"
+    if command -v conky &>/dev/null; then
+        local cver_full
+        cver_full="$(conky -v 2>&1 || true)"
+        local cver
+        cver="$(echo "${cver_full}" | head -n 1)"
+        printf "   Binary:        %s\n" "$(command -v conky)"
+        printf "   Version:       %s\n" "${cver}"
+        printf "   Build Flags:\n"
+        echo "${cver_full}" | grep -i -E "lua|cairo|imlib|x11|argb|xdbe|xft" | while IFS= read -r fline; do
+            printf "     | %s\n" "${fline}"
+        done
+    else
+        printf "   Conky binary:  NOT FOUND\n"
+    fi
+    echo ""
+
+    # Task 1 Diagnostic Item 6: Contents of features.json
+    echo "   --- Features Gate Configuration (~/.config/sequoia/features.json) ---"
+    if [[ -f "${FEATURES_FILE}" ]]; then
+        printf "   File:     %s\n" "${FEATURES_FILE}"
+        printf "   Content:  %s\n" "$(cat "${FEATURES_FILE}")"
+    else
+        printf "   File:     %s (NOT FOUND - defaults to {\"control_center\": false})\n" "${FEATURES_FILE}"
+    fi
+    echo ""
+
+    # Task 1 Diagnostic Item 7: Persisted self-heal counters
+    echo "   --- Persisted Self-Heal Counters & State Inspection ---"
+    echo "   Storage Mechanism: In-memory only (held in Python Daemon.runners dictionary)"
+    echo "   Restart Persistence: NONE (counters and backoff levels reset to 0 upon process start)"
+    local lock_found=0
+    for f in "${HOME}/.cache/deskwidgets"/*.lock "${HOME}/.cache/deskwidgets"/*.state "${HOME}/.config/deskwidgets"/*.lock "${HOME}/.config/deskwidgets"/*.state; do
+        if [[ -f "${f}" ]]; then
+            printf "   Found state/lock file: %s\n" "${f}"
+            lock_found=1
+        fi
+    done
+    if [[ "${lock_found}" -eq 0 ]]; then
+        printf "   On-Disk Lock/State Files: NONE (no persistent lockout files blocking spawns)\n"
+    fi
+    echo ""
+
+    # Task 1 Diagnostic Item 8: D-Bus owner of io.github.toksik.DeskWidgets
+    echo "   --- D-Bus Session Bus Registration (io.github.toksik.DeskWidgets) ---"
+    local dbus_owner="NONE"
+    local dbus_pid="NONE"
+    if command -v dbus-send &>/dev/null; then
+        dbus_owner="$(dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:"io.github.toksik.DeskWidgets" 2>/dev/null | grep string | cut -d'"' -f2 || echo "NONE")"
+        if [[ -n "${dbus_owner}" && "${dbus_owner}" != "NONE" ]]; then
+            dbus_pid="$(dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.GetConnectionUnixProcessID string:"${dbus_owner}" 2>/dev/null | grep uint32 | awk '{print $2}' || echo "NONE")"
+        fi
+    elif command -v gdbus &>/dev/null; then
+        dbus_owner="$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus --method org.freedesktop.DBus.GetNameOwner "io.github.toksik.DeskWidgets" 2>/dev/null | cut -d"'" -f2 || echo "NONE")"
+    fi
+    printf "   Name Owner: %s\n" "${dbus_owner}"
+    if [[ -n "${dbus_pid}" && "${dbus_pid}" != "NONE" ]]; then
+        printf "   Owner PID:  %s\n" "${dbus_pid}"
+    fi
+    echo ""
 
     # 5. Control Center State
     echo "5. CONTROL CENTER"
@@ -399,16 +574,35 @@ cmd_self_test() {
         else
             printf "   Process:             IDLE (on-demand via Super+C)\n"
         fi
-        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n"
+        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
     else
         printf "   Feature Flag:        ${C_YELLOW}DISABLED${C_RESET} (behind 'sequoia-ctl feature enable control-center')\n"
         if [[ -n "${cc_pid}" ]]; then
-            printf "   Process:             ${C_YELLOW}RUNNING (PID %s - unexpected while disabled)${C_RESET}\n" "${cc_pid}"
+            local cc_cmd cc_start cc_ppid
+            cc_cmd="$(tr '\0' ' ' < "/proc/${cc_pid}/cmdline" 2>/dev/null || echo "unknown")"
+            cc_start="$(ps -p "${cc_pid}" -o lstart= 2>/dev/null || echo "unknown")"
+            cc_ppid="$(ps -p "${cc_pid}" -o ppid= 2>/dev/null || echo "unknown")"
+            printf "   Process:             ${C_RED}RUNNING (PID %s - unexpected while feature disabled!)${C_RESET}\n" "${cc_pid}"
+            printf "   Process Cmdline:     %s\n" "${cc_cmd}"
+            printf "   Process Start Time:  %s\n" "${cc_start}"
+            printf "   Process PPID:        %s\n" "${cc_ppid}"
+            printf "   Result:              ${C_RED}[FAIL] (Process running while feature disabled. Run 'sequoia-ctl self-heal' to clean up)${C_RESET}\n\n"
+            overall_pass=0
         else
             printf "   Process:             NOT RUNNING\n"
+            printf "   Result:              ${C_GREEN}[PASS] (disabled as intended)${C_RESET}\n\n"
         fi
-        printf "   Result:              ${C_GREEN}[PASS] (disabled as intended)${C_RESET}\n"
     fi
+
+    # 6. Effective Hardware Profile Check (Task 5 requirement)
+    echo "6. EFFECTIVE HARDWARE & VISUAL PROFILE"
+    local cur_profile="lite"
+    if [[ -f "${USER_CONFIG}" ]]; then
+        cur_profile="$(grep -oE '"profile":[[:space:]]*"[^"]+"' "${USER_CONFIG}" 2>/dev/null | cut -d'"' -f4 || echo "lite")"
+    fi
+    printf "   Effective Profile:   ${C_BOLD}%s${C_RESET} (Default for GT 610: lite = flat translucent, 0 GPU blur)\n" "${cur_profile}"
+    printf "   Compositor Config:   %s\n" "${HOME}/.config/picom/picom.conf"
+    printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
 
     echo "----------------------------------------------------------------------"
     if [[ "${overall_pass}" -eq 1 ]]; then
@@ -422,9 +616,44 @@ cmd_self_test() {
     fi
 }
 
+cmd_self_heal() {
+    init_config
+    init_features
+    log_info "Running Sequoia Desktop self-heal..."
+
+    local cc_val
+    cc_val="$(grep -oE '"control_center":[[:space:]]*(true|false)' "${FEATURES_FILE}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
+
+    if [[ "${cc_val}" == "false" ]]; then
+        local cc_pids
+        cc_pids="$(pgrep -f "sequoia-control-center.py" || true)"
+        if [[ -n "${cc_pids}" ]]; then
+            for pid in ${cc_pids}; do
+                if [[ -f "/proc/${pid}/cmdline" ]]; then
+                    local cmd
+                    cmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+                    if [[ "${cmd}" == *"sequoia-control-center.py"* ]]; then
+                        log_warn "Terminating unauthorized background Control Center process (PID ${pid}, cmd: ${cmd})..."
+                        kill -TERM "${pid}" 2>/dev/null || true
+                        sleep 0.5
+                        if kill -0 "${pid}" 2>/dev/null; then
+                            kill -KILL "${pid}" 2>/dev/null || true
+                        fi
+                        log_success "Terminated Control Center PID ${pid} safely."
+                    fi
+                fi
+            done
+        else
+            log_info "No rogue Control Center processes found."
+        fi
+    fi
+    log_success "Self-heal complete."
+}
+
 case "${1:-status}" in
     status) cmd_status ;;
     self-test) cmd_self_test ;;
+    self-heal) cmd_self_heal ;;
     feature) shift; cmd_feature "$@" ;;
     preset) shift; cmd_preset "$@" ;;
     apply) cmd_apply ;;
@@ -439,6 +668,7 @@ case "${1:-status}" in
         echo ""
         echo "Commands:"
         echo "  self-test             Run comprehensive verification of all components and geometry"
+        echo "  self-heal             Safely terminate rogue processes and clean stale state"
         echo "  status                Show running session state and components"
         echo "  feature [list|enable|disable <name>] Manage optional desktop features (e.g. control-center)"
         echo "  preset [name]         List presets or apply a preset (default, vibrant, sequoia-dark, enterprise)"

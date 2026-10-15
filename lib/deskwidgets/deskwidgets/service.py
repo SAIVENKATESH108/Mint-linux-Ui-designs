@@ -121,6 +121,7 @@ class Runner:
         inst = self.inst
         t = self.d.types.get(inst['type']) if inst else None
         if t is None:
+            log(f'[ERROR] Widget {self.id}: cannot spawn because type \'{inst.get("type") if inst else None}\' not found in discovered types {list(self.d.types.keys())}')
             return
         grid = self.d.grid
         x, y = grid.window_xy(inst['col'], inst['row'])
@@ -132,14 +133,26 @@ class Runner:
         launcher = Gio.SubprocessLauncher.new(Gio.SubprocessFlags.STDOUT_SILENCE)
         for key, value in env.items():
             launcher.setenv(key, str(value), True)
+
+        # Capture stderr to dedicated per-widget log: ~/.cache/sequoia/widgets/<id>.stderr
+        widget_err_dir = os.path.expanduser("~/.cache/sequoia/widgets")
+        os.makedirs(widget_err_dir, exist_ok=True)
+        err_path = os.path.join(widget_err_dir, f"{self.id}.stderr")
+        try:
+            fd = os.open(err_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+            launcher.take_stderr_fd(fd)
+        except Exception as e:
+            log(f"Warning: could not open stderr file for {self.id}: {e}")
+
         cmd = ['conky', '-c', paths.CONF]
+        cwd = os.getcwd()
         try:
             self.proc = launcher.spawnv(cmd)
             self.pid = int(self.proc.get_identifier()) if self.proc.get_identifier() else None
             self.started_at = time.monotonic()
-            log(f'[SPAWN] Widget {self.id} ({inst["type"]}:{inst["size"]}) at ({x}, {y}) [PID {self.pid}]. Command: {" ".join(cmd)}')
+            log(f'[SPAWN] Widget {self.id} ({inst["type"]}:{inst["size"]}) at ({x}, {y}) [PID {self.pid}]. Command: {" ".join(cmd)} [CWD: {cwd}] [CONF: {paths.CONF}]')
         except GLib.Error as e:
-            log(f'{self.id}: cannot start conky: {e.message}')
+            log(f'[ERROR] {self.id}: cannot spawn conky via {" ".join(cmd)}: {e.message}')
             return
         self.stopping = False
         self.proc.wait_async(None, self._exited)
@@ -194,7 +207,20 @@ class Runner:
         self.pid = None
         self.window = None
 
-        log(f'[EXIT] Widget {self.id} [PID {old_pid}] terminated after {uptime:.1f}s via {exit_reason}.')
+        # Capture last lines of stderr
+        err_msg = ""
+        widget_err_dir = os.path.expanduser("~/.cache/sequoia/widgets")
+        err_path = os.path.join(widget_err_dir, f"{self.id}.stderr")
+        try:
+            if os.path.isfile(err_path) and os.path.getsize(err_path) > 0:
+                with open(err_path, 'r', encoding='utf-8', errors='ignore') as ef:
+                    lines = [ln.strip() for ln in ef.readlines() if ln.strip()]
+                    if lines:
+                        err_msg = f" | Stderr: {lines[-1]}"
+        except Exception:
+            pass
+
+        log(f'[EXIT] Widget {self.id} [PID {old_pid}] terminated after {uptime:.1f}s via {exit_reason}{err_msg}.')
 
         if uptime > 60:
             self.backoff_level = 0
@@ -243,7 +269,9 @@ class Daemon(Gio.Application):
         self.screen = self.x.screen_size()
         self.load_settings()
         self.types = catalog.discover()
+        log(f"Discovered {len(self.types)} widget types from {paths.BUILTIN_WIDGETS}: {list(self.types.keys())}")
         self.load_layout()
+        log(f"Loaded layout with {len(self.instances)} active instances: {[i['id'] for i in self.instances]}")
         self.save_layout()
         for i, inst in enumerate(self.instances):   # staggered: conkys starting together race on X windows
             self.runners[inst['id']] = Runner(self, inst['id'])

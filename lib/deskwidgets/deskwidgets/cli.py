@@ -422,6 +422,15 @@ def cmd_status(_a):
             print(f"[FAIL] {wid} ({wtype}:{size}): NO RUNNING PROCESS / NO WINDOW")
             print(f"       Real geometry:       NONE")
             print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+            err_file = os.path.expanduser(f"~/.cache/sequoia/widgets/{wid}.stderr")
+            if os.path.isfile(err_file) and os.path.getsize(err_file) > 0:
+                try:
+                    with open(err_file, 'r', encoding='utf-8', errors='ignore') as ef:
+                        lines = [ln.strip() for ln in ef.readlines() if ln.strip()]
+                        if lines:
+                            print(f"       Captured stderr:     {lines[-1]}")
+                except Exception:
+                    pass
             ok = False
         else:
             rx, ry, rw, rh = real['x'], real['y'], real['w'], real['h']
