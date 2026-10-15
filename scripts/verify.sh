@@ -310,6 +310,10 @@ check_item "Super+C shortcut bound to control-center.sh" \
     "[[ \"\$(xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Super>c' 2>/dev/null || true)\" =~ control-center.sh ]]" \
     "Super+C not mapped to control-center.sh"
 
+check_item "System Theme toggle executable at ~/.local/bin/toggle-theme.sh" \
+    "[[ -x '${HOME}/.local/bin/toggle-theme.sh' ]]" \
+    "toggle-theme.sh missing or not executable"
+
 # ------------------------------------------------------------------------------
 # Visual Verification Checklist (For User Review)
 # ------------------------------------------------------------------------------

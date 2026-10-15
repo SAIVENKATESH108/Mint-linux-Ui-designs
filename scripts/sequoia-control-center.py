@@ -3,9 +3,10 @@
 macOS Sequoia Native Control Center Popover for Linux Mint XFCE
 Matches Apple macOS Control Center layout and functionality:
 - Profile header with user avatar, name, settings, and power buttons
-- Quick toggle grid: Wi-Fi, Bluetooth, AirDrop, Do Not Disturb, Display Mirroring
+- Quick toggle grid: Wi-Fi (toggle & network picker), Bluetooth (toggle & settings), AirDrop (network shares)
+- Utility grid: Do Not Disturb, Day/Night Appearance (Dark/Light Mode system-wide toggle), Keyboard, Display Mirroring
 - Live interactive Display Brightness slider (xrandr / brightnessctl)
-- Live interactive Sound Volume slider (pactl / PulseAudio)
+- Live interactive Sound Volume slider (pactl / PulseAudio) + Mixer launcher
 - Live Now Playing media card (playerctl with album art, track, artist, play/pause/next)
 - Auto-dismiss on click outside (focus-out) or Escape key
 - Clean toggle activation (kills existing instance if already open)
@@ -15,6 +16,7 @@ import os
 import sys
 import signal
 import subprocess
+import shutil
 import pwd
 
 # Prevent duplicate instances: if already open, toggle close
@@ -64,7 +66,7 @@ def cleanup_and_exit(*_args):
 
 
 # -----------------------------------------------------------------------------
-# System Helpers (Volume, Brightness, Wi-Fi, Bluetooth, DND, Media)
+# System Helpers (Volume, Brightness, Wi-Fi, Bluetooth, DND, Theme, Media)
 # -----------------------------------------------------------------------------
 
 def run_cmd(args):
@@ -88,12 +90,10 @@ def get_current_user_info():
 
 
 def get_wifi_state():
-    # Returns (is_enabled: bool, ssid: str)
     status = run_cmd(["nmcli", "-t", "-f", "WIFI", "g"])
     enabled = (status.lower() == "enabled")
     ssid = "Not Connected"
     if enabled:
-        # Find active connection
         out = run_cmd(["nmcli", "-t", "-f", "NAME,TYPE", "c", "show", "--active"])
         for line in out.splitlines():
             parts = line.split(":")
@@ -101,7 +101,6 @@ def get_wifi_state():
                 ssid = parts[0]
                 break
         if ssid == "Not Connected":
-            # fallback query
             ssid_out = run_cmd(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"])
             for line in ssid_out.splitlines():
                 if line.startswith("yes:"):
@@ -120,6 +119,14 @@ def toggle_wifi():
     run_cmd(["nmcli", "radio", "wifi", new_state])
 
 
+def open_wifi_settings():
+    for cmd in [["nm-connection-editor"], ["xfce4-terminal", "-e", "nmtui"], ["gnome-control-center", "wifi"]]:
+        if shutil.which(cmd[0]):
+            subprocess.Popen(cmd)
+            cleanup_and_exit()
+            return
+
+
 def get_bluetooth_state():
     out = run_cmd(["rfkill", "list", "bluetooth"])
     if not out:
@@ -133,6 +140,14 @@ def toggle_bluetooth():
     run_cmd(["rfkill", "unblock" if not enabled else "block", "bluetooth"])
 
 
+def open_bluetooth_settings():
+    for cmd in [["blueman-manager"], ["blueberry"], ["gnome-control-center", "bluetooth"]]:
+        if shutil.which(cmd[0]):
+            subprocess.Popen(cmd)
+            cleanup_and_exit()
+            return
+
+
 def get_dnd_state():
     out = run_cmd(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb"])
     return out.lower() == "true"
@@ -142,9 +157,25 @@ def toggle_dnd():
     run_cmd(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb", "-T"])
 
 
+def get_current_theme_mode():
+    out = run_cmd(["xfconf-query", "-c", "xsettings", "-p", "/Net/ThemeName"])
+    return "dark" if "dark" in out.lower() else "light"
+
+
+def toggle_system_theme():
+    script_candidates = [
+        os.path.expanduser("~/.local/bin/toggle-theme.sh"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "toggle-theme.sh"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "toggle-theme.sh"),
+    ]
+    for s in script_candidates:
+        if os.path.isfile(s):
+            subprocess.run(["bash", s, "toggle"])
+            return
+
+
 def get_sound_volume():
     out = run_cmd(["pactl", "get-sink-volume", "@DEFAULT_SINK@"])
-    # format: Volume: front-left: 65536 / 100% / 0.00 dB, ...
     for token in out.split():
         if token.endswith("%"):
             try:
@@ -160,6 +191,14 @@ def set_sound_volume(percent):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def open_sound_settings():
+    for cmd in [["pavucontrol"], ["xfce4-mixer"], ["gnome-control-center", "sound"]]:
+        if shutil.which(cmd[0]):
+            subprocess.Popen(cmd)
+            cleanup_and_exit()
+            return
+
+
 def get_primary_display():
     out = run_cmd(["xrandr", "--query"])
     for line in out.splitlines():
@@ -169,7 +208,6 @@ def get_primary_display():
 
 
 def get_display_brightness():
-    # Attempt xrandr verbose parse
     disp = get_primary_display()
     out = run_cmd(["xrandr", "--verbose"])
     in_disp = False
@@ -196,8 +234,15 @@ def set_display_brightness(percent):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def open_display_settings():
+    for cmd in [["xfce4-display-settings"], ["gnome-control-center", "display"]]:
+        if shutil.which(cmd[0]):
+            subprocess.Popen(cmd)
+            cleanup_and_exit()
+            return
+
+
 def get_media_info():
-    # Returns (title, artist, status, art_url)
     out = run_cmd(["playerctl", "metadata", "--format", "{{title}}|{{artist}}|{{status}}|{{mpris:artUrl}}"])
     if not out or "|" not in out:
         return "No media playing", "Music", "Stopped", ""
@@ -215,7 +260,7 @@ def get_media_info():
 
 CSS = """
 * {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Ubuntu", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Ubuntu", "Inter", sans-serif;
     color: #ffffff;
 }
 
@@ -224,7 +269,7 @@ window.control-center-window {
 }
 
 .main-card {
-    background-color: rgba(30, 31, 34, 0.88);
+    background-color: rgba(30, 31, 34, 0.90);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 24px;
     padding: 12px;
@@ -269,6 +314,11 @@ window.control-center-window {
 
 .circle-icon-btn.active-purple {
     background-color: #af52de;
+    color: #ffffff;
+}
+
+.circle-icon-btn.active-amber {
+    background-color: #f59e0b;
     color: #ffffff;
 }
 
@@ -364,8 +414,8 @@ class SequoiaControlCenter(Gtk.Window):
     def position_window(self):
         screen = self.get_screen()
         screen_w = screen.get_width()
-        win_w = 340
-        win_h = 510
+        win_w = 344
+        win_h = 530
         self.set_size_request(win_w, win_h)
         # Position 12px from right edge, 34px from top (under 30px panel)
         pos_x = max(0, screen_w - win_w - 12)
@@ -389,26 +439,22 @@ class SequoiaControlCenter(Gtk.Window):
         header_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         header_card.get_style_context().add_class("card")
 
-        # User Avatar
         avatar = Gtk.Image.new_from_icon_name("avatar-default-symbolic", Gtk.IconSize.DND)
         avatar.set_pixel_size(28)
         header_card.pack_start(avatar, False, False, 0)
 
-        # User Name
         user_name = get_current_user_info()
-        name_lbl = Gtk.Label(label=user_name)
-        name_lbl.get_style_context().add_class("header-name")
-        name_lbl.set_xalign(0)
-        header_card.pack_start(name_lbl, True, True, 0)
+        name_btn = Gtk.Button(label=user_name)
+        name_btn.get_style_context().add_class("card-button")
+        name_btn.connect("clicked", lambda *_: (subprocess.Popen(["xfce4-settings-manager"]), cleanup_and_exit()))
+        header_card.pack_start(name_btn, True, True, 0)
 
-        # Settings Button
         settings_btn = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
         settings_btn.get_style_context().add_class("circle-icon-btn")
         settings_btn.set_tooltip_text("System Settings")
         settings_btn.connect("clicked", self.on_open_settings)
         header_card.pack_start(settings_btn, False, False, 0)
 
-        # Power Button
         power_btn = Gtk.Button.new_from_icon_name("system-shutdown-symbolic", Gtk.IconSize.BUTTON)
         power_btn.get_style_context().add_class("circle-icon-btn")
         power_btn.set_tooltip_text("Log Out / Shut Down")
@@ -418,7 +464,7 @@ class SequoiaControlCenter(Gtk.Window):
         main_box.pack_start(header_card, False, False, 0)
 
         # ---------------------------------------------------------------------
-        # 2. Quick Toggles Grid (Left: Wi-Fi, BT, AirDrop / Right: DND, Mirror)
+        # 2. Quick Toggles Grid (Left: Wi-Fi, BT, AirDrop / Right: DND, Theme, Mirror)
         # ---------------------------------------------------------------------
         toggles_grid = Gtk.Grid()
         toggles_grid.set_column_spacing(10)
@@ -429,13 +475,15 @@ class SequoiaControlCenter(Gtk.Window):
         net_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         net_card.get_style_context().add_class("card")
 
-        # Wi-Fi Row
+        # Wi-Fi Row (Click icon to toggle on/off, click text to open network picker)
         wifi_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.wifi_btn = Gtk.Button.new_from_icon_name("network-wireless-symbolic", Gtk.IconSize.BUTTON)
         self.wifi_btn.get_style_context().add_class("circle-icon-btn")
+        self.wifi_btn.set_tooltip_text("Toggle Wi-Fi")
         self.wifi_btn.connect("clicked", self.on_toggle_wifi)
         wifi_row.pack_start(self.wifi_btn, False, False, 0)
 
+        wifi_click = Gtk.EventBox()
         wifi_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         w_t = Gtk.Label(label="Wi-Fi")
         w_t.get_style_context().add_class("title-text")
@@ -447,16 +495,20 @@ class SequoiaControlCenter(Gtk.Window):
         self.wifi_sub.set_max_width_chars(11)
         wifi_text_box.pack_start(w_t, False, False, 0)
         wifi_text_box.pack_start(self.wifi_sub, False, False, 0)
-        wifi_row.pack_start(wifi_text_box, True, True, 0)
+        wifi_click.add(wifi_text_box)
+        wifi_click.connect("button-press-event", lambda *_: open_wifi_settings())
+        wifi_row.pack_start(wifi_click, True, True, 0)
         net_card.pack_start(wifi_row, False, False, 0)
 
-        # Bluetooth Row
+        # Bluetooth Row (Click icon to toggle on/off, click text to open bluetooth settings)
         bt_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.bt_btn = Gtk.Button.new_from_icon_name("bluetooth-active-symbolic", Gtk.IconSize.BUTTON)
         self.bt_btn.get_style_context().add_class("circle-icon-btn")
+        self.bt_btn.set_tooltip_text("Toggle Bluetooth")
         self.bt_btn.connect("clicked", self.on_toggle_bt)
         bt_row.pack_start(self.bt_btn, False, False, 0)
 
+        bt_click = Gtk.EventBox()
         bt_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         b_t = Gtk.Label(label="Bluetooth")
         b_t.get_style_context().add_class("title-text")
@@ -466,26 +518,32 @@ class SequoiaControlCenter(Gtk.Window):
         self.bt_sub.set_xalign(0)
         bt_text_box.pack_start(b_t, False, False, 0)
         bt_text_box.pack_start(self.bt_sub, False, False, 0)
-        bt_row.pack_start(bt_text_box, True, True, 0)
+        bt_click.add(bt_text_box)
+        bt_click.connect("button-press-event", lambda *_: open_bluetooth_settings())
+        bt_row.pack_start(bt_click, True, True, 0)
         net_card.pack_start(bt_row, False, False, 0)
 
-        # AirDrop / Network Row
+        # AirDrop / Network Sharing Row
         ad_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.ad_btn = Gtk.Button.new_from_icon_name("network-workgroup-symbolic", Gtk.IconSize.BUTTON)
         self.ad_btn.get_style_context().add_class("circle-icon-btn")
         self.ad_btn.get_style_context().add_class("active")
+        self.ad_btn.connect("clicked", lambda *_: (subprocess.Popen(["thunar", "network:///"]), cleanup_and_exit()))
         ad_row.pack_start(self.ad_btn, False, False, 0)
 
+        ad_click = Gtk.EventBox()
         ad_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         a_t = Gtk.Label(label="AirDrop")
         a_t.get_style_context().add_class("title-text")
         a_t.set_xalign(0)
-        self.ad_sub = Gtk.Label(label="Contacts Only")
+        self.ad_sub = Gtk.Label(label="Network Shares")
         self.ad_sub.get_style_context().add_class("subtitle-text")
         self.ad_sub.set_xalign(0)
         ad_text_box.pack_start(a_t, False, False, 0)
         ad_text_box.pack_start(self.ad_sub, False, False, 0)
-        ad_row.pack_start(ad_text_box, True, True, 0)
+        ad_click.add(ad_text_box)
+        ad_click.connect("button-press-event", lambda *_: (subprocess.Popen(["thunar", "network:///"]), cleanup_and_exit()))
+        ad_row.pack_start(ad_click, True, True, 0)
         net_card.pack_start(ad_row, False, False, 0)
 
         toggles_grid.attach(net_card, 0, 0, 1, 2)
@@ -514,32 +572,30 @@ class SequoiaControlCenter(Gtk.Window):
         dnd_card.connect("button-press-event", lambda *_: self.on_toggle_dnd())
         toggles_grid.attach(dnd_card, 1, 0, 1, 1)
 
-        # Right Column: Split Tiles (Keyboard & Mirroring)
-        util_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        # Right Column: System Day/Light Theme Mode Toggle (Requested by user)
+        theme_card = Gtk.EventBox()
+        theme_card.get_style_context().add_class("card-button")
+        theme_inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.theme_icon_btn = Gtk.Button.new_from_icon_name("weather-clear-symbolic", Gtk.IconSize.BUTTON)
+        self.theme_icon_btn.get_style_context().add_class("circle-icon-btn")
+        self.theme_icon_btn.get_style_context().add_class("active-amber")
+        self.theme_icon_btn.connect("clicked", self.on_toggle_theme)
+        theme_inner.pack_start(self.theme_icon_btn, False, False, 0)
 
-        # Keyboard Tile
-        kb_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        kb_card.get_style_context().add_class("card-button")
-        kb_icon = Gtk.Image.new_from_icon_name("input-keyboard-symbolic", Gtk.IconSize.BUTTON)
-        kb_lbl = Gtk.Label(label="Keyboard\nBrightness")
-        kb_lbl.get_style_context().add_class("subtitle-text")
-        kb_lbl.set_justify(Gtk.Justification.CENTER)
-        kb_card.pack_start(kb_icon, True, True, 2)
-        kb_card.pack_start(kb_lbl, False, False, 0)
-        util_box.pack_start(kb_card, True, True, 0)
+        theme_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        th_t = Gtk.Label(label="Appearance")
+        th_t.get_style_context().add_class("title-text")
+        th_t.set_xalign(0)
+        self.theme_sub = Gtk.Label(label="Dark Mode")
+        self.theme_sub.get_style_context().add_class("subtitle-text")
+        self.theme_sub.set_xalign(0)
+        theme_text.pack_start(th_t, False, False, 0)
+        theme_text.pack_start(self.theme_sub, False, False, 0)
+        theme_inner.pack_start(theme_text, True, True, 0)
+        theme_card.add(theme_inner)
+        theme_card.connect("button-press-event", lambda *_: self.on_toggle_theme())
+        toggles_grid.attach(theme_card, 1, 1, 1, 1)
 
-        # Display Mirroring Tile
-        mirror_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        mirror_card.get_style_context().add_class("card-button")
-        mirror_icon = Gtk.Image.new_from_icon_name("video-display-symbolic", Gtk.IconSize.BUTTON)
-        mirror_lbl = Gtk.Label(label="Screen\nMirroring")
-        mirror_lbl.get_style_context().add_class("subtitle-text")
-        mirror_lbl.set_justify(Gtk.Justification.CENTER)
-        mirror_card.pack_start(mirror_icon, True, True, 2)
-        mirror_card.pack_start(mirror_lbl, False, False, 0)
-        util_box.pack_start(mirror_card, True, True, 0)
-
-        toggles_grid.attach(util_box, 1, 1, 1, 1)
         main_box.pack_start(toggles_grid, False, False, 0)
 
         # ---------------------------------------------------------------------
@@ -558,10 +614,11 @@ class SequoiaControlCenter(Gtk.Window):
         self.bright_slider.connect("value-changed", self.on_brightness_changed)
         disp_card.pack_start(self.bright_slider, True, True, 0)
 
-        auto_btn = Gtk.Button(label="Auto")
-        auto_btn.get_style_context().add_class("card-button")
-        auto_btn.connect("clicked", lambda *_: self.bright_adj.set_value(100))
-        disp_card.pack_start(auto_btn, False, False, 0)
+        disp_btn = Gtk.Button.new_from_icon_name("video-display-symbolic", Gtk.IconSize.BUTTON)
+        disp_btn.get_style_context().add_class("card-button")
+        disp_btn.set_tooltip_text("Display Settings")
+        disp_btn.connect("clicked", lambda *_: open_display_settings())
+        disp_card.pack_start(disp_btn, False, False, 0)
 
         main_box.pack_start(disp_card, False, False, 0)
 
@@ -581,8 +638,11 @@ class SequoiaControlCenter(Gtk.Window):
         self.vol_slider.connect("value-changed", self.on_volume_changed)
         vol_card.pack_start(self.vol_slider, True, True, 0)
 
-        airplay_icon = Gtk.Image.new_from_icon_name("audio-speakers-symbolic", Gtk.IconSize.BUTTON)
-        vol_card.pack_start(airplay_icon, False, False, 0)
+        airplay_btn = Gtk.Button.new_from_icon_name("audio-speakers-symbolic", Gtk.IconSize.BUTTON)
+        airplay_btn.get_style_context().add_class("card-button")
+        airplay_btn.set_tooltip_text("Sound Mixer / Audio Output")
+        airplay_btn.connect("clicked", lambda *_: open_sound_settings())
+        vol_card.pack_start(airplay_btn, False, False, 0)
 
         main_box.pack_start(vol_card, False, False, 0)
 
@@ -592,12 +652,10 @@ class SequoiaControlCenter(Gtk.Window):
         media_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         media_card.get_style_context().add_class("card")
 
-        # Cover thumbnail
         self.cover_img = Gtk.Image.new_from_icon_name("audio-x-generic-symbolic", Gtk.IconSize.DND)
         self.cover_img.set_pixel_size(36)
         media_card.pack_start(self.cover_img, False, False, 0)
 
-        # Track & Artist
         media_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.media_title = Gtk.Label(label="Break My Baby")
         self.media_title.get_style_context().add_class("title-text")
@@ -615,7 +673,6 @@ class SequoiaControlCenter(Gtk.Window):
         media_text.pack_start(self.media_artist, False, False, 0)
         media_card.pack_start(media_text, True, True, 0)
 
-        # Controls (Play/Pause, Next)
         self.play_btn = Gtk.Button.new_from_icon_name("media-playback-start-symbolic", Gtk.IconSize.BUTTON)
         self.play_btn.get_style_context().add_class("media-btn")
         self.play_btn.connect("clicked", self.on_media_play_pause)
@@ -656,6 +713,15 @@ class SequoiaControlCenter(Gtk.Window):
         dnd_on = get_dnd_state()
         self.dnd_sub.set_text("On" if dnd_on else "Off")
 
+        # Theme Appearance
+        mode = get_current_theme_mode()
+        if mode == "dark":
+            self.theme_sub.set_text("Dark Mode")
+            self.theme_icon_btn.set_image(Gtk.Image.new_from_icon_name("weather-clear-night-symbolic", Gtk.IconSize.BUTTON))
+        else:
+            self.theme_sub.set_text("Light Mode")
+            self.theme_icon_btn.set_image(Gtk.Image.new_from_icon_name("weather-clear-symbolic", Gtk.IconSize.BUTTON))
+
         # Media
         title, artist, status, art = get_media_info()
         self.media_title.set_text(title)
@@ -678,6 +744,10 @@ class SequoiaControlCenter(Gtk.Window):
     def on_toggle_dnd(self, *_):
         toggle_dnd()
         GLib.timeout_add(200, self.update_dynamic_state)
+
+    def on_toggle_theme(self, *_):
+        toggle_system_theme()
+        GLib.timeout_add(300, self.update_dynamic_state)
 
     def on_brightness_changed(self, scale):
         val = scale.get_value()
@@ -705,7 +775,6 @@ class SequoiaControlCenter(Gtk.Window):
 
 
 def main():
-    # Handle SIGINT and SIGTERM
     signal.signal(signal.SIGINT, cleanup_and_exit)
     signal.signal(signal.SIGTERM, cleanup_and_exit)
 

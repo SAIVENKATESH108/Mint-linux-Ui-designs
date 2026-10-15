@@ -138,20 +138,43 @@ stop_widgets() {
 start_widgets() {
     install_fonts
     setup_config
-    if is_running; then
-        echo "DeskWidgets is already running."
-        return 0
-    fi
-    # Stop legacy conky cards first to avoid visual duplicates
+
+    echo "==> Launching desktop widgets..."
+    pkill -f "deskwidgets run" 2>/dev/null || true
     pkill -f "calendar-system.conkyrc" 2>/dev/null || true
     pkill -f "clock-weather.conkyrc" 2>/dev/null || true
     pkill -f "media-notes.conkyrc" 2>/dev/null || true
+    sleep 0.3
 
-    echo "Starting DeskWidgets service..."
-    nohup python3 "${BIN_RUNNER}" run > "${LOG_FILE}" 2>&1 &
-    local new_pid=$!
-    echo "${new_pid}" > "${HOME}/.cache/deskwidgets/service.pid"
-    echo "DeskWidgets started (PID: ${new_pid})."
+    local started_cairo=0
+    if [[ -x "${BIN_RUNNER}" ]] && command -v python3 &>/dev/null; then
+        echo "Attempting to start DeskWidgets Cairo vector suite..."
+        nohup python3 "${BIN_RUNNER}" run > "${LOG_FILE}" 2>&1 &
+        local new_pid=$!
+        echo "${new_pid}" > "${HOME}/.cache/deskwidgets/service.pid"
+
+        # Check if deskwidgets successfully spawned conky windows within 2 seconds
+        for _ in {1..5}; do
+            sleep 0.4
+            if kill -0 "${new_pid}" 2>/dev/null && pgrep -f "conky -c.*widget.conf" >/dev/null 2>&1; then
+                started_cairo=1
+                break
+            fi
+        done
+    fi
+
+    if [[ "${started_cairo}" -eq 1 ]]; then
+        echo "✔ DeskWidgets Cairo suite successfully active."
+    else
+        echo "ℹ Activating high-reliability native macOS Sequoia Conky cards..."
+        pkill -f "deskwidgets run" 2>/dev/null || true
+        if [[ -x "${SCRIPT_DIR}/conky-manager.sh" ]]; then
+            "${SCRIPT_DIR}/conky-manager.sh" start
+        elif [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
+            "${HOME}/.local/bin/conky-manager.sh" start
+        fi
+        echo "✔ macOS Sequoia Conky cards active."
+    fi
 }
 
 open_gallery() {

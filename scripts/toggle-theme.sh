@@ -34,6 +34,10 @@ case "${TARGET,,}" in
         fi
         xfconf-query -c xfwm4 -p /general/theme -s "WhiteSur-Light"
         echo "✔ Light mode active: WhiteSur-Light"
+        if command -v notify-send &>/dev/null; then
+            notify-send "macOS Appearance" "Switched to Light Mode" -i weather-clear-symbolic 2>/dev/null || true
+        fi
+        xfce4-panel -r 2>/dev/null || true
         ;;
     dark)
         echo "==> Switching to macOS Sequoia Dark Mode..."
@@ -43,6 +47,10 @@ case "${TARGET,,}" in
         fi
         xfconf-query -c xfwm4 -p /general/theme -s "WhiteSur-Dark"
         echo "✔ Dark mode active: WhiteSur-Dark"
+        if command -v notify-send &>/dev/null; then
+            notify-send "macOS Appearance" "Switched to Dark Mode" -i weather-clear-night-symbolic 2>/dev/null || true
+        fi
+        xfce4-panel -r 2>/dev/null || true
         ;;
     *)
         echo "Usage: $0 [light|dark|toggle]" >&2

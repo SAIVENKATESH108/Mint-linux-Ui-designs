@@ -142,6 +142,7 @@ SESSION_BINS=(
     "spotlight.sh"
     "control-center.sh"
     "sequoia-control-center.py"
+    "toggle-theme.sh"
     "deskwidgets-manager.sh"
     "mission-control.sh"
     "sequoia-settings.sh"
@@ -282,6 +283,12 @@ if command -v xfconf-query &>/dev/null; then
         elif [[ "${PTYPE}" == "launcher" ]]; then
             log_info "Removing duplicate stock launcher plugin-${pid} from panel-1..."
             continue
+        elif [[ "${PTYPE}" == "pulseaudio" || "${PTYPE}" == "notification-plugin" || "${PTYPE}" == *"volume"* || "${PTYPE}" == *"audio"* || "${PTYPE}" == *"notify"* ]]; then
+            log_info "Removing redundant ${PTYPE} plugin-${pid} from panel-1 (handled inside Control Center)..."
+            continue
+        elif [[ "${PTYPE}" == "systray" || "${PTYPE}" == "statusnotifier" ]]; then
+            log_info "Removing status tray ${PTYPE} plugin-${pid} from panel-1 (Wi-Fi, sound, and status handled in Control Center)..."
+            continue
         elif [[ "${PTYPE}" == "whiskermenu" ]]; then
             WHISKER_ID="${pid}"
             if [[ -f "${APPLE_ICON_PATH}" ]]; then
@@ -302,27 +309,23 @@ if command -v xfconf-query &>/dev/null; then
             set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/digital-layout" "uint" "3"
             set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/show-date" "bool" "false"
             set_xfconf_prop "xfce4-panel" "/plugins/plugin-${pid}/mode" "uint" "2"
-        else
-            OTHER_RIGHT_IDS+=("${pid}")
         fi
     done
 
-    # Assemble perfect macOS Sequoia order:
-    # 1. Whisker Menu (Apple logo)
-    # 2. Separator (expand=true, pushes everything right)
-    # 3. System Tray & Status Items (Wi-Fi, sound, etc.)
-    # 4. Spotlight Button (101)
-    # 5. Control Center Button (102)
-    # 6. Single-line Clock
+    # Assemble authentic macOS Sequoia top bar order:
+    # 1. Whisker Menu (Apple logo on far left)
+    # 2. Separator (expand=true, pushes all right items to the far right)
+    # 3. Spotlight Button (101)
+    # 4. Control Center Button (102)
+    # 5. Single-line Clock (Date and Time)
     FINAL_PANEL_IDS=()
     [[ -n "${WHISKER_ID}" ]] && FINAL_PANEL_IDS+=("${WHISKER_ID}")
     [[ -n "${SEPARATOR_ID}" ]] && FINAL_PANEL_IDS+=("${SEPARATOR_ID}")
-    FINAL_PANEL_IDS+=("${OTHER_RIGHT_IDS[@]}")
     FINAL_PANEL_IDS+=(101 102)
     [[ -n "${CLOCK_ID}" ]] && FINAL_PANEL_IDS+=("${CLOCK_ID}")
 
     set_xfconf_int_array "xfce4-panel" "/panels/panel-1/plugin-ids" "${FINAL_PANEL_IDS[@]}"
-    log_success "Top bar plugins ordered: Apple Menu -> Separator -> Tray -> Spotlight (101) -> Control Center (102) -> Clock."
+    log_success "Top bar plugins ordered: Apple Menu -> Separator -> Spotlight (101) -> Control Center (102) -> Clock."
 fi
 
 # ------------------------------------------------------------------------------
