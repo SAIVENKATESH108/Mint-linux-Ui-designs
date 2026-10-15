@@ -44,3 +44,7 @@ jobs:
             sleep 1
             python3 tests/test_control_center_smoke.py
           "
+
+      - name: Run DeskWidgets Layout & Overlap Tests
+        run: |
+          python3 -m unittest tests/test_deskwidgets_layout.py -v

@@ -180,6 +180,7 @@ def cmd_mice(_a):
 
 def cmd_doctor(_a):
     from . import desktop, hidbattery
+    from .grid import Grid
     ok = True
 
     def row(name, good, note=''):
@@ -187,13 +188,13 @@ def cmd_doctor(_a):
         ok &= bool(good) or note.startswith('(')
         print(f"{'✔' if good else '✘'} {name}{(' — ' + note) if note else ''}")
 
+    print("=== DeskWidgets System & Dependency Checks ===")
     conky = shutil.which('conky')
     row('conky', conky, tr('встановіть conky-all', 'install conky-all') if not conky else '')
     if conky:
         info = subprocess.run(['conky', '-v'], capture_output=True, text=True).stdout
         row(tr('conky з Lua/Cairo', 'conky with Lua/Cairo'), 'Cairo' in info, tr('потрібен пакет conky-all', 'needs conky-all'))
-    for mod, ver, pkg in (('Gtk', '4.0', 'gir1.2-gtk-4.0'), ('Adw', '1', 'gir1.2-adw-1'), ('GdkPixbuf', '2.0', 'gir1.2-gdkpixbuf-2.0'),
-                          ('ECal', '2.0', 'gir1.2-ecal-2.0 (' + tr('лише для «Події»', 'only for "Up next"') + ')')):
+    for mod, ver, pkg in (('Gtk', '3.0', 'gir1.2-gtk-3.0'), ('GdkPixbuf', '2.0', 'gir1.2-gdkpixbuf-2.0')):
         try:
             import gi
             gi.require_version(mod, ver)
@@ -202,18 +203,100 @@ def cmd_doctor(_a):
         except (ImportError, ValueError):
             row(f'{mod} {ver}', False, pkg if '(' not in pkg else '(' + pkg)
     s = settings_mod.load()
-    font = subprocess.run(['fc-list', s['font']], capture_output=True, text=True).stdout.strip()
-    row(tr('шрифт ', 'font ') + s['font'], font, tr('буде запасний sans-serif', 'a fallback sans-serif will be used'))
-    cjk = subprocess.run(['fc-list', ':lang=ja'], capture_output=True, text=True).stdout.strip()
-    row(tr('японський шрифт (аніме-віджети)', 'Japanese font (anime widgets)'), cjk, '(fonts-noto-cjk)')
-    for tool, why in (('nmap', tr('перевірка мережі', 'LAN watch')), ('docker', 'Docker'), ('upower', tr('батарея', 'batteries'))):
-        row(tool, shutil.which(tool), f'({tr("необов’язково", "optional")}: {why})')
-    for m in hidbattery.find():
-        row(tr('заряд миші ', 'mouse battery ') + m['name'], m['access'],
-            tr('потрібне правило udev, виконайте: ', 'needs the udev rule, run: ') + udev_command())
+    font = subprocess.run(['fc-list', s.get('font', 'Ubuntu Sans')], capture_output=True, text=True).stdout.strip()
+    row(tr('шрифт ', 'font ') + s.get('font', 'Ubuntu Sans'), font, tr('буде запасний sans-serif', 'a fallback sans-serif will be used'))
     row(tr('сервіс працює', 'service running'), service_running(), f'({tr("запустіть", "start it")}: deskwidgets)')
-    row(tr('підказка-сітка GNOME', 'GNOME grid helper'), desktop.extension_state() == 'active', f'({desktop.extension_state()})')
-    print(f'{tr("Віджети", "Widgets")}: {paths.BUILTIN_WIDGETS}  ·  {tr("мої", "mine")}: {paths.USER_WIDGETS}')
+
+    print("\n=== DeskWidgets Layout & Overlap Diagnostics ===")
+    # 1. Read monitor workarea from xrandr or default 1280x1024
+    screen_w, screen_h = 1280, 1024
+    try:
+        xrandr_out = subprocess.run(['xrandr', '--query'], capture_output=True, text=True).stdout
+        for line in xrandr_out.splitlines():
+            if ' connected' in line and ('primary' in line or '1280x1024' in line or 'HDMI-1' in line):
+                import re
+                m = re.search(r'(\d+)x(\d+)\+(\d+)\+(\d+)', line)
+                if m:
+                    screen_w, screen_h = int(m.group(1)), int(m.group(2))
+                    break
+    except Exception:
+        pass
+
+    top_bar = 28
+    print(f"Monitor Workarea: {screen_w}x{screen_h} (Top Bar: {top_bar}px, Outer Margin: {s.get('margin_side', 16)}px, Gap: {s.get('gap', 16)}px)")
+
+    grid = Grid(screen_w, screen_h, s)
+    instances = _layout()
+
+    # Query running X11 windows via wmctrl if available
+    live_windows = {}
+    try:
+        wm_res = subprocess.run(['wmctrl', '-lG'], capture_output=True, text=True)
+        for line in wm_res.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 8 and 'deskwidget:' in line:
+                for token in parts:
+                    if token.startswith('deskwidget:'):
+                        wid_name = token[len('deskwidget:'):]
+                        live_windows[wid_name] = {
+                            'x': int(parts[2]),
+                            'y': int(parts[3]),
+                            'w': int(parts[4]),
+                            'h': int(parts[5]),
+                        }
+    except Exception:
+        pass
+
+    rects = []
+    print("\nConfigured Widget Rectangles:")
+    for inst in instances:
+        iid = inst['id']
+        size = inst['size']
+        col = inst.get('col', 0)
+        row_idx = inst.get('row', 0)
+        calc_wx, calc_wy, calc_ww, calc_wh = grid.window_rect(col, row_idx, size)
+        card_x, card_y, card_w, card_h = grid.card_rect(col, row_idx, size)
+
+        # Use live X11 coords if window is currently mapped
+        if iid in live_windows:
+            cur = live_windows[iid]
+            actual_x, actual_y, actual_w, actual_h = cur['x'], cur['y'], cur['w'], cur['h']
+            source = "X11 Live"
+        else:
+            actual_x, actual_y, actual_w, actual_h = calc_wx, calc_wy, calc_ww, calc_wh
+            source = "Grid Calc"
+
+        rects.append({'id': iid, 'x': actual_x, 'y': actual_y, 'w': actual_w, 'h': actual_h,
+                      'col': col, 'row': row_idx, 'card': (card_x, card_y, card_w, card_h)})
+        print(f"  • {iid:12} [{size:6}] grid=({col},{row_idx}) -> win=({actual_x}, {actual_y}, {actual_w}x{actual_h}) card=({card_x}, {card_y}, {card_w}x{card_h}) [{source}]")
+
+    print("\nIntegrity Checks:")
+    # Check off-screen
+    off_screen = []
+    for r in rects:
+        if r['x'] < 0 or r['y'] < top_bar or (r['x'] + r['w']) > screen_w or (r['y'] + r['h']) > screen_h:
+            off_screen.append(f"{r['id']} (bounds: x={r['x']}, y={r['y']}, x2={r['x']+r['w']}, y2={r['y']+r['h']})")
+    if off_screen:
+        ok = False
+        print(f"✘ Off-screen / Clipping: {', '.join(off_screen)}")
+    else:
+        print(f"✔ Off-screen Bounds: All {len(rects)} widgets fit strictly within {screen_w}x{screen_h} (below {top_bar}px bar)")
+
+    # Check overlaps
+    overlaps = []
+    for i in range(len(rects)):
+        for j in range(i + 1, len(rects)):
+            r1, r2 = rects[i], rects[j]
+            # Two boxes overlap if they intersect horizontally AND vertically
+            if (r1['x'] < r2['x'] + r2['w'] and r1['x'] + r1['w'] > r2['x'] and
+                r1['y'] < r2['y'] + r2['h'] and r1['y'] + r1['h'] > r2['y']):
+                overlaps.append(f"{r1['id']} overlaps with {r2['id']}")
+    if overlaps:
+        ok = False
+        print(f"✘ Window Overlaps Found: {', '.join(overlaps)}")
+    else:
+        print(f"✔ Non-overlapping: All {len(rects)} widget windows have strictly zero overlap")
+
     return 0 if ok else 1
 
 

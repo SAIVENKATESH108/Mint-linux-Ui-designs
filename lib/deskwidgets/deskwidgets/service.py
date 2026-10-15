@@ -84,7 +84,7 @@ class Runner:
         grid = self.d.grid
         x, y = grid.window_xy(inst['col'], inst['row'])
         self.requested = (x, y)
-        self.window, self.offset, self.last, self.still = None, None, None, 0
+        self.window, self.offset, self.last, self.still = None, (0, 0), None, 0
         opts = engine.write_options(inst, t, lang=self.d.lang)
         env = engine.widget_env(inst, t, lang=self.d.lang, scale=grid.scale, size_px=grid.window_px(inst['size']),
                                 pos=(x, y), opts_path=opts)
@@ -463,9 +463,11 @@ class Daemon(Gio.Application):
     # grid snapping
     def move(self, r, inst):
         x, y = self.grid.window_xy(inst['col'], inst['row'])
-        if r.window is not None and r.offset is not None:
-            self.x.move(r.window, x + r.offset[0], y + r.offset[1])
-            r.cooldown, r.last, r.still, r.settling = 2, None, 0, True
+        r.requested = (x, y)
+        r.offset = (0, 0)
+        if r.window is not None:
+            self.x.move(r.window, x, y)
+            r.cooldown, r.last, r.still, r.settling = 2, (x, y), 0, True
         else:
             r.restart()
 
@@ -496,32 +498,41 @@ class Daemon(Gio.Application):
             if pos is None:
                 r.window = None
                 continue
-            if r.offset is None:
-                r.offset = (pos[0] - r.requested[0], pos[1] - r.requested[1])
-                r.last, r.settling = pos, False
-                continue
+
+            gx, gy = self.grid.window_xy(inst['col'], inst['row'])
+            r.requested = (gx, gy)
+            r.offset = (0, 0)
+
+            # If window was displaced/centered by the window manager on startup (> 20px off grid):
+            if abs(pos[0] - gx) > 20 or abs(pos[1] - gy) > 20:
+                if not dragging and r.still == 0 and r.cooldown == 0:
+                    # Force window to its requested grid position
+                    self.x.move(r.window, gx, gy)
+                    r.last = (gx, gy)
+                    r.cooldown = 2
+                    continue
+
             if r.cooldown:
                 r.cooldown -= 1
                 r.last = pos
                 continue
-            gx, gy = self.grid.window_xy(inst['col'], inst['row'])
-            if pos == (gx + r.offset[0], gy + r.offset[1]):
+
+            if pos == (gx, gy):
                 r.last, r.still, r.settling = pos, 0, False
                 continue
+
             if pos != r.last or dragging:   # still being dragged
                 r.last, r.still = pos, 0
                 continue
+
             r.still += 1
             if r.still < SNAP_AFTER:
                 continue
-            col, row = self.grid.nearest_cell(pos[0] - r.offset[0], pos[1] - r.offset[1], inst['size'])
+
+            # Dropped after drag: snap to nearest cell
+            col, row = self.grid.nearest_cell(pos[0], pos[1], inst['size'])
             spot = self.grid.free_near(col, row, inst['size'], self.taken(exclude=inst['id'])) \
                 or (inst['col'], inst['row'])
-            if spot == (inst['col'], inst['row']) and r.settling:
-                # the WM kept it a few px off the cell (screen constraints): accept that spot
-                r.offset = (pos[0] - gx, pos[1] - gy)
-                r.settling = False
-                continue
             inst['col'], inst['row'] = spot
             self.move(r, inst)
             changed = True

@@ -2,20 +2,23 @@
 from .catalog import SIZES
 
 BASE_CELL = 170   # small card at 100 %
-BASE_MARGIN = 16  # transparent shadow margin around a card (lib.lua L.M)
+BASE_MARGIN = 4    # minimized transparent shadow margin around card (eliminates faint outline boxes)
 
 
 class Grid:
     def __init__(self, screen_w, screen_h, settings):
-        self.scale = float(settings['scale'])
+        self.scale = float(settings.get('scale', 1.0))
         self.cell = round(BASE_CELL * self.scale)
-        self.gap = int(settings['gap'])
+        self.gap = int(settings.get('gap', 16))
         self.margin = round(BASE_MARGIN * self.scale)
         self.pitch = self.cell + self.gap
-        side, top, bottom = int(settings['margin_side']), int(settings['margin_top']), int(settings['margin_bottom'])
+        side = int(settings.get('margin_side', 16))
+        top = int(settings.get('margin_top', 44))       # 28px bar + 16px outer margin
+        bottom = int(settings.get('margin_bottom', 72))  # Dock reservation
         self.cols = max(2, (screen_w - 2 * side + self.gap) // self.pitch)
         self.rows = max(2, (screen_h - top - bottom + self.gap) // self.pitch)
-        self.x0 = (screen_w - (self.cols * self.pitch - self.gap)) // 2
+        # Anchor from the right edge with exactly 'side' outer margin
+        self.x0 = screen_w - side - (self.cols * self.pitch - self.gap)
         self.y0 = top
 
     def card_px(self, size):
@@ -28,6 +31,19 @@ class Grid:
 
     def window_xy(self, col, row):
         return self.x0 + col * self.pitch - self.margin, self.y0 + row * self.pitch - self.margin
+
+    def card_xy(self, col, row):
+        return self.x0 + col * self.pitch, self.y0 + row * self.pitch
+
+    def window_rect(self, col, row, size):
+        wx, wy = self.window_xy(col, row)
+        ww, wh = self.window_px(size)
+        return wx, wy, ww, wh
+
+    def card_rect(self, col, row, size):
+        cx, cy = self.card_xy(col, row)
+        cw, ch = self.card_px(size)
+        return cx, cy, cw, ch
 
     def fits(self, col, row, size):
         cw, ch = SIZES[size]

@@ -52,13 +52,13 @@ setup_config() {
     local target_style
     target_style="${1:-$(get_current_theme_mode)}"
 
-    # Generate global settings
+    # Generate global settings (anchored from 28px bar with 16px margins and 16px gaps)
     cat > "${SETTINGS_FILE}" << EOF
 {
   "language": "en",
-  "scale": 0.95,
-  "gap": 14,
-  "margin_top": 36,
+  "scale": 1.0,
+  "gap": 16,
+  "margin_top": 44,
   "margin_bottom": 72,
   "margin_side": 16,
   "font": "Ubuntu Sans",
@@ -70,7 +70,7 @@ setup_config() {
 }
 EOF
 
-    # Provision calibrated 1280x1024 macOS widget stack with modern colorful accents
+    # Provision calibrated 1280x1024 macOS widget stack (columns 4 and 5 right-anchored)
     cat > "${LAYOUT_FILE}" << EOF
 {
   "version": 3,
@@ -82,7 +82,7 @@ EOF
       "style": "${target_style}",
       "accent": "purple",
       "options": {},
-      "col": 5,
+      "col": 4,
       "row": 0
     },
     {
@@ -92,7 +92,7 @@ EOF
       "style": "color",
       "accent": "red",
       "options": {},
-      "col": 6,
+      "col": 5,
       "row": 0
     },
     {
@@ -102,7 +102,7 @@ EOF
       "style": "${target_style}",
       "accent": "auto",
       "options": {},
-      "col": 5,
+      "col": 4,
       "row": 1
     },
     {
@@ -112,7 +112,7 @@ EOF
       "style": "${target_style}",
       "accent": "auto",
       "options": {},
-      "col": 5,
+      "col": 4,
       "row": 2
     },
     {
@@ -122,7 +122,7 @@ EOF
       "style": "color",
       "accent": "pink",
       "options": {},
-      "col": 5,
+      "col": 4,
       "row": 3
     }
   ]
@@ -130,16 +130,17 @@ EOF
 EOF
 }
 
-# 4. Stop All Widgets (DeskWidgets and Old Conky)
+# 4. Stop All Widgets (DeskWidgets and Conky)
 stop_widgets() {
     echo "Stopping DeskWidgets service and widget instances..."
     pkill -f "deskwidgets run" 2>/dev/null || true
+    pkill -f "widget.conf" 2>/dev/null || true
     # Stop legacy conky cards permanently
     pkill -f "calendar-system.conkyrc" 2>/dev/null || true
     pkill -f "clock-weather.conkyrc" 2>/dev/null || true
     pkill -f "media-notes.conkyrc" 2>/dev/null || true
     
-    # Kill any conky instances spawned by DeskWidgets
+    # Kill any residual conky instances spawned by DeskWidgets
     for pid in $(pgrep conky 2>/dev/null || true); do
         if grep -q "deskwidgets" "/proc/${pid}/cmdline" 2>/dev/null; then
             kill -9 "${pid}" 2>/dev/null || true

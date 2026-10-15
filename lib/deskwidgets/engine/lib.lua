@@ -25,7 +25,7 @@ L.DEMO = env('MAC_DEMO') == '1'   -- gallery thumbnails and previews show sample
 L.NO_CARD = false                 -- set while a layout is drawn scaled inside an already drawn card
 
 -- geometry (base units)
-L.M = 16            -- transparent window margin around the card (room for the shadow)
+L.M = 4             -- minimized transparent window margin around the card (eliminates faint outline boxes)
 L.GAP = 16          -- space between cards
 L.S = 170           -- one grid cell = small card
 L.W = 2 * L.S + L.GAP
