@@ -302,6 +302,10 @@ check_item "Control Center menu executable at ~/.local/bin/control-center.sh" \
     "[[ -x '${HOME}/.local/bin/control-center.sh' ]]" \
     "control-center.sh missing or not executable"
 
+check_item "Control Center Python popup executable at ~/.local/bin/sequoia-control-center.py" \
+    "[[ -x '${HOME}/.local/bin/sequoia-control-center.py' ]]" \
+    "sequoia-control-center.py missing or not executable"
+
 check_item "Super+C shortcut bound to control-center.sh" \
     "[[ \"\$(xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Super>c' 2>/dev/null || true)\" =~ control-center.sh ]]" \
     "Super+C not mapped to control-center.sh"

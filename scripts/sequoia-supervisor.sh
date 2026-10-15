@@ -92,9 +92,14 @@ elif [[ -x "${HOME}/.local/bin/start-plank.sh" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Launch Desktop Conky Widgets
+# 4. Launch Desktop Widgets (DeskWidgets Cairo vector suite with Conky fallback)
 # ------------------------------------------------------------------------------
-if [[ -x "${SCRIPT_DIR}/conky-manager.sh" ]]; then
+if [[ -x "${SCRIPT_DIR}/deskwidgets-manager.sh" ]]; then
+    log "Starting Sequoia DeskWidgets vector suite..."
+    "${SCRIPT_DIR}/deskwidgets-manager.sh" start || true
+elif [[ -x "${HOME}/.local/bin/deskwidgets-manager.sh" ]]; then
+    "${HOME}/.local/bin/deskwidgets-manager.sh" start || true
+elif [[ -x "${SCRIPT_DIR}/conky-manager.sh" ]]; then
     log "Starting Conky desktop widgets..."
     "${SCRIPT_DIR}/conky-manager.sh" start || true
 elif [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then

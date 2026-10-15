@@ -141,6 +141,8 @@ SESSION_BINS=(
     "launchpad.sh"
     "spotlight.sh"
     "control-center.sh"
+    "sequoia-control-center.py"
+    "deskwidgets-manager.sh"
     "mission-control.sh"
     "sequoia-settings.sh"
 )
@@ -368,8 +370,11 @@ if [[ -n "${DISPLAY:-}" ]]; then
         picom --config "${PICOM_DIR}/picom.conf" -b 2>/dev/null || true
     fi
 
-    # 13b. Restart Conky
-    if command -v conky &>/dev/null; then
+    # 13b. Restart Desktop Widgets (DeskWidgets with Conky fallback)
+    if [[ -x "${HOME}/.local/bin/deskwidgets-manager.sh" ]]; then
+        log_info "Restarting DeskWidgets Cairo vector suite (1280x1024 calibrated)..."
+        "${HOME}/.local/bin/deskwidgets-manager.sh" restart >/dev/null 2>&1 || true
+    elif command -v conky &>/dev/null; then
         log_info "Restarting Conky widgets with translucent glass cards (zero overlap)..."
         if [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
             "${HOME}/.local/bin/conky-manager.sh" restart >/dev/null 2>&1 || true

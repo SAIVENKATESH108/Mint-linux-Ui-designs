@@ -6,6 +6,18 @@
 
 set -euo pipefail
 
+# Try native GTK3 Control Center popover first (macOS style window)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY_POPUP="${SCRIPT_DIR}/sequoia-control-center.py"
+if [[ ! -f "${PY_POPUP}" ]]; then
+    PY_POPUP="${HOME}/.local/bin/sequoia-control-center.py"
+fi
+
+if [[ -f "${PY_POPUP}" ]] && command -v python3 &>/dev/null; then
+    exec python3 "${PY_POPUP}"
+fi
+
+# Fallback: text-based quick settings menu
 # Get current status readings
 WIFI_STATUS="$(nmcli -t -f WIFI g 2>/dev/null || echo "enabled")"
 VOL_STATUS="$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | head -n1 | awk '{print $5}' || echo "N/A")"
