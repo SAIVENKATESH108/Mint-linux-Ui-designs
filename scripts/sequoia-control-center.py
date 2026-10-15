@@ -20,39 +20,7 @@ import signal
 import subprocess
 import shutil
 import pwd
-
-PID_FILE = os.path.expanduser("~/.cache/sequoia-control-center.pid")
-
-def handle_singleton():
-    if os.path.exists(PID_FILE):
-        try:
-            with open(PID_FILE, "r") as f:
-                content = f.read().strip()
-            if content.isdigit():
-                old_pid = int(content)
-                if old_pid != os.getpid() and os.path.exists(f"/proc/{old_pid}"):
-                    try:
-                        with open(f"/proc/{old_pid}/cmdline", "rb") as fcmd:
-                            cmd = fcmd.read().decode("utf-8", errors="ignore")
-                        if "control-center" in cmd:
-                            os.kill(old_pid, signal.SIGTERM)
-                            try:
-                                os.remove(PID_FILE)
-                            except OSError:
-                                pass
-                            sys.exit(0)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-    try:
-        os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
-        with open(PID_FILE, "w") as f:
-            f.write(str(os.getpid()))
-    except Exception:
-        pass
-
-handle_singleton()
+import threading
 
 try:
     import gi
@@ -67,11 +35,10 @@ except ImportError as e:
 
 def cleanup_and_exit(*_args):
     try:
-        if os.path.exists(PID_FILE):
-            os.remove(PID_FILE)
-    except OSError:
+        Gtk.main_quit()
+    except Exception:
         pass
-    Gtk.main_quit()
+    sys.exit(0)
 
 
 # -----------------------------------------------------------------------------
@@ -126,6 +93,46 @@ def toggle_wifi():
     enabled, _ = get_wifi_state()
     new_state = "off" if enabled else "on"
     run_cmd(["nmcli", "radio", "wifi", new_state])
+
+
+def get_wifi_network_list():
+    out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list"])
+    networks = []
+    seen = set()
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 4:
+            in_use = (parts[0].strip() == "*")
+            ssid = parts[1].strip()
+            signal = parts[2].strip()
+            sec = parts[3].strip()
+            if ssid and ssid not in seen:
+                seen.add(ssid)
+                networks.append({"ssid": ssid, "signal": signal, "sec": sec, "active": in_use})
+    return networks
+
+
+def connect_to_wifi(ssid):
+    if not ssid:
+        return
+
+    def _do_connect():
+        res = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if res.returncode != 0 and ("Secrets were required" in res.stderr or "password" in res.stderr.lower()):
+            zenity = shutil.which("zenity")
+            if zenity:
+                pw_res = subprocess.run([zenity, "--password", f"--title=Wi-Fi Password: {ssid}"],
+                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+                password = pw_res.stdout.strip()
+                if password:
+                    subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif res.returncode == 0:
+            if shutil.which("notify-send"):
+                subprocess.run(["notify-send", "Wi-Fi Connected", f"Connected to {ssid}", "-i", "network-wireless-symbolic"])
+
+    threading.Thread(target=_do_connect, daemon=True).start()
 
 
 def open_wifi_settings():
@@ -404,6 +411,30 @@ scale slider:hover {{
     color: #0a84ff;
     transform: scale(1.12);
 }}
+
+.wifi-list-card {{
+    background-color: {bg_card};
+    border: 1px solid {border_card};
+    border-radius: 14px;
+    padding: 8px 10px;
+    margin-top: 2px;
+}}
+
+.wifi-item-btn {{
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 8px;
+    transition: background-color 150ms ease;
+}}
+
+.wifi-item-btn:hover {{
+    background-color: {bg_card_hover};
+}}
+
+.wifi-item-btn.active {{
+    background-color: rgba(10, 132, 255, 0.22);
+}}
 """
 
 
@@ -418,6 +449,8 @@ class SequoiaControlCenter(Gtk.Window):
         self.set_skip_taskbar_hint(True)
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
+        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
+        self.set_app_paintable(True)
 
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -439,6 +472,7 @@ class SequoiaControlCenter(Gtk.Window):
         # Connect events
         self.connect("destroy", cleanup_and_exit)
         self.connect("key-press-event", self.on_key_press)
+        self.connect("map-event", lambda *_: self.position_window())
 
         # Polling timer
         GLib.timeout_add(1500, self.update_dynamic_state)
@@ -453,8 +487,7 @@ class SequoiaControlCenter(Gtk.Window):
         screen = self.get_screen()
         screen_w = screen.get_width()
         win_w = 356
-        win_h = 510
-        self.set_size_request(win_w, win_h)
+        self.set_size_request(win_w, -1)
         pos_x = max(0, screen_w - win_w - 12)
         pos_y = 34
         self.move(pos_x, pos_y)
@@ -527,6 +560,7 @@ class SequoiaControlCenter(Gtk.Window):
         wifi_row.pack_start(self.wifi_btn, False, False, 0)
 
         wifi_click = Gtk.EventBox()
+        wifi_click.set_tooltip_text("Available Networks")
         wifi_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         w_t = Gtk.Label(label="Wi-Fi")
         w_t.get_style_context().add_class("title-text")
@@ -535,12 +569,16 @@ class SequoiaControlCenter(Gtk.Window):
         self.wifi_sub.get_style_context().add_class("subtitle-text")
         self.wifi_sub.set_xalign(0)
         self.wifi_sub.set_ellipsize(Pango.EllipsizeMode.END)
-        self.wifi_sub.set_max_width_chars(11)
+        self.wifi_sub.set_max_width_chars(10)
         wifi_text_box.pack_start(w_t, False, False, 0)
         wifi_text_box.pack_start(self.wifi_sub, False, False, 0)
         wifi_click.add(wifi_text_box)
-        wifi_click.connect("button-press-event", lambda *_: open_wifi_settings())
+        wifi_click.connect("button-press-event", lambda *_: self.on_toggle_wifi_details())
         wifi_row.pack_start(wifi_click, True, True, 0)
+
+        wifi_chev = Gtk.Image.new_from_icon_name("pan-end-symbolic", Gtk.IconSize.BUTTON)
+        wifi_chev.set_pixel_size(10)
+        wifi_row.pack_end(wifi_chev, False, False, 0)
         net_card.pack_start(wifi_row, False, False, 0)
 
         # Bluetooth Row
@@ -654,6 +692,33 @@ class SequoiaControlCenter(Gtk.Window):
 
         toggles_grid.attach(util_box, 1, 1, 1, 1)
         main_box.pack_start(toggles_grid, False, False, 0)
+
+        # Wi-Fi Networks Revealer Drawer (macOS inline expansion)
+        self.wifi_revealer = Gtk.Revealer()
+        self.wifi_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        self.wifi_revealer.set_transition_duration(200)
+
+        wifi_drawer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        wifi_drawer_box.get_style_context().add_class("wifi-list-card")
+
+        drawer_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        dh_lbl = Gtk.Label(label="Wi-Fi Networks")
+        dh_lbl.get_style_context().add_class("title-text")
+        dh_lbl.set_xalign(0)
+        drawer_header.pack_start(dh_lbl, True, True, 0)
+
+        self.wifi_ref_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
+        self.wifi_ref_btn.get_style_context().add_class("circle-icon-btn")
+        self.wifi_ref_btn.set_tooltip_text("Refresh Networks")
+        self.wifi_ref_btn.connect("clicked", self.refresh_wifi_networks)
+        drawer_header.pack_start(self.wifi_ref_btn, False, False, 0)
+        wifi_drawer_box.pack_start(drawer_header, False, False, 2)
+
+        self.wifi_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        wifi_drawer_box.pack_start(self.wifi_list_box, True, True, 0)
+
+        self.wifi_revealer.add(wifi_drawer_box)
+        main_box.pack_start(self.wifi_revealer, False, False, 0)
 
         # ---------------------------------------------------------------------
         # 3. Display Brightness Slider Card
@@ -785,7 +850,97 @@ class SequoiaControlCenter(Gtk.Window):
 
     def on_toggle_wifi(self, *_):
         toggle_wifi()
+        enabled, _ = get_wifi_state()
+        if not enabled:
+            self.wifi_revealer.set_reveal_child(False)
         GLib.timeout_add(300, self.update_dynamic_state)
+
+    def on_toggle_wifi_details(self, *_):
+        is_revealed = self.wifi_revealer.get_reveal_child()
+        if not is_revealed:
+            self.wifi_revealer.set_reveal_child(True)
+            self.refresh_wifi_networks()
+        else:
+            self.wifi_revealer.set_reveal_child(False)
+
+    def refresh_wifi_networks(self, *_):
+        for child in self.wifi_list_box.get_children():
+            self.wifi_list_box.remove(child)
+
+        spinner = Gtk.Label(label="Scanning networks...")
+        spinner.get_style_context().add_class("subtitle-text")
+        spinner.set_halign(Gtk.Align.START)
+        self.wifi_list_box.pack_start(spinner, False, False, 4)
+        self.wifi_list_box.show_all()
+
+        def _fetch():
+            nets = get_wifi_network_list()
+            GLib.idle_add(self._populate_wifi_networks, nets)
+
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _populate_wifi_networks(self, networks):
+        for child in self.wifi_list_box.get_children():
+            self.wifi_list_box.remove(child)
+
+        if not networks:
+            lbl = Gtk.Label(label="No Wi-Fi networks found.")
+            lbl.get_style_context().add_class("subtitle-text")
+            lbl.set_halign(Gtk.Align.START)
+            self.wifi_list_box.pack_start(lbl, False, False, 4)
+        else:
+            for net in networks[:6]:
+                ssid = net["ssid"]
+                active = net["active"]
+                sec = net["sec"]
+                sig = net["signal"]
+
+                btn = Gtk.Button()
+                btn.get_style_context().add_class("wifi-item-btn")
+                if active:
+                    btn.get_style_context().add_class("active")
+
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                icon_name = "network-wireless-signal-excellent-symbolic"
+                try:
+                    sig_val = int(sig)
+                    if sig_val < 35:
+                        icon_name = "network-wireless-signal-weak-symbolic"
+                    elif sig_val < 70:
+                        icon_name = "network-wireless-signal-ok-symbolic"
+                except Exception:
+                    pass
+
+                icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.BUTTON)
+                hbox.pack_start(icon, False, False, 0)
+
+                name_lbl = Gtk.Label(label=ssid)
+                name_lbl.get_style_context().add_class("title-text")
+                name_lbl.set_xalign(0)
+                name_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+                hbox.pack_start(name_lbl, True, True, 0)
+
+                if sec and sec != "--":
+                    lock = Gtk.Image.new_from_icon_name("changes-prevent-symbolic", Gtk.IconSize.BUTTON)
+                    lock.set_pixel_size(12)
+                    hbox.pack_start(lock, False, False, 0)
+
+                if active:
+                    check = Gtk.Label(label="✔")
+                    check.get_style_context().add_class("title-text")
+                    hbox.pack_start(check, False, False, 0)
+
+                btn.add(hbox)
+                btn.connect("clicked", lambda _, s=ssid: (connect_to_wifi(s), GLib.timeout_add(1500, self.refresh_wifi_networks)))
+                self.wifi_list_box.pack_start(btn, False, False, 1)
+
+        bottom_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        adv_btn = Gtk.Button(label="Network Settings...")
+        adv_btn.get_style_context().add_class("media-btn")
+        adv_btn.connect("clicked", lambda *_: open_wifi_settings())
+        bottom_box.pack_start(adv_btn, False, False, 0)
+        self.wifi_list_box.pack_start(bottom_box, False, False, 4)
+        self.wifi_list_box.show_all()
 
     def on_toggle_bt(self, *_):
         toggle_bluetooth()

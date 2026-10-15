@@ -6,6 +6,12 @@
 
 set -euo pipefail
 
+# If Control Center popover is already running, toggle it closed cleanly
+if pgrep -f "sequoia-control-center.py" >/dev/null 2>&1; then
+    pkill -f "sequoia-control-center.py" 2>/dev/null || true
+    exit 0
+fi
+
 # Try native GTK3 Control Center popover first (macOS style window)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY_POPUP="${SCRIPT_DIR}/sequoia-control-center.py"
@@ -15,7 +21,7 @@ fi
 
 if [[ -f "${PY_POPUP}" ]] && command -v python3 &>/dev/null; then
     mkdir -p "${HOME}/.cache"
-    python3 "${PY_POPUP}" >> "${HOME}/.cache/control-center.log" 2>&1
+    nohup python3 "${PY_POPUP}" > "${HOME}/.cache/control-center.log" 2>&1 &
     exit 0
 fi
 
