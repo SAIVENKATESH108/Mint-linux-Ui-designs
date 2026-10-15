@@ -30,12 +30,9 @@ install_deskwidgets() {
         fc-cache -f "${FONT_DIR}" 2>/dev/null || true
     fi
 
-    # Run DeskWidgets installer if binary does not exist or needs update
-    if [[ ! -x "${BIN_RUNNER}" ]] || [[ "${WIDGETS_SRC}/bin/deskwidgets" -nt "${BIN_RUNNER}" ]]; then
-        echo "Installing DeskWidgets suite into ~/.local..."
-        if [[ -f "${WIDGETS_SRC}/install.sh" ]]; then
-            sh "${WIDGETS_SRC}/install.sh" --prefix "${HOME}/.local" >/dev/null 2>&1 || true
-        fi
+    # Always ensure latest engine and binary are synchronized to ~/.local
+    if [[ -f "${WIDGETS_SRC}/install.sh" ]]; then
+        sh "${WIDGETS_SRC}/install.sh" --prefix "${HOME}/.local" >/dev/null 2>&1 || true
     fi
 }
 
@@ -145,9 +142,10 @@ stop_widgets() {
     # Kill any conky instances spawned by DeskWidgets
     for pid in $(pgrep conky 2>/dev/null || true); do
         if grep -q "deskwidgets" "/proc/${pid}/cmdline" 2>/dev/null; then
-            kill -15 "${pid}" 2>/dev/null || true
+            kill -9 "${pid}" 2>/dev/null || true
         fi
     done
+    rm -f "${RUN_DIR}/dragging" "${RUN_DIR}/grid.json" 2>/dev/null || true
     sleep 0.3
 }
 
@@ -156,7 +154,7 @@ start_widgets() {
     install_deskwidgets
     local current_mode
     current_mode="$(get_current_theme_mode)"
-    if [[ ! -f "${LAYOUT_FILE}" ]]; then
+    if [[ ! -f "${LAYOUT_FILE}" ]] || ! grep -q '"instances"' "${LAYOUT_FILE}" 2>/dev/null; then
         setup_config "${current_mode}"
     fi
 

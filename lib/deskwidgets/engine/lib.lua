@@ -7,6 +7,7 @@
      a large 2x2 cells. The global size setting scales the whole canvas. ]]
 if not cairo_create then pcall(require, 'cairo') end
 
+local L = {}
 local env = os.getenv
 
 L.HOME = env('HOME')

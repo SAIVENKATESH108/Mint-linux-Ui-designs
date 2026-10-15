@@ -27,14 +27,22 @@ def handle_singleton():
     if os.path.exists(PID_FILE):
         try:
             with open(PID_FILE, "r") as f:
-                old_pid = int(f.read().strip())
-            if old_pid != os.getpid() and os.path.exists(f"/proc/{old_pid}"):
-                os.kill(old_pid, signal.SIGTERM)
-                try:
-                    os.remove(PID_FILE)
-                except OSError:
-                    pass
-                sys.exit(0)
+                content = f.read().strip()
+            if content.isdigit():
+                old_pid = int(content)
+                if old_pid != os.getpid() and os.path.exists(f"/proc/{old_pid}"):
+                    try:
+                        with open(f"/proc/{old_pid}/cmdline", "rb") as fcmd:
+                            cmd = fcmd.read().decode("utf-8", errors="ignore")
+                        if "control-center" in cmd:
+                            os.kill(old_pid, signal.SIGTERM)
+                            try:
+                                os.remove(PID_FILE)
+                            except OSError:
+                                pass
+                            sys.exit(0)
+                    except Exception:
+                        pass
         except Exception:
             pass
     try:
@@ -429,14 +437,25 @@ class SequoiaControlCenter(Gtk.Window):
         self.build_ui()
 
         # Connect events
+        self._mapped_time = 0
         self.connect("destroy", cleanup_and_exit)
-        self.connect("focus-out-event", lambda *_: cleanup_and_exit())
+        self.connect("map-event", self.on_map_event)
+        self.connect("focus-out-event", self.on_focus_out)
         self.connect("key-press-event", self.on_key_press)
 
         # Polling timer
         GLib.timeout_add(1500, self.update_dynamic_state)
 
         self.position_window()
+
+    def on_map_event(self, _widget, _event):
+        self._mapped_time = GLib.get_monotonic_time()
+
+    def on_focus_out(self, _widget, _event):
+        # Ignore focus-out during the first 600ms after window is mapped
+        if self._mapped_time == 0 or (GLib.get_monotonic_time() - self._mapped_time < 600_000):
+            return False
+        cleanup_and_exit()
 
     def apply_theme_css(self):
         css_data = build_css(self.current_theme)

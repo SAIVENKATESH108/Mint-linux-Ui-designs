@@ -24,6 +24,7 @@ source "${REPO_ROOT}/lib/common.sh"
 source "${REPO_ROOT}/lib/xfconf-helpers.sh"
 
 verify_environment
+mkdir -p "${CURRENT_PHASE_DIR}"
 
 log_info "=========================================================="
 log_info " Sequoia Permanent System Enforcer"
@@ -247,27 +248,53 @@ if command -v xfconf-query &>/dev/null; then
         set_xfconf_prop "xfce4-panel" "/panels" "int" "1"
     fi
 
-    # Copy Apple Logo Icon
+    # Copy Apple Logo Icon & Control Center Icon
     APPLE_ICON_PATH="${HOME}/.local/share/icons/apple-logo.svg"
+    CONTROL_CENTER_ICON_PATH="${HOME}/.local/share/icons/control-center.svg"
     mkdir -p "${HOME}/.local/share/icons"
     if [[ -f "${REPO_ROOT}/assets/icons/apple-logo.svg" ]]; then
         safe_copy "${REPO_ROOT}/assets/icons/apple-logo.svg" "${APPLE_ICON_PATH}"
+    fi
+    if [[ -f "${REPO_ROOT}/assets/icons/control-center.svg" ]]; then
+        safe_copy "${REPO_ROOT}/assets/icons/control-center.svg" "${CONTROL_CENTER_ICON_PATH}"
     fi
 
     # Setup Popover Launchers for Top Bar: Spotlight (plugin-101) & Control Center (plugin-102)
     PANEL_DIR="${HOME}/.config/xfce4/panel"
     mkdir -p "${PANEL_DIR}/launcher-101"
-    safe_copy "${APP_DIR}/spotlight.desktop" "${PANEL_DIR}/launcher-101/spotlight.desktop"
+    cat > "${PANEL_DIR}/launcher-101/spotlight.desktop" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Spotlight Search
+Comment=macOS Sequoia Universal Search
+Exec=/bin/bash -c "${HOME}/.local/bin/spotlight.sh"
+Icon=system-search
+Terminal=false
+StartupNotify=false
+EOF
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-101" "string" "launcher"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-101/show-label" "bool" "false"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-101/disable-tooltips" "bool" "false"
+    xfconf-query -c xfce4-panel -p /plugins/plugin-101/items -r -R 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-101/items -n -t string -s "spotlight.desktop" --force-array 2>/dev/null || true
 
     mkdir -p "${PANEL_DIR}/launcher-102"
-    safe_copy "${APP_DIR}/control-center.desktop" "${PANEL_DIR}/launcher-102/control-center.desktop"
+    cat > "${PANEL_DIR}/launcher-102/control-center.desktop" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Control Center
+Comment=macOS Sequoia Quick Settings & Media Controls
+Exec=/bin/bash -c "${HOME}/.local/bin/control-center.sh"
+Icon=${CONTROL_CENTER_ICON_PATH}
+Terminal=false
+StartupNotify=false
+EOF
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-102" "string" "launcher"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-102/show-label" "bool" "false"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-102/disable-tooltips" "bool" "false"
+    xfconf-query -c xfce4-panel -p /plugins/plugin-102/items -r -R 2>/dev/null || true
     xfconf-query -c xfce4-panel -p /plugins/plugin-102/items -n -t string -s "control-center.desktop" --force-array 2>/dev/null || true
 
     # Clean existing plugin-ids on panel-1:

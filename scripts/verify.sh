@@ -166,7 +166,7 @@ if [[ -n "${DISPLAY:-}" ]]; then
         "panel-1 position property missing in xfce4-panel channel"
 
     check_item "Tasklist and duplicate stock launchers absent from panel-1" \
-        "for pid in \$(xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids 2>/dev/null | grep -E '^[0-9]+$' || true); do ptype=\$(xfconf-query -c xfce4-panel -p /plugins/plugin-\${pid} 2>/dev/null || true); [[ \"\${ptype}\" =~ (tasklist|windowmenu|launcher) ]] && exit 1; done; true" \
+        "for pid in \$(xfconf-query -c xfce4-panel -p /panels/panel-1/plugin-ids 2>/dev/null | grep -E '^[0-9]+$' || true); do [[ \"\${pid}\" -eq 101 || \"\${pid}\" -eq 102 ]] && continue; ptype=\$(xfconf-query -c xfce4-panel -p /plugins/plugin-\${pid} 2>/dev/null || true); [[ \"\${ptype}\" =~ (tasklist|windowmenu|launcher) ]] && exit 1; done; true" \
         "Tasklist or duplicate stock launcher plugin is still present on panel-1"
 fi
 

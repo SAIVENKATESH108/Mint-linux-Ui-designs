@@ -133,6 +133,7 @@ backup_item() {
         else
             rel_path="$(echo "${target}" | sed 's|^/||')"
         fi
+        mkdir -p "${CURRENT_PHASE_DIR}"
         local dest="${CURRENT_PHASE_DIR}/${rel_path}"
         mkdir -p "$(dirname "${dest}")"
         cp -a "${target}" "${dest}"
@@ -207,6 +208,12 @@ set_xfconf_prop() {
     if [[ "${current_val}" == "${new_val}" ]]; then
         log_success "xfconf [${channel}] ${property} is already set to '${new_val}'"
         return 0
+    fi
+
+    mkdir -p "${CURRENT_PHASE_DIR}"
+    if [[ ! -f "${CURRENT_PHASE_DIR}/restore-xfconf.sh" ]]; then
+        echo "#!/usr/bin/env bash" > "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
+        chmod +x "${CURRENT_PHASE_DIR}/restore-xfconf.sh"
     fi
 
     if [[ -n "${current_val}" ]]; then
