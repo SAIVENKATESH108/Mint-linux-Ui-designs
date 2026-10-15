@@ -586,12 +586,12 @@ cmd_self_test() {
             fi
 
             printf "\n   [PREVIOUS RUN(S)]:\n"
-            grep -v -F "[PID ${dw_srv_pid}]" "${log_file}" 2>/dev/null | tail -n 15 | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
+            (grep -v -F "[PID ${dw_srv_pid}]" "${log_file}" 2>/dev/null || true) | tail -n 15 | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
                 printf "   | [previous run] %s\n" "${line}"
             done
         else
             printf "   (Service not running; showing last 25 lines of log):\n"
-            tail -n 25 "${log_file}" | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
+            (tail -n 25 "${log_file}" 2>/dev/null || true) | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
                 printf "   | [previous run] %s\n" "${line}"
             done
         fi
