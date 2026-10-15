@@ -369,11 +369,11 @@ class Daemon(Gio.Application):
             tb = traceback.format_exc()
             log(f"[FATAL-STARTUP-EXCEPTION] DeskWidgets failed to activate:\n{tb}")
             try:
-                subprocess.Popen([
+                subprocess.run([
                     'notify-send', '-u', 'critical',
                     'DeskWidgets Failed',
                     f'Fatal error during startup: {e}\nSee ~/.cache/sequoia/deskwidgets.log'
-                ])
+                ], timeout=2, check=False)
             except Exception:
                 pass
             os._exit(1)

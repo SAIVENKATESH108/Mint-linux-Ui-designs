@@ -83,6 +83,7 @@ Gtk.main()
         self.orig_path = os.environ.get("PATH", "")
         self.test_env = dict(os.environ)
         self.test_env["PATH"] = f"{self.bin_dir}:{self.orig_path}"
+        self.test_env["PYTHONPATH"] = f"{DW_DIR}:{os.environ.get('PYTHONPATH', '')}"
         self.test_env["HOME"] = self.tmpdir
         self.test_env["XDG_CONFIG_HOME"] = os.path.join(self.tmpdir, ".config")
         self.test_env["XDG_CACHE_HOME"] = os.path.join(self.tmpdir, ".cache")
@@ -202,9 +203,10 @@ Gtk.main()
 
     def test_do_activate_fatal_exception(self):
         """(b) do_activate exception -> traceback + notify-send + non-zero exit."""
-        test_script = """
-import os
+        test_script = f"""
 import sys
+sys.path.insert(0, {repr(DW_DIR)})
+import os
 import unittest.mock as mock
 
 from deskwidgets import paths
@@ -220,10 +222,10 @@ with mock.patch("deskwidgets.catalog.discover", side_effect=RuntimeError("Simula
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         # Non-zero exit code required (os._exit(1))
-        self.assertEqual(res.returncode, 1, f"Expected non-zero exit code 1, got {res.returncode}")
+        self.assertEqual(res.returncode, 1, f"Expected non-zero exit code 1, got {res.returncode}. Stderr: {res.stderr}")
 
         # Assert notify-send was dispatched
-        self.assertTrue(os.path.isfile(self.notify_log), "notify-send must have been invoked")
+        self.assertTrue(os.path.isfile(self.notify_log), f"notify-send must have been invoked. Stderr: {res.stderr}, Stdout: {res.stdout}")
         with open(self.notify_log, "r", encoding="utf-8") as nf:
             notif = nf.read()
         self.assertIn("DeskWidgets Failed", notif)
