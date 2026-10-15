@@ -48,13 +48,15 @@ reload_plank() {
 }
 
 reload_conky() {
-    echo "==> Reloading Conky widgets..."
-    if [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
+    echo "==> Reloading widgets..."
+    if [[ -x "${HOME}/.local/bin/deskwidgets-manager.sh" ]]; then
+        bash "${HOME}/.local/bin/deskwidgets-manager.sh" restart
+    elif [[ -x "${HOME}/.local/bin/conky-manager.sh" ]]; then
         bash "${HOME}/.local/bin/conky-manager.sh" restart
     else
-        pkill -x conky 2>/dev/null || true
+        echo "No widget manager found to reload."
     fi
-    echo "  ✔ Conky restarted."
+    echo "  ✔ Widgets reloaded."
 }
 
 reload_picom() {

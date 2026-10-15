@@ -14,21 +14,19 @@ CONKY_DIR="${HOME}/.config/conky"
 ACTION="${1:-start}"
 
 stop_conky() {
-    echo "==> Stopping all Conky widget instances..."
-    if pgrep -x conky >/dev/null 2>&1; then
-        pkill -x conky >/dev/null 2>&1 || true
-        for _ in {1..8}; do
-            if ! pgrep -x conky >/dev/null 2>&1; then
-                break
+    echo "==> Stopping legacy 3-card Conky widget instances..."
+    for p in /proc/[0-9]*; do
+        local pid="${p##*/}"
+        if [[ -f "/proc/${pid}/cmdline" ]]; then
+            local cmd
+            cmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+            if [[ "${cmd}" == *"conky"* && ("${cmd}" == *"clock-weather.conkyrc"* || "${cmd}" == *"calendar-system.conkyrc"* || "${cmd}" == *"media-notes.conkyrc"*) ]]; then
+                kill -TERM "${pid}" 2>/dev/null || true
             fi
-            sleep 0.25
-        done
-        if pgrep -x conky >/dev/null 2>&1; then
-            pkill -9 -x conky >/dev/null 2>&1 || true
-            sleep 0.2
         fi
-    fi
-    echo "✔ Conky stopped."
+    done
+    sleep 0.2
+    echo "✔ Legacy Conky stopped."
 }
 
 start_conky() {

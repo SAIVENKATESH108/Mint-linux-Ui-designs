@@ -132,13 +132,15 @@ class Runner:
         if proc is not self.proc or self.stopping:
             return
         self.proc = None
+        self.window = None
         now = time.monotonic()
         self.crashes = [t for t in self.crashes if now - t < 60] + [now]
         if len(self.crashes) > 4:
-            log(f'{self.id}: conky keeps exiting, giving up (see the errors above)')
+            log(f'[SELF-HEAL] {self.id}: conky crashed {len(self.crashes)} times in 60s; backing off 10s before auto-recovery')
+            self.start_later(10000)
             return
         status = proc.get_exit_status() if proc.get_if_exited() else f'signal {proc.get_term_sig()}'
-        log(f'{self.id}: conky exited ({status}), restarting')
+        log(f'{self.id}: conky exited ({status}), restarting in 2s')
         self.start_later(2000)
 
 
@@ -171,6 +173,12 @@ class Daemon(Gio.Application):
         self.started = True
         from .x11 import X11
         paths.ensure_dirs()
+        pid_file = os.path.join(paths.CACHE, 'service.pid')
+        try:
+            with open(pid_file, 'w') as f:
+                f.write(f'{os.getpid()}\n')
+        except OSError:
+            pass
         kill_stale_conkys()
         self.x = X11()
         self.screen = self.x.screen_size()
@@ -192,7 +200,7 @@ class Daemon(Gio.Application):
         for provider in (self.media, self.events, self.hid):
             if provider:
                 provider.stop()
-        for f in (paths.GRID_JSON, paths.DRAGGING):
+        for f in (paths.GRID_JSON, paths.DRAGGING, os.path.join(paths.CACHE, 'service.pid')):
             if os.path.exists(f):
                 os.unlink(f)
         Gio.Application.do_shutdown(self)
@@ -480,33 +488,66 @@ class Daemon(Gio.Application):
             return False
 
     def poll(self):
-        """Watches widget windows. One that was dragged and let go snaps to the nearest free cell."""
+        """Watches widget windows. One that was dragged and let go snaps to the nearest free cell.
+        Self-heals missing conky processes, invalid/unmapped window handles, or off-screen placements."""
         windows = None
         changed = False
         dragging = self._dragging()
+
+        # Dynamic workarea/resolution recovery
+        curr_screen = self.x.screen_size()
+        if curr_screen != self.screen:
+            log(f'[SELF-HEAL] Screen size changed from {self.screen} to {curr_screen}. Updating grid.')
+            self.screen = curr_screen
+            self.grid = Grid(*self.screen, self.settings)
+
         for inst in self.instances:
             r = self.runners.get(inst['id'])
-            if not r or not r.running:
+            if not r:
+                r = Runner(self, inst['id'])
+                self.runners[inst['id']] = r
+
+            # Self-heal: check if runner process died unexpectedly
+            if not r.running and not r.stopping and not self.quitting:
+                log(f'[SELF-HEAL] Widget {inst["id"]} conky process died or missing. Reviving instance.')
+                r.start()
                 continue
+
+            if not r.running:
+                continue
+
             if r.window is None:
                 if windows is None:
                     windows = self.x.widget_windows()
                 r.window = windows.get(inst['id'])
                 if r.window is None:
                     continue
+
             pos = self.x.position(r.window)
             if pos is None:
+                log(f'[SELF-HEAL] Widget {inst["id"]} window handle unmapped/invalid. Restarting conky.')
                 r.window = None
+                r.restart(delay_ms=300)
                 continue
 
             gx, gy = self.grid.window_xy(inst['col'], inst['row'])
             r.requested = (gx, gy)
             r.offset = (0, 0)
 
+            # Check if window is offscreen or displaced outside monitor workarea bounds
+            screen_w, screen_h = self.screen
+            if pos[0] < -50 or pos[1] < -50 or pos[0] > screen_w + 50 or pos[1] > screen_h + 50:
+                log(f'[SELF-HEAL] Widget {inst["id"]} is off-screen at {pos} (bounds: {screen_w}x{screen_h}). Repositioning to ({gx}, {gy}).')
+                self.x.move(r.window, gx, gy)
+                r.last = (gx, gy)
+                r.cooldown = 2
+                continue
+
             # If window was displaced/centered by the window manager on startup (> 20px off grid):
             if abs(pos[0] - gx) > 20 or abs(pos[1] - gy) > 20:
                 if not dragging and r.still == 0 and r.cooldown == 0:
                     # Force window to its requested grid position
+                    log(f'[SELF-HEAL] Widget {inst["id"]} displaced at {pos} vs target ({gx}, {gy}). Re-aligning.')
                     self.x.move(r.window, gx, gy)
                     r.last = (gx, gy)
                     r.cooldown = 2

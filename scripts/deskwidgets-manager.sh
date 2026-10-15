@@ -133,19 +133,49 @@ EOF
 # 4. Stop All Widgets (DeskWidgets and Conky)
 stop_widgets() {
     echo "Stopping DeskWidgets service and widget instances..."
-    pkill -f "deskwidgets run" 2>/dev/null || true
-    pkill -f "widget.conf" 2>/dev/null || true
-    # Stop legacy conky cards permanently
-    pkill -f "calendar-system.conkyrc" 2>/dev/null || true
-    pkill -f "clock-weather.conkyrc" 2>/dev/null || true
-    pkill -f "media-notes.conkyrc" 2>/dev/null || true
-    
-    # Kill any residual conky instances spawned by DeskWidgets
-    for pid in $(pgrep conky 2>/dev/null || true); do
-        if grep -q "deskwidgets" "/proc/${pid}/cmdline" 2>/dev/null; then
-            kill -9 "${pid}" 2>/dev/null || true
+    local pid_file="${HOME}/.cache/deskwidgets/service.pid"
+    if [[ -f "${pid_file}" ]]; then
+        local pid
+        pid="$(cat "${pid_file}" 2>/dev/null || true)"
+        if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
+            echo "Stopping DeskWidgets daemon (PID: ${pid})..."
+            kill -TERM "${pid}" 2>/dev/null || true
+            for _ in {1..15}; do
+                if ! kill -0 "${pid}" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
+        fi
+        rm -f "${pid_file}"
+    fi
+
+    # Terminate any remaining conky processes that strictly belong to deskwidgets
+    for p in /proc/[0-9]*; do
+        local pid="${p##*/}"
+        if [[ -f "/proc/${pid}/cmdline" ]]; then
+            local cmd
+            cmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+            if [[ "${cmd}" == *"conky"* && "${cmd}" == *"widget.conf"* ]]; then
+                kill -TERM "${pid}" 2>/dev/null || true
+            elif [[ "${cmd}" == *"deskwidgets run"* ]]; then
+                kill -TERM "${pid}" 2>/dev/null || true
+            fi
         fi
     done
+
+    # Clean legacy 3-card conky files if any
+    for p in /proc/[0-9]*; do
+        local pid="${p##*/}"
+        if [[ -f "/proc/${pid}/cmdline" ]]; then
+            local cmd
+            cmd="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+            if [[ "${cmd}" == *"conky"* && ("${cmd}" == *"calendar-system.conkyrc"* || "${cmd}" == *"clock-weather.conkyrc"* || "${cmd}" == *"media-notes.conkyrc"*) ]]; then
+                kill -TERM "${pid}" 2>/dev/null || true
+            fi
+        fi
+    done
+
     rm -f "${RUN_DIR}/dragging" "${RUN_DIR}/grid.json" 2>/dev/null || true
     sleep 0.3
 }
