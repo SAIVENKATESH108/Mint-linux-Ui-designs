@@ -14,7 +14,9 @@ if [[ ! -f "${PY_POPUP}" ]]; then
 fi
 
 if [[ -f "${PY_POPUP}" ]] && command -v python3 &>/dev/null; then
-    exec python3 "${PY_POPUP}"
+    mkdir -p "${HOME}/.cache"
+    python3 "${PY_POPUP}" >> "${HOME}/.cache/control-center.log" 2>&1
+    exit 0
 fi
 
 # Fallback: text-based quick settings menu

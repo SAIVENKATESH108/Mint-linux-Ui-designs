@@ -268,16 +268,18 @@ Version=1.0
 Type=Application
 Name=Spotlight Search
 Comment=macOS Sequoia Universal Search
-Exec=/bin/bash -c "${HOME}/.local/bin/spotlight.sh"
+Exec=${HOME}/.local/bin/spotlight.sh
 Icon=system-search
 Terminal=false
 StartupNotify=false
 EOF
+    chmod +x "${PANEL_DIR}/launcher-101/spotlight.desktop"
+    safe_copy "${PANEL_DIR}/launcher-101/spotlight.desktop" "${APP_DIR}/spotlight.desktop"
+    chmod +x "${APP_DIR}/spotlight.desktop" 2>/dev/null || true
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-101" "string" "launcher"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-101/show-label" "bool" "false"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-101/disable-tooltips" "bool" "false"
-    xfconf-query -c xfce4-panel -p /plugins/plugin-101/items -r -R 2>/dev/null || true
-    xfconf-query -c xfce4-panel -p /plugins/plugin-101/items -n -t string -s "spotlight.desktop" --force-array 2>/dev/null || true
+    set_xfconf_string_array "xfce4-panel" "/plugins/plugin-101/items" "spotlight.desktop"
 
     mkdir -p "${PANEL_DIR}/launcher-102"
     cat > "${PANEL_DIR}/launcher-102/control-center.desktop" <<EOF
@@ -286,16 +288,18 @@ Version=1.0
 Type=Application
 Name=Control Center
 Comment=macOS Sequoia Quick Settings & Media Controls
-Exec=/bin/bash -c "${HOME}/.local/bin/control-center.sh"
+Exec=${HOME}/.local/bin/control-center.sh
 Icon=${CONTROL_CENTER_ICON_PATH}
 Terminal=false
 StartupNotify=false
 EOF
+    chmod +x "${PANEL_DIR}/launcher-102/control-center.desktop"
+    safe_copy "${PANEL_DIR}/launcher-102/control-center.desktop" "${APP_DIR}/control-center.desktop"
+    chmod +x "${APP_DIR}/control-center.desktop" 2>/dev/null || true
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-102" "string" "launcher"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-102/show-label" "bool" "false"
     set_xfconf_prop "xfce4-panel" "/plugins/plugin-102/disable-tooltips" "bool" "false"
-    xfconf-query -c xfce4-panel -p /plugins/plugin-102/items -r -R 2>/dev/null || true
-    xfconf-query -c xfce4-panel -p /plugins/plugin-102/items -n -t string -s "control-center.desktop" --force-array 2>/dev/null || true
+    set_xfconf_string_array "xfce4-panel" "/plugins/plugin-102/items" "control-center.desktop"
 
     # Clean existing plugin-ids on panel-1:
     # Remove tasklist, windowmenu, and stock duplicate launchers

@@ -49,14 +49,7 @@ local function items(n)
         out[4] = { ctemp / 100, tring, ctemp .. '°', '', L.tr('Температура', 'Temperature'),
                    (gpu ~= '' and gpu ~= '0') and ('GPU ' .. gpu .. '°') or '' }
     end
-    -- a chosen accent (or an anime style) recolours every ring in its shades
-    if L.ACCENT or L.T.hi or L.STYLE == 'color' then
-        local base = L.pair(RING.cpu)
-        for i, it in ipairs(out) do
-            local k = (i - 1) * 0.12
-            it[2] = { L.shade(base[1], k), L.shade(base[2], k) }
-        end
-    end
+    -- Keep individual vibrant colors for each sensor ring (Rose CPU, Cyan RAM, Green Disk, Amber Temp)
     return out
 end
 

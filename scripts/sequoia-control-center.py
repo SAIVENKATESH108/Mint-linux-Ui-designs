@@ -437,25 +437,13 @@ class SequoiaControlCenter(Gtk.Window):
         self.build_ui()
 
         # Connect events
-        self._mapped_time = 0
         self.connect("destroy", cleanup_and_exit)
-        self.connect("map-event", self.on_map_event)
-        self.connect("focus-out-event", self.on_focus_out)
         self.connect("key-press-event", self.on_key_press)
 
         # Polling timer
         GLib.timeout_add(1500, self.update_dynamic_state)
 
         self.position_window()
-
-    def on_map_event(self, _widget, _event):
-        self._mapped_time = GLib.get_monotonic_time()
-
-    def on_focus_out(self, _widget, _event):
-        # Ignore focus-out during the first 600ms after window is mapped
-        if self._mapped_time == 0 or (GLib.get_monotonic_time() - self._mapped_time < 600_000):
-            return False
-        cleanup_and_exit()
 
     def apply_theme_css(self):
         css_data = build_css(self.current_theme)
@@ -509,6 +497,12 @@ class SequoiaControlCenter(Gtk.Window):
         power_btn.set_tooltip_text("Log Out / Shut Down")
         power_btn.connect("clicked", self.on_open_power)
         header_card.pack_start(power_btn, False, False, 0)
+
+        close_btn = Gtk.Button.new_from_icon_name("window-close-symbolic", Gtk.IconSize.BUTTON)
+        close_btn.get_style_context().add_class("circle-icon-btn")
+        close_btn.set_tooltip_text("Close (Esc)")
+        close_btn.connect("clicked", lambda *_: cleanup_and_exit())
+        header_card.pack_start(close_btn, False, False, 0)
 
         main_box.pack_start(header_card, False, False, 0)
 
@@ -836,6 +830,7 @@ def main():
 
     win = SequoiaControlCenter()
     win.show_all()
+    win.present()
     Gtk.main()
 
 

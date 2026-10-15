@@ -70,7 +70,7 @@ setup_config() {
 }
 EOF
 
-    # Provision calibrated 1280x1024 macOS widget stack (columns 5 and 6 on right)
+    # Provision calibrated 1280x1024 macOS widget stack with modern colorful accents
     cat > "${LAYOUT_FILE}" << EOF
 {
   "version": 3,
@@ -80,7 +80,7 @@ EOF
       "type": "clock",
       "size": "small",
       "style": "${target_style}",
-      "accent": "blue",
+      "accent": "purple",
       "options": {},
       "col": 5,
       "row": 0
@@ -89,8 +89,8 @@ EOF
       "id": "calendar-1",
       "type": "calendar",
       "size": "small",
-      "style": "${target_style}",
-      "accent": "blue",
+      "style": "color",
+      "accent": "red",
       "options": {},
       "col": 6,
       "row": 0
@@ -100,7 +100,7 @@ EOF
       "type": "weather",
       "size": "medium",
       "style": "${target_style}",
-      "accent": "blue",
+      "accent": "auto",
       "options": {},
       "col": 5,
       "row": 1
@@ -110,7 +110,7 @@ EOF
       "type": "system",
       "size": "medium",
       "style": "${target_style}",
-      "accent": "blue",
+      "accent": "auto",
       "options": {},
       "col": 5,
       "row": 2
@@ -119,8 +119,8 @@ EOF
       "id": "media-1",
       "type": "media",
       "size": "medium",
-      "style": "${target_style}",
-      "accent": "blue",
+      "style": "color",
+      "accent": "pink",
       "options": {},
       "col": 5,
       "row": 3
@@ -154,11 +154,9 @@ start_widgets() {
     install_deskwidgets
     local current_mode
     current_mode="$(get_current_theme_mode)"
-    if [[ ! -f "${LAYOUT_FILE}" ]] || ! grep -q '"instances"' "${LAYOUT_FILE}" 2>/dev/null; then
-        setup_config "${current_mode}"
-    fi
+    setup_config "${current_mode}"
 
-    echo "==> Starting DeskWidgets macOS Suite (${current_mode} mode)..."
+    echo "==> Starting DeskWidgets macOS Suite (${current_mode} colorful mode)..."
     stop_widgets
 
     local runner="${BIN_RUNNER}"
