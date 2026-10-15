@@ -6,12 +6,6 @@
 
 set -euo pipefail
 
-# If Control Center popover is already running, toggle it closed cleanly
-if pgrep -f "sequoia-control-center.py" >/dev/null 2>&1; then
-    pkill -f "sequoia-control-center.py" 2>/dev/null || true
-    exit 0
-fi
-
 # Try native GTK3 Control Center popover first (macOS style window)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY_POPUP="${SCRIPT_DIR}/sequoia-control-center.py"
@@ -21,19 +15,9 @@ fi
 
 if [[ -f "${PY_POPUP}" ]] && command -v python3 &>/dev/null; then
     mkdir -p "${HOME}/.cache"
-    nohup python3 "${PY_POPUP}" > "${HOME}/.cache/control-center.log" 2>&1 &
-    PID=$!
-    sleep 0.15
-    if ! kill -0 "${PID}" 2>/dev/null; then
-        if [[ -s "${HOME}/.cache/control-center.log" ]]; then
-            ERR_MSG="$(head -n 2 "${HOME}/.cache/control-center.log")"
-            if command -v notify-send &>/dev/null; then
-                notify-send "Control Center Error" "${ERR_MSG}" -i dialog-error 2>/dev/null || true
-            fi
-        fi
-    else
-        exit 0
-    fi
+    # Single-instance Gtk.Application handles toggle via D-Bus IPC without pgrep/pkill
+    python3 "${PY_POPUP}" --toggle >> "${HOME}/.cache/control-center.log" 2>&1 &
+    exit 0
 fi
 
 # Fallback: text-based quick settings menu

@@ -1,0 +1,46 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-control-center:
+    name: Control Center GTK3 Tests
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3 \
+            python3-gi \
+            python3-gi-cairo \
+            gir1.2-gtk-3.0 \
+            xvfb \
+            xfwm4 \
+            wmctrl \
+            xdotool \
+            x11-utils \
+            dbus-x11 \
+            pulseaudio \
+            playerctl \
+            network-manager
+
+      - name: Run Control Center CSS Unit Tests
+        run: |
+          xvfb-run -a dbus-run-session python3 tests/test_control_center_css.py
+
+      - name: Run Control Center Smoke Tests (Xvfb + xfwm4)
+        run: |
+          xvfb-run -a -s "-screen 0 1280x1024x24" dbus-run-session bash -c "
+            xfwm4 --replace &
+            sleep 1
+            python3 tests/test_control_center_smoke.py
+          "

@@ -16,6 +16,7 @@ Matches Apple macOS Control Center layout and functionality:
 
 import os
 import sys
+import re
 import signal
 import subprocess
 import shutil
@@ -27,18 +28,27 @@ try:
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
     gi.require_version("GdkPixbuf", "2.0")
-    from gi.repository import Gtk, Gdk, GLib, GdkPixbuf, Pango
+    from gi.repository import Gtk, Gdk, GLib, GdkPixbuf, Pango, Gio
 except ImportError as e:
     sys.stderr.write(f"GTK3/PyGObject not available: {e}\n")
     sys.exit(1)
 
 
+_current_app = None
+
+
+def dismiss_popover():
+    global _current_app
+    if _current_app:
+        _current_app.hide_window()
+
+
 def cleanup_and_exit(*_args):
-    try:
-        Gtk.main_quit()
-    except Exception:
-        pass
-    sys.exit(0)
+    global _current_app
+    if _current_app:
+        _current_app.quit_app()
+    else:
+        sys.exit(0)
 
 
 # -----------------------------------------------------------------------------
@@ -139,7 +149,7 @@ def open_wifi_settings():
     for cmd in [["nm-connection-editor"], ["xfce4-terminal", "-e", "nmtui"], ["gnome-control-center", "wifi"]]:
         if shutil.which(cmd[0]):
             subprocess.Popen(cmd)
-            cleanup_and_exit()
+            dismiss_popover()
             return
 
 
@@ -160,7 +170,7 @@ def open_bluetooth_settings():
     for cmd in [["blueman-manager"], ["blueberry"], ["gnome-control-center", "bluetooth"]]:
         if shutil.which(cmd[0]):
             subprocess.Popen(cmd)
-            cleanup_and_exit()
+            dismiss_popover()
             return
 
 
@@ -211,7 +221,7 @@ def open_sound_settings():
     for cmd in [["pavucontrol"], ["xfce4-mixer"], ["gnome-control-center", "sound"]]:
         if shutil.which(cmd[0]):
             subprocess.Popen(cmd)
-            cleanup_and_exit()
+            dismiss_popover()
             return
 
 
@@ -254,7 +264,7 @@ def open_display_settings():
     for cmd in [["xfce4-display-settings"], ["gnome-control-center", "display"]]:
         if shutil.which(cmd[0]):
             subprocess.Popen(cmd)
-            cleanup_and_exit()
+            dismiss_popover()
             return
 
 
@@ -274,12 +284,123 @@ def get_media_info():
 # Dynamic CSS (Dark & Light Mode with Smooth Transitions)
 # -----------------------------------------------------------------------------
 
+SAFE_FALLBACK_CSS = """
+* {
+    color: #ffffff;
+}
+
+window.control-center-window {
+    background-color: transparent;
+}
+
+.main-card {
+    background-color: rgba(28, 28, 30, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    border-radius: 18px;
+    padding: 10px;
+}
+
+.card {
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.card-button {
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
+    padding: 6px;
+}
+
+.circle-icon-btn {
+    border-radius: 50%;
+    min-width: 28px;
+    min-height: 28px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border: none;
+}
+
+.title-text {
+    font-size: 11px;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.subtitle-text {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.70);
+}
+"""
+
+
+def load_css_safely(provider, css_string):
+    """
+    Loads CSS data into a Gtk.CssProvider safely:
+    - Traps parsing-error signals and GLib.GError exceptions.
+    - Logs exact line and column numbers of any errors.
+    - Falls back to SAFE_FALLBACK_CSS if loading fails so the window still appears.
+    Returns True if loaded cleanly, False if fallback was used.
+    """
+    error_occurred = [False]
+
+    def _on_parsing_error(prov, section, err):
+        error_occurred[0] = True
+        try:
+            start_line = section.get_start_line() + 1
+            start_col = section.get_start_position() + 1
+        except Exception:
+            start_line = "?"
+            start_col = "?"
+        sys.stderr.write(f"[CSS ERROR] Parsing error at line {start_line}, column {start_col}: {err.message}\n")
+        sys.stderr.flush()
+
+    handler_id = None
+    try:
+        handler_id = provider.connect("parsing-error", _on_parsing_error)
+    except Exception:
+        pass
+
+    try:
+        provider.load_from_data(css_string.encode("utf-8"))
+        if error_occurred[0]:
+            sys.stderr.write("[CSS WARNING] Parsing errors reported during CSS loading, applying fallback styles...\n")
+            sys.stderr.flush()
+            provider.load_from_data(SAFE_FALLBACK_CSS.encode("utf-8"))
+            return False
+        return True
+    except GLib.GError as err:
+        match = re.search(r"<data>:(\d+):(\d+)", err.message)
+        line = match.group(1) if match else "unknown"
+        col = match.group(2) if match else "unknown"
+        sys.stderr.write(
+            f"[CSS ERROR] Failed to load stylesheet: Line {line}, Column {col}: {err.message}\n"
+            f"Falling back to minimal safe stylesheet...\n"
+        )
+        sys.stderr.flush()
+        try:
+            provider.load_from_data(SAFE_FALLBACK_CSS.encode("utf-8"))
+        except Exception as fallback_err:
+            sys.stderr.write(f"[CSS CRITICAL] Fallback CSS failed: {fallback_err}\n")
+            sys.stderr.flush()
+        return False
+    finally:
+        if handler_id is not None:
+            try:
+                provider.disconnect(handler_id)
+            except Exception:
+                pass
+
+
 def build_css(theme_mode):
     is_dark = (theme_mode == "dark")
     bg_window = "rgba(24, 25, 28, 0.92)" if is_dark else "rgba(245, 245, 248, 0.94)"
     border_window = "rgba(255, 255, 255, 0.14)" if is_dark else "rgba(0, 0, 0, 0.10)"
     bg_card = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.05)"
     bg_card_hover = "rgba(255, 255, 255, 0.14)" if is_dark else "rgba(0, 0, 0, 0.09)"
+    btn_hover = "rgba(255, 255, 255, 0.22)" if is_dark else "rgba(0, 0, 0, 0.14)"
     border_card = "rgba(255, 255, 255, 0.07)" if is_dark else "rgba(0, 0, 0, 0.06)"
     text_main = "#ffffff" if is_dark else "#1e293b"
     text_sub = "rgba(255, 255, 255, 0.65)" if is_dark else "rgba(30, 41, 59, 0.65)"
@@ -309,7 +430,7 @@ window.control-center-window {{
     border: 1px solid {border_card};
     border-radius: 14px;
     padding: 8px 10px;
-    transition: all 180ms cubic-bezier(0.25, 0.1, 0.25, 1.0);
+    transition: background-color 150ms ease-in-out;
 }}
 
 .card-button {{
@@ -317,7 +438,7 @@ window.control-center-window {{
     border: 1px solid {border_card};
     border-radius: 14px;
     padding: 6px 8px;
-    transition: all 180ms cubic-bezier(0.25, 0.1, 0.25, 1.0);
+    transition: background-color 150ms ease-in-out;
 }}
 
 .card-button:hover {{
@@ -331,11 +452,12 @@ window.control-center-window {{
     padding: 0;
     background-color: {bg_card_hover};
     color: {text_main};
-    transition: all 180ms cubic-bezier(0.25, 0.1, 0.25, 1.0);
+    border: none;
+    transition: background-color 150ms ease-in-out, color 150ms ease-in-out;
 }}
 
 .circle-icon-btn:hover {{
-    filter: brightness(1.15);
+    background-color: {btn_hover};
 }}
 
 .circle-icon-btn.active {{
@@ -375,7 +497,7 @@ scale trough {{
     border-radius: 14px;
     min-height: 22px;
     border: none;
-    transition: background-color 180ms ease;
+    transition: background-color 180ms ease-in-out;
 }}
 
 scale highlight {{
@@ -392,24 +514,18 @@ scale slider {{
     margin: -1px;
     border: 1px solid rgba(0, 0, 0, 0.15);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
-    transition: transform 150ms ease;
-}}
-
-scale slider:hover {{
-    transform: scale(1.1);
 }}
 
 .media-btn {{
-    background: transparent;
+    background-color: transparent;
     border: none;
     padding: 4px;
     min-width: 24px;
-    transition: all 150ms ease;
+    transition: color 150ms ease-in-out;
 }}
 
 .media-btn:hover {{
     color: #0a84ff;
-    transform: scale(1.12);
 }}
 
 .wifi-list-card {{
@@ -425,7 +541,7 @@ scale slider:hover {{
     border: none;
     border-radius: 8px;
     padding: 6px 8px;
-    transition: background-color 150ms ease;
+    transition: background-color 150ms ease-in-out;
 }}
 
 .wifi-item-btn:hover {{
@@ -439,11 +555,12 @@ scale slider:hover {{
 
 
 class SequoiaControlCenter(Gtk.Window):
-    def __init__(self):
+    def __init__(self, app=None):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        if app is not None:
+            self.set_application(app)
         self.set_title("Control Center")
         self.set_role("popover")
-        self.set_wmclass("SequoiaControlCenter", "SequoiaControlCenter")
         self.set_decorated(False)
         self.set_resizable(False)
         self.set_skip_taskbar_hint(True)
@@ -470,7 +587,7 @@ class SequoiaControlCenter(Gtk.Window):
         self.build_ui()
 
         # Connect events
-        self.connect("destroy", cleanup_and_exit)
+        self.connect("delete-event", self.on_delete_event)
         self.connect("key-press-event", self.on_key_press)
         self.connect("map-event", lambda *_: self.position_window())
 
@@ -479,9 +596,13 @@ class SequoiaControlCenter(Gtk.Window):
 
         self.position_window()
 
+    def on_delete_event(self, _widget, _event):
+        self.hide()
+        return True
+
     def apply_theme_css(self):
         css_data = build_css(self.current_theme)
-        self.css_provider.load_from_data(css_data.encode("utf-8"))
+        load_css_safely(self.css_provider, css_data)
 
     def position_window(self):
         screen = self.get_screen()
@@ -494,7 +615,7 @@ class SequoiaControlCenter(Gtk.Window):
 
     def on_key_press(self, _widget, event):
         if event.keyval == Gdk.KEY_Escape:
-            cleanup_and_exit()
+            self.hide()
             return True
         return False
 
@@ -516,7 +637,7 @@ class SequoiaControlCenter(Gtk.Window):
         user_name = get_current_user_info()
         name_btn = Gtk.Button(label=user_name)
         name_btn.get_style_context().add_class("card-button")
-        name_btn.connect("clicked", lambda *_: (subprocess.Popen(["xfce4-settings-manager"]), cleanup_and_exit()))
+        name_btn.connect("clicked", lambda *_: (subprocess.Popen(["xfce4-settings-manager"]), self.hide()))
         header_card.pack_start(name_btn, True, True, 0)
 
         settings_btn = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
@@ -534,7 +655,7 @@ class SequoiaControlCenter(Gtk.Window):
         close_btn = Gtk.Button.new_from_icon_name("window-close-symbolic", Gtk.IconSize.BUTTON)
         close_btn.get_style_context().add_class("circle-icon-btn")
         close_btn.set_tooltip_text("Close (Esc)")
-        close_btn.connect("clicked", lambda *_: cleanup_and_exit())
+        close_btn.connect("clicked", lambda *_: self.hide())
         header_card.pack_start(close_btn, False, False, 0)
 
         main_box.pack_start(header_card, False, False, 0)
@@ -609,7 +730,7 @@ class SequoiaControlCenter(Gtk.Window):
         self.ad_btn = Gtk.Button.new_from_icon_name("network-workgroup-symbolic", Gtk.IconSize.BUTTON)
         self.ad_btn.get_style_context().add_class("circle-icon-btn")
         self.ad_btn.get_style_context().add_class("active")
-        self.ad_btn.connect("clicked", lambda *_: (subprocess.Popen(["thunar", "network:///"]), cleanup_and_exit()))
+        self.ad_btn.connect("clicked", lambda *_: (subprocess.Popen(["thunar", "network:///"]), self.hide()))
         ad_row.pack_start(self.ad_btn, False, False, 0)
 
         ad_click = Gtk.EventBox()
@@ -623,7 +744,7 @@ class SequoiaControlCenter(Gtk.Window):
         ad_text_box.pack_start(a_t, False, False, 0)
         ad_text_box.pack_start(self.ad_sub, False, False, 0)
         ad_click.add(ad_text_box)
-        ad_click.connect("button-press-event", lambda *_: (subprocess.Popen(["thunar", "network:///"]), cleanup_and_exit()))
+        ad_click.connect("button-press-event", lambda *_: (subprocess.Popen(["thunar", "network:///"]), self.hide()))
         ad_row.pack_start(ad_click, True, True, 0)
         net_card.pack_start(ad_row, False, False, 0)
 
@@ -972,29 +1093,108 @@ class SequoiaControlCenter(Gtk.Window):
 
     def on_open_settings(self, *_):
         subprocess.Popen(["xfce4-settings-manager"])
-        cleanup_and_exit()
+        self.hide()
 
     def on_open_power(self, *_):
         subprocess.Popen(["xfce4-session-logout"])
-        cleanup_and_exit()
+        self.hide()
+
+
+class ControlCenterApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(
+            application_id="org.sequoia.ControlCenter",
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+        )
+        self.win = None
+        self._held = False
+        global _current_app
+        _current_app = self
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        GLib.set_prgname("org.sequoia.ControlCenter")
+        GLib.set_application_name("Control Center")
+        self.hold()
+        self._held = True
+
+    def do_activate(self):
+        self.toggle_window()
+
+    def do_command_line(self, command_line):
+        args = command_line.get_arguments()[1:]
+        if "--quit" in args:
+            self.quit_app()
+        elif "--hide" in args:
+            self.hide_window()
+        elif "--show" in args:
+            self.show_window()
+        elif "--status" in args:
+            vis = self.win is not None and self.win.get_visible()
+            sys.stdout.write("visible\n" if vis else "hidden\n")
+            sys.stdout.flush()
+        else:
+            self.toggle_window()
+        return 0
+
+    def get_or_create_window(self):
+        if self.win is None:
+            self.win = SequoiaControlCenter(self)
+            self.add_window(self.win)
+        return self.win
+
+    def toggle_window(self):
+        win = self.get_or_create_window()
+        if win.get_visible():
+            win.hide()
+        else:
+            win.position_window()
+            win.update_dynamic_state()
+            win.show_all()
+            win.present()
+
+    def show_window(self):
+        win = self.get_or_create_window()
+        win.position_window()
+        win.update_dynamic_state()
+        win.show_all()
+        win.present()
+
+    def hide_window(self):
+        if self.win and self.win.get_visible():
+            self.win.hide()
+
+    def quit_app(self):
+        if self.win:
+            self.win.destroy()
+            self.win = None
+        if self._held:
+            self.release()
+            self._held = False
+        self.quit()
 
 
 def main():
-    signal.signal(signal.SIGINT, cleanup_and_exit)
-    signal.signal(signal.SIGTERM, cleanup_and_exit)
+    def _sig_handler(*_):
+        global _current_app
+        if _current_app:
+            _current_app.quit_app()
+        else:
+            sys.exit(0)
+
+    signal.signal(signal.SIGINT, _sig_handler)
+    signal.signal(signal.SIGTERM, _sig_handler)
 
     try:
-        win = SequoiaControlCenter()
-        win.show_all()
-        win.present()
-        Gtk.main()
+        app = ControlCenterApp()
+        return app.run(sys.argv)
     except Exception as e:
         sys.stderr.write(f"Control Center Exception: {e}\n")
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.stderr.flush()
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
