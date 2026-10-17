@@ -73,6 +73,11 @@ class BaseOverlayWindow(Gtk.Window if HAS_GTK else object):
         self.connect("draw", self._on_base_draw)
         self.connect("delete-event", self._on_base_delete)
 
+    @property
+    def is_mapped(self) -> bool:
+        """Convenience property for get_mapped()."""
+        return bool(self.get_mapped()) if hasattr(self, "get_mapped") else False
+
     def _on_base_map(self, *_):
         self._map_time = time.time()
         self.present()

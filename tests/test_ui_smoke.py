@@ -97,11 +97,11 @@ class TestUISmoke(unittest.TestCase):
         while time.time() - start < 2.0:
             while Gtk.events_pending():
                 Gtk.main_iteration_do(False)
-            if win.is_mapped:
+            if win.get_mapped():
                 break
             time.sleep(0.05)
 
-        self.assertTrue(win.is_mapped, "Overlay window failed to map within 2s")
+        self.assertTrue(win.get_mapped(), "Overlay window failed to map within 2s")
 
         # Let GTK draw a frame
         for _ in range(10):
@@ -131,7 +131,7 @@ class TestUISmoke(unittest.TestCase):
             time.sleep(0.02)
 
         self.assertIn("test-exit", dismissed_reasons)
-        self.assertFalse(win.is_mapped)
+        self.assertFalse(win.get_mapped())
         win.destroy()
 
     def test_02_control_center_screenshot_and_trial(self):
