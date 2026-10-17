@@ -3,25 +3,28 @@
 macOS Sequoia Native Control Center Popover for Linux Mint XFCE
 Matches Apple macOS Control Center layout and functionality:
 - Profile header with user avatar, name, settings, and power buttons
-- Quick toggle grid: Wi-Fi (toggle & network picker), Bluetooth (toggle & settings), AirDrop (network shares)
+- Quick toggle grid: Wi-Fi (toggle & network picker), Network Shares (thunar network:///)
 - Right utility grid: Do Not Disturb card + Day/Night Appearance mode switcher + Display settings
 - Live interactive Display Brightness slider (xrandr / brightnessctl)
 - Live interactive Sound Volume slider (pactl / PulseAudio) + Mixer launcher
-- Live Now Playing media card (playerctl with album art, track, artist, play/pause/next)
+- Live Now Playing media card (native D-Bus MPRIS with fallback to playerctl)
 - Full Day/Night mode styling coordination (Dark Obsidian Glass vs Light Frosted Crystal)
-- Native macOS micro-animations, transitions, and hover feedback
-- Auto-dismiss on click outside (focus-out) or Escape key
-- Clean toggle activation (kills existing instance if already open)
+- Auto-dismiss on click outside (focus-out), 30s inactivity, or Escape key
+- Process terminates cleanly within 2 seconds of close/hide
+- Scoped PID management and watchdog compatibility (~/.cache/sequoia/control-center.pid)
+- Internal feature gate checking ~/.config/sequoia/features.json (bypassed with --trial)
 """
 
+import json
 import os
-import sys
+import pwd
 import re
+import shutil
 import signal
 import subprocess
-import shutil
-import pwd
+import sys
 import threading
+import time
 
 try:
     import gi
@@ -35,6 +38,42 @@ except ImportError as e:
 
 
 _current_app = None
+PID_FILE = os.path.expanduser("~/.cache/sequoia/control-center.pid")
+FEATURES_FILE = os.path.expanduser("~/.config/sequoia/features.json")
+
+
+def is_feature_enabled() -> bool:
+    """Checks if control_center is enabled in ~/.config/sequoia/features.json."""
+    if not os.path.exists(FEATURES_FILE):
+        return False
+    try:
+        with open(FEATURES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return bool(data.get("control_center", False))
+    except Exception:
+        return False
+
+
+def write_pid_file():
+    """Writes current PID to ~/.cache/sequoia/control-center.pid."""
+    try:
+        os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
+        with open(PID_FILE, "w", encoding="utf-8") as f:
+            f.write(str(os.getpid()))
+    except OSError:
+        pass
+
+
+def remove_pid_file():
+    """Removes PID file if it matches current process PID."""
+    try:
+        if os.path.exists(PID_FILE):
+            with open(PID_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            if content == str(os.getpid()):
+                os.remove(PID_FILE)
+    except OSError:
+        pass
 
 
 def dismiss_popover():
@@ -48,17 +87,28 @@ def cleanup_and_exit(*_args):
     if _current_app:
         _current_app.quit_app()
     else:
+        remove_pid_file()
         sys.exit(0)
 
 
 # -----------------------------------------------------------------------------
-# System Helpers
+# System Helpers (Worker Threads & 5s Timeouts)
 # -----------------------------------------------------------------------------
 
-def run_cmd(args):
+def run_cmd(args, timeout=5.0):
+    """Executes external command with hard timeout; returns stdout stripped."""
     try:
-        res = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False)
+        res = subprocess.run(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
         return res.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return ""
     except Exception:
         return ""
 
@@ -76,18 +126,18 @@ def get_current_user_info():
 
 
 def get_wifi_state():
-    status = run_cmd(["nmcli", "-t", "-f", "WIFI", "g"])
+    status = run_cmd(["nmcli", "-t", "-f", "WIFI", "g"], timeout=3.0)
     enabled = (status.lower() == "enabled")
     ssid = "Not Connected"
     if enabled:
-        out = run_cmd(["nmcli", "-t", "-f", "NAME,TYPE", "c", "show", "--active"])
+        out = run_cmd(["nmcli", "-t", "-f", "NAME,TYPE", "c", "show", "--active"], timeout=3.0)
         for line in out.splitlines():
             parts = line.split(":")
             if len(parts) >= 2 and "wireless" in parts[1].lower():
                 ssid = parts[0]
                 break
         if ssid == "Not Connected":
-            ssid_out = run_cmd(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"])
+            ssid_out = run_cmd(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"], timeout=3.0)
             for line in ssid_out.splitlines():
                 if line.startswith("yes:"):
                     ssid = line.split(":", 1)[1]
@@ -102,11 +152,11 @@ def get_wifi_state():
 def toggle_wifi():
     enabled, _ = get_wifi_state()
     new_state = "off" if enabled else "on"
-    run_cmd(["nmcli", "radio", "wifi", new_state])
+    run_cmd(["nmcli", "radio", "wifi", new_state], timeout=4.0)
 
 
 def get_wifi_network_list():
-    out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list"])
+    out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list"], timeout=5.0)
     networks = []
     seen = set()
     for line in out.splitlines():
@@ -127,20 +177,40 @@ def connect_to_wifi(ssid):
         return
 
     def _do_connect():
-        res = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if res.returncode != 0 and ("Secrets were required" in res.stderr or "password" in res.stderr.lower()):
-            zenity = shutil.which("zenity")
-            if zenity:
-                pw_res = subprocess.run([zenity, "--password", f"--title=Wi-Fi Password: {ssid}"],
-                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-                password = pw_res.stdout.strip()
-                if password:
-                    subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        elif res.returncode == 0:
-            if shutil.which("notify-send"):
-                subprocess.run(["notify-send", "Wi-Fi Connected", f"Connected to {ssid}", "-i", "network-wireless-symbolic"])
+        try:
+            res = subprocess.run(
+                ["nmcli", "dev", "wifi", "connect", ssid],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5.0,
+            )
+            if res.returncode != 0 and ("Secrets were required" in res.stderr or "password" in res.stderr.lower()):
+                zenity = shutil.which("zenity")
+                if zenity:
+                    pw_res = subprocess.run(
+                        [zenity, "--password", f"--title=Wi-Fi Password: {ssid}"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                        timeout=5.0,
+                    )
+                    password = pw_res.stdout.strip()
+                    if password:
+                        subprocess.run(
+                            ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            timeout=5.0,
+                        )
+            elif res.returncode == 0:
+                if shutil.which("notify-send"):
+                    subprocess.run(
+                        ["notify-send", "Wi-Fi Connected", f"Connected to {ssid}", "-i", "network-wireless-symbolic"],
+                        timeout=3.0,
+                    )
+        except Exception:
+            pass
 
     threading.Thread(target=_do_connect, daemon=True).start()
 
@@ -153,38 +223,17 @@ def open_wifi_settings():
             return
 
 
-def get_bluetooth_state():
-    out = run_cmd(["rfkill", "list", "bluetooth"])
-    if not out:
-        return False, "Not Available"
-    is_blocked = "Soft blocked: yes" in out or "Hard blocked: yes" in out
-    return not is_blocked, ("On" if not is_blocked else "Off")
-
-
-def toggle_bluetooth():
-    enabled, _ = get_bluetooth_state()
-    run_cmd(["rfkill", "unblock" if not enabled else "block", "bluetooth"])
-
-
-def open_bluetooth_settings():
-    for cmd in [["blueman-manager"], ["blueberry"], ["gnome-control-center", "bluetooth"]]:
-        if shutil.which(cmd[0]):
-            subprocess.Popen(cmd)
-            dismiss_popover()
-            return
-
-
 def get_dnd_state():
-    out = run_cmd(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb"])
+    out = run_cmd(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb"], timeout=3.0)
     return out.lower() == "true"
 
 
 def toggle_dnd():
-    run_cmd(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb", "-T"])
+    run_cmd(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb", "-T"], timeout=3.0)
 
 
 def get_current_theme_mode():
-    out = run_cmd(["xfconf-query", "-c", "xsettings", "-p", "/Net/ThemeName"])
+    out = run_cmd(["xfconf-query", "-c", "xsettings", "-p", "/Net/ThemeName"], timeout=3.0)
     return "dark" if "dark" in out.lower() else "light"
 
 
@@ -196,12 +245,12 @@ def toggle_system_theme():
     ]
     for s in script_candidates:
         if os.path.isfile(s):
-            subprocess.run(["bash", s, "toggle"])
+            subprocess.run(["bash", s, "toggle"], timeout=5.0)
             return
 
 
 def get_sound_volume():
-    out = run_cmd(["pactl", "get-sink-volume", "@DEFAULT_SINK@"])
+    out = run_cmd(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], timeout=2.0)
     for token in out.split():
         if token.endswith("%"):
             try:
@@ -226,7 +275,7 @@ def open_sound_settings():
 
 
 def get_primary_display():
-    out = run_cmd(["xrandr", "--query"])
+    out = run_cmd(["xrandr", "--query"], timeout=3.0)
     for line in out.splitlines():
         if " connected" in line:
             return line.split()[0]
@@ -235,7 +284,7 @@ def get_primary_display():
 
 def get_display_brightness():
     disp = get_primary_display()
-    out = run_cmd(["xrandr", "--verbose"])
+    out = run_cmd(["xrandr", "--verbose"], timeout=3.0)
     in_disp = False
     for line in out.splitlines():
         if line.startswith(disp + " connected"):
@@ -268,8 +317,51 @@ def open_display_settings():
             return
 
 
+# -----------------------------------------------------------------------------
+# MPRIS via D-Bus with Fallback
+# -----------------------------------------------------------------------------
+
 def get_media_info():
-    out = run_cmd(["playerctl", "metadata", "--format", "{{title}}|{{artist}}|{{status}}|{{mpris:artUrl}}"])
+    """Queries media player information via D-Bus MPRIS; falls back to playerctl."""
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        res = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "ListNames",
+            None,
+            GLib.VariantType("(as)"),
+            Gio.DBusCallFlags.NONE,
+            500,
+            None,
+        )
+        names = res.get_child_value(0).unpack()
+        mpris_names = [n for n in names if n.startswith("org.mpris.MediaPlayer2.")]
+        if mpris_names:
+            proxy = Gio.DBusProxy.new_sync(
+                bus,
+                Gio.DBusProxyFlags.NONE,
+                None,
+                mpris_names[0],
+                "/org/mpris/MediaPlayer2",
+                "org.mpris.MediaPlayer2.Player",
+                None,
+            )
+            status_var = proxy.get_cached_property("PlaybackStatus")
+            status = status_var.unpack() if status_var else "Stopped"
+            meta_var = proxy.get_cached_property("Metadata")
+            meta = meta_var.unpack() if meta_var else {}
+            title = meta.get("xesam:title", "Unknown Title")
+            artist_val = meta.get("xesam:artist", ["Unknown Artist"])
+            artist = artist_val[0] if isinstance(artist_val, (list, tuple)) and artist_val else str(artist_val)
+            art = meta.get("mpris:artUrl", "")
+            return str(title), str(artist), str(status), str(art)
+    except Exception:
+        pass
+
+    # Fallback to playerctl
+    out = run_cmd(["playerctl", "metadata", "--format", "{{title}}|{{artist}}|{{status}}|{{mpris:artUrl}}"], timeout=2.0)
     if not out or "|" not in out:
         return "No media playing", "Music", "Stopped", ""
     parts = out.split("|")
@@ -278,6 +370,60 @@ def get_media_info():
     status = parts[2] if len(parts) > 2 and parts[2] else "Stopped"
     art = parts[3] if len(parts) > 3 else ""
     return title, artist, status, art
+
+
+def media_play_pause():
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        res = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "ListNames",
+            None,
+            GLib.VariantType("(as)"),
+            Gio.DBusCallFlags.NONE,
+            500,
+            None,
+        )
+        names = [n for n in res.get_child_value(0).unpack() if n.startswith("org.mpris.MediaPlayer2.")]
+        if names:
+            proxy = Gio.DBusProxy.new_sync(
+                bus, Gio.DBusProxyFlags.NONE, None, names[0],
+                "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", None
+            )
+            proxy.call_sync("PlayPause", None, Gio.DBusCallFlags.NONE, 500, None)
+            return
+    except Exception:
+        pass
+    run_cmd(["playerctl", "play-pause"], timeout=2.0)
+
+
+def media_next():
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        res = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "ListNames",
+            None,
+            GLib.VariantType("(as)"),
+            Gio.DBusCallFlags.NONE,
+            500,
+            None,
+        )
+        names = [n for n in res.get_child_value(0).unpack() if n.startswith("org.mpris.MediaPlayer2.")]
+        if names:
+            proxy = Gio.DBusProxy.new_sync(
+                bus, Gio.DBusProxyFlags.NONE, None, names[0],
+                "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", None
+            )
+            proxy.call_sync("Next", None, Gio.DBusCallFlags.NONE, 500, None)
+            return
+    except Exception:
+        pass
+    run_cmd(["playerctl", "next"], timeout=2.0)
 
 
 # -----------------------------------------------------------------------------
@@ -340,9 +486,7 @@ def load_css_safely(provider, css_string):
     """
     Loads CSS data into a Gtk.CssProvider safely:
     - Traps parsing-error signals and GLib.GError exceptions.
-    - Logs exact line and column numbers of any errors.
-    - Falls back to SAFE_FALLBACK_CSS if loading fails so the window still appears.
-    Returns True if loaded cleanly, False if fallback was used.
+    - Falls back to SAFE_FALLBACK_CSS if loading fails.
     """
     error_occurred = [False]
 
@@ -366,25 +510,14 @@ def load_css_safely(provider, css_string):
     try:
         provider.load_from_data(css_string.encode("utf-8"))
         if error_occurred[0]:
-            sys.stderr.write("[CSS WARNING] Parsing errors reported during CSS loading, applying fallback styles...\n")
-            sys.stderr.flush()
             provider.load_from_data(SAFE_FALLBACK_CSS.encode("utf-8"))
             return False
         return True
-    except GLib.GError as err:
-        match = re.search(r"<data>:(\d+):(\d+)", err.message)
-        line = match.group(1) if match else "unknown"
-        col = match.group(2) if match else "unknown"
-        sys.stderr.write(
-            f"[CSS ERROR] Failed to load stylesheet: Line {line}, Column {col}: {err.message}\n"
-            f"Falling back to minimal safe stylesheet...\n"
-        )
-        sys.stderr.flush()
+    except GLib.GError:
         try:
             provider.load_from_data(SAFE_FALLBACK_CSS.encode("utf-8"))
-        except Exception as fallback_err:
-            sys.stderr.write(f"[CSS CRITICAL] Fallback CSS failed: {fallback_err}\n")
-            sys.stderr.flush()
+        except Exception:
+            pass
         return False
     finally:
         if handler_id is not None:
@@ -557,6 +690,7 @@ scale slider {{
 class SequoiaControlCenter(Gtk.Window):
     def __init__(self, app=None):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.app = app
         if app is not None:
             self.set_application(app)
         self.set_title("Control Center")
@@ -584,21 +718,24 @@ class SequoiaControlCenter(Gtk.Window):
             screen, self.css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+        self._poll_timer_id = None
+        self._inactivity_timer_id = None
+
         self.build_ui()
 
-        # Connect events
+        # Connect window events
         self.connect("delete-event", self.on_delete_event)
         self.connect("key-press-event", self.on_key_press)
-        self.connect("map-event", lambda *_: self.position_window())
+        self.connect("focus-out-event", self.on_focus_out)
+        self.connect("map-event", self.on_map_event)
+        self.connect("unmap-event", self.on_unmap_event)
 
-        # Polling timer
-        GLib.timeout_add(1500, self.update_dynamic_state)
+        # Inactivity resets on user input
+        self.add_events(Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.KEY_PRESS_MASK)
+        self.connect("motion-notify-event", lambda *_: self.reset_inactivity())
+        self.connect("button-press-event", lambda *_: self.reset_inactivity())
 
         self.position_window()
-
-    def on_delete_event(self, _widget, _event):
-        self.hide()
-        return True
 
     def apply_theme_css(self):
         css_data = build_css(self.current_theme)
@@ -613,11 +750,69 @@ class SequoiaControlCenter(Gtk.Window):
         pos_y = 34
         self.move(pos_x, pos_y)
 
+    def on_map_event(self, *_):
+        self.position_window()
+        self.start_polling()
+        self.reset_inactivity()
+
+    def on_unmap_event(self, *_):
+        self.stop_polling()
+        self.stop_inactivity()
+
+    def on_delete_event(self, _widget, _event):
+        self.hide_to_dismiss()
+        return True
+
+    def on_focus_out(self, _widget, _event):
+        self.hide_to_dismiss()
+        return False
+
     def on_key_press(self, _widget, event):
+        self.reset_inactivity()
         if event.keyval == Gdk.KEY_Escape:
-            self.hide()
+            self.hide_to_dismiss()
             return True
         return False
+
+    def hide_to_dismiss(self):
+        if self.app:
+            self.app.hide_window()
+        else:
+            self.hide()
+
+    def reset_inactivity(self):
+        """Resets the 30-second inactivity auto-close timer."""
+        self.stop_inactivity()
+        self._inactivity_timer_id = GLib.timeout_add_seconds(30, self._on_inactivity_timeout)
+
+    def stop_inactivity(self):
+        if self._inactivity_timer_id is not None:
+            GLib.source_remove(self._inactivity_timer_id)
+            self._inactivity_timer_id = None
+
+    def _on_inactivity_timeout(self):
+        self._inactivity_timer_id = None
+        self.hide_to_dismiss()
+        return False
+
+    def start_polling(self):
+        """Starts dynamic state updates; zero polling while hidden."""
+        if self._poll_timer_id is None:
+            self.update_dynamic_state()
+            self._poll_timer_id = GLib.timeout_add(1500, self._poll_callback)
+
+    def stop_polling(self):
+        """Stops all background polling timers."""
+        if self._poll_timer_id is not None:
+            GLib.source_remove(self._poll_timer_id)
+            self._poll_timer_id = None
+
+    def _poll_callback(self):
+        if not self.get_visible():
+            self._poll_timer_id = None
+            return False
+        self.update_dynamic_state()
+        return True
 
     def build_ui(self):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -637,7 +832,7 @@ class SequoiaControlCenter(Gtk.Window):
         user_name = get_current_user_info()
         name_btn = Gtk.Button(label=user_name)
         name_btn.get_style_context().add_class("card-button")
-        name_btn.connect("clicked", lambda *_: (subprocess.Popen(["xfce4-settings-manager"]), self.hide()))
+        name_btn.connect("clicked", lambda *_: (subprocess.Popen(["xfce4-settings-manager"]), self.hide_to_dismiss()))
         header_card.pack_start(name_btn, True, True, 0)
 
         settings_btn = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
@@ -655,13 +850,13 @@ class SequoiaControlCenter(Gtk.Window):
         close_btn = Gtk.Button.new_from_icon_name("window-close-symbolic", Gtk.IconSize.BUTTON)
         close_btn.get_style_context().add_class("circle-icon-btn")
         close_btn.set_tooltip_text("Close (Esc)")
-        close_btn.connect("clicked", lambda *_: self.hide())
+        close_btn.connect("clicked", lambda *_: self.hide_to_dismiss())
         header_card.pack_start(close_btn, False, False, 0)
 
         main_box.pack_start(header_card, False, False, 0)
 
         # ---------------------------------------------------------------------
-        # 2. Quick Toggles Grid (Left: Wi-Fi, BT, AirDrop / Right: DND, Theme, Display)
+        # 2. Quick Toggles Grid (Left: Wi-Fi, Network Shares / Right: DND, Theme, Display)
         # ---------------------------------------------------------------------
         toggles_grid = Gtk.Grid()
         toggles_grid.set_column_spacing(8)
@@ -669,7 +864,7 @@ class SequoiaControlCenter(Gtk.Window):
         toggles_grid.set_column_homogeneous(True)
 
         # Left Column: Network Toggles Card
-        net_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        net_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         net_card.get_style_context().add_class("card")
 
         # Wi-Fi Row
@@ -690,7 +885,7 @@ class SequoiaControlCenter(Gtk.Window):
         self.wifi_sub.get_style_context().add_class("subtitle-text")
         self.wifi_sub.set_xalign(0)
         self.wifi_sub.set_ellipsize(Pango.EllipsizeMode.END)
-        self.wifi_sub.set_max_width_chars(10)
+        self.wifi_sub.set_max_width_chars(12)
         wifi_text_box.pack_start(w_t, False, False, 0)
         wifi_text_box.pack_start(self.wifi_sub, False, False, 0)
         wifi_click.add(wifi_text_box)
@@ -702,51 +897,28 @@ class SequoiaControlCenter(Gtk.Window):
         wifi_row.pack_end(wifi_chev, False, False, 0)
         net_card.pack_start(wifi_row, False, False, 0)
 
-        # Bluetooth Row
-        bt_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.bt_btn = Gtk.Button.new_from_icon_name("bluetooth-active-symbolic", Gtk.IconSize.BUTTON)
-        self.bt_btn.get_style_context().add_class("circle-icon-btn")
-        self.bt_btn.set_tooltip_text("Toggle Bluetooth")
-        self.bt_btn.connect("clicked", self.on_toggle_bt)
-        bt_row.pack_start(self.bt_btn, False, False, 0)
+        # Network Shares Row (Renamed AirDrop replacement, Desktop-friendly)
+        shares_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.shares_btn = Gtk.Button.new_from_icon_name("network-workgroup-symbolic", Gtk.IconSize.BUTTON)
+        self.shares_btn.get_style_context().add_class("circle-icon-btn")
+        self.shares_btn.get_style_context().add_class("active")
+        self.shares_btn.connect("clicked", lambda *_: (subprocess.Popen(["thunar", "network:///"]), self.hide_to_dismiss()))
+        shares_row.pack_start(self.shares_btn, False, False, 0)
 
-        bt_click = Gtk.EventBox()
-        bt_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        b_t = Gtk.Label(label="Bluetooth")
-        b_t.get_style_context().add_class("title-text")
-        b_t.set_xalign(0)
-        self.bt_sub = Gtk.Label(label="...")
-        self.bt_sub.get_style_context().add_class("subtitle-text")
-        self.bt_sub.set_xalign(0)
-        bt_text_box.pack_start(b_t, False, False, 0)
-        bt_text_box.pack_start(self.bt_sub, False, False, 0)
-        bt_click.add(bt_text_box)
-        bt_click.connect("button-press-event", lambda *_: open_bluetooth_settings())
-        bt_row.pack_start(bt_click, True, True, 0)
-        net_card.pack_start(bt_row, False, False, 0)
-
-        # AirDrop Row
-        ad_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.ad_btn = Gtk.Button.new_from_icon_name("network-workgroup-symbolic", Gtk.IconSize.BUTTON)
-        self.ad_btn.get_style_context().add_class("circle-icon-btn")
-        self.ad_btn.get_style_context().add_class("active")
-        self.ad_btn.connect("clicked", lambda *_: (subprocess.Popen(["thunar", "network:///"]), self.hide()))
-        ad_row.pack_start(self.ad_btn, False, False, 0)
-
-        ad_click = Gtk.EventBox()
-        ad_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        a_t = Gtk.Label(label="AirDrop")
-        a_t.get_style_context().add_class("title-text")
-        a_t.set_xalign(0)
-        self.ad_sub = Gtk.Label(label="Network Shares")
-        self.ad_sub.get_style_context().add_class("subtitle-text")
-        self.ad_sub.set_xalign(0)
-        ad_text_box.pack_start(a_t, False, False, 0)
-        ad_text_box.pack_start(self.ad_sub, False, False, 0)
-        ad_click.add(ad_text_box)
-        ad_click.connect("button-press-event", lambda *_: (subprocess.Popen(["thunar", "network:///"]), self.hide()))
-        ad_row.pack_start(ad_click, True, True, 0)
-        net_card.pack_start(ad_row, False, False, 0)
+        shares_click = Gtk.EventBox()
+        shares_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        s_t = Gtk.Label(label="Network Shares")
+        s_t.get_style_context().add_class("title-text")
+        s_t.set_xalign(0)
+        self.shares_sub = Gtk.Label(label="Local Network")
+        self.shares_sub.get_style_context().add_class("subtitle-text")
+        self.shares_sub.set_xalign(0)
+        shares_text_box.pack_start(s_t, False, False, 0)
+        shares_text_box.pack_start(self.shares_sub, False, False, 0)
+        shares_click.add(shares_text_box)
+        shares_click.connect("button-press-event", lambda *_: (subprocess.Popen(["thunar", "network:///"]), self.hide_to_dismiss()))
+        shares_row.pack_start(shares_click, True, True, 0)
+        net_card.pack_start(shares_row, False, False, 0)
 
         toggles_grid.attach(net_card, 0, 0, 1, 2)
 
@@ -894,13 +1066,13 @@ class SequoiaControlCenter(Gtk.Window):
         media_card.pack_start(self.cover_img, False, False, 0)
 
         media_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        self.media_title = Gtk.Label(label="Break My Baby")
+        self.media_title = Gtk.Label(label="No media playing")
         self.media_title.get_style_context().add_class("title-text")
         self.media_title.set_xalign(0)
         self.media_title.set_ellipsize(Pango.EllipsizeMode.END)
         self.media_title.set_max_width_chars(16)
 
-        self.media_artist = Gtk.Label(label="KALEO")
+        self.media_artist = Gtk.Label(label="Music")
         self.media_artist.get_style_context().add_class("subtitle-text")
         self.media_artist.set_xalign(0)
         self.media_artist.set_ellipsize(Pango.EllipsizeMode.END)
@@ -922,8 +1094,6 @@ class SequoiaControlCenter(Gtk.Window):
 
         main_box.pack_start(media_card, False, False, 0)
 
-        self.update_dynamic_state()
-
     def update_dynamic_state(self):
         # Wi-Fi
         wifi_enabled, wifi_ssid = get_wifi_state()
@@ -932,14 +1102,6 @@ class SequoiaControlCenter(Gtk.Window):
             self.wifi_btn.get_style_context().add_class("active")
         else:
             self.wifi_btn.get_style_context().remove_class("active")
-
-        # Bluetooth
-        bt_enabled, bt_text = get_bluetooth_state()
-        self.bt_sub.set_text(bt_text)
-        if bt_enabled:
-            self.bt_btn.get_style_context().add_class("active")
-        else:
-            self.bt_btn.get_style_context().remove_class("active")
 
         # DND
         dnd_on = get_dnd_state()
@@ -958,8 +1120,8 @@ class SequoiaControlCenter(Gtk.Window):
             self.theme_lbl.set_text("Day Mode")
             self.theme_icon_btn.set_image(Gtk.Image.new_from_icon_name("weather-clear-symbolic", Gtk.IconSize.BUTTON))
 
-        # Media
-        title, artist, status, art = get_media_info()
+        # Media (MPRIS via D-Bus)
+        title, artist, status, _art = get_media_info()
         self.media_title.set_text(title)
         self.media_artist.set_text(artist)
         if status.lower() == "playing":
@@ -970,6 +1132,7 @@ class SequoiaControlCenter(Gtk.Window):
         return True
 
     def on_toggle_wifi(self, *_):
+        self.reset_inactivity()
         toggle_wifi()
         enabled, _ = get_wifi_state()
         if not enabled:
@@ -977,6 +1140,7 @@ class SequoiaControlCenter(Gtk.Window):
         GLib.timeout_add(300, self.update_dynamic_state)
 
     def on_toggle_wifi_details(self, *_):
+        self.reset_inactivity()
         is_revealed = self.wifi_revealer.get_reveal_child()
         if not is_revealed:
             self.wifi_revealer.set_reveal_child(True)
@@ -985,6 +1149,7 @@ class SequoiaControlCenter(Gtk.Window):
             self.wifi_revealer.set_reveal_child(False)
 
     def refresh_wifi_networks(self, *_):
+        self.reset_inactivity()
         for child in self.wifi_list_box.get_children():
             self.wifi_list_box.remove(child)
 
@@ -1063,51 +1228,55 @@ class SequoiaControlCenter(Gtk.Window):
         self.wifi_list_box.pack_start(bottom_box, False, False, 4)
         self.wifi_list_box.show_all()
 
-    def on_toggle_bt(self, *_):
-        toggle_bluetooth()
-        GLib.timeout_add(300, self.update_dynamic_state)
-
     def on_toggle_dnd(self, *_):
+        self.reset_inactivity()
         toggle_dnd()
         GLib.timeout_add(200, self.update_dynamic_state)
 
     def on_toggle_theme(self, *_):
+        self.reset_inactivity()
         toggle_system_theme()
         GLib.timeout_add(300, self.update_dynamic_state)
 
     def on_brightness_changed(self, scale):
+        self.reset_inactivity()
         val = scale.get_value()
         set_display_brightness(val)
 
     def on_volume_changed(self, scale):
+        self.reset_inactivity()
         val = scale.get_value()
         set_sound_volume(val)
 
     def on_media_play_pause(self, *_):
-        run_cmd(["playerctl", "play-pause"])
+        self.reset_inactivity()
+        media_play_pause()
         GLib.timeout_add(200, self.update_dynamic_state)
 
     def on_media_next(self, *_):
-        run_cmd(["playerctl", "next"])
+        self.reset_inactivity()
+        media_next()
         GLib.timeout_add(200, self.update_dynamic_state)
 
     def on_open_settings(self, *_):
         subprocess.Popen(["xfce4-settings-manager"])
-        self.hide()
+        self.hide_to_dismiss()
 
     def on_open_power(self, *_):
         subprocess.Popen(["xfce4-session-logout"])
-        self.hide()
+        self.hide_to_dismiss()
 
 
 class ControlCenterApp(Gtk.Application):
-    def __init__(self):
+    def __init__(self, trial_mode=False):
         super().__init__(
             application_id="org.sequoia.ControlCenter",
             flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
         self.win = None
         self._held = False
+        self._exit_timer_id = None
+        self.trial_mode = trial_mode
         global _current_app
         _current_app = self
 
@@ -1115,6 +1284,7 @@ class ControlCenterApp(Gtk.Application):
         Gtk.Application.do_startup(self)
         GLib.set_prgname("org.sequoia.ControlCenter")
         GLib.set_application_name("Control Center")
+        write_pid_file()
         self.hold()
         self._held = True
 
@@ -1124,6 +1294,18 @@ class ControlCenterApp(Gtk.Application):
     def do_command_line(self, command_line):
         args = command_line.get_arguments()[1:]
         exit_code = 0
+
+        # Check internal feature gate
+        if "--trial" in args:
+            self.trial_mode = True
+
+        if not self.trial_mode and not is_feature_enabled() and "--status" not in args and "--quit" not in args:
+            msg = "Control Center is disabled in ~/.config/sequoia/features.json (enable with: sequoia-ctl feature enable control-center)\n"
+            sys.stderr.write(msg)
+            sys.stderr.flush()
+            self.quit_app()
+            return 0
+
         if "--quit" in args:
             self.quit_app()
         elif "--hide" in args:
@@ -1135,11 +1317,6 @@ class ControlCenterApp(Gtk.Application):
             status_str = "visible\n" if vis else "hidden\n"
             try:
                 command_line.print_literal(status_str)
-            except AttributeError:
-                try:
-                    command_line.print_("%s", status_str)
-                except Exception:
-                    pass
             except Exception:
                 pass
             sys.stdout.write(status_str)
@@ -1163,31 +1340,51 @@ class ControlCenterApp(Gtk.Application):
     def toggle_window(self):
         win = self.get_or_create_window()
         if win.get_visible():
-            win.hide()
+            self.hide_window()
         else:
-            win.position_window()
-            win.update_dynamic_state()
-            win.show_all()
-            win.present()
+            self.show_window()
 
     def show_window(self):
+        # Cancel any pending exit timer
+        if self._exit_timer_id is not None:
+            GLib.source_remove(self._exit_timer_id)
+            self._exit_timer_id = None
+
         win = self.get_or_create_window()
         win.position_window()
-        win.update_dynamic_state()
         win.show_all()
         win.present()
+        win.start_polling()
+        win.reset_inactivity()
 
     def hide_window(self):
         if self.win and self.win.get_visible():
+            self.win.stop_polling()
+            self.win.stop_inactivity()
             self.win.hide()
 
+        # Start 2-second countdown to exit process cleanly after close/hide
+        if self._exit_timer_id is None:
+            self._exit_timer_id = GLib.timeout_add(2000, self._on_idle_exit)
+
+    def _on_idle_exit(self):
+        self._exit_timer_id = None
+        self.quit_app()
+        return False
+
     def quit_app(self):
+        if self._exit_timer_id is not None:
+            GLib.source_remove(self._exit_timer_id)
+            self._exit_timer_id = None
         if self.win:
+            self.win.stop_polling()
+            self.win.stop_inactivity()
             self.win.destroy()
             self.win = None
         if self._held:
             self.release()
             self._held = False
+        remove_pid_file()
         self.quit()
 
 
@@ -1197,19 +1394,33 @@ def main():
         if _current_app:
             _current_app.quit_app()
         else:
+            remove_pid_file()
             sys.exit(0)
 
     signal.signal(signal.SIGINT, _sig_handler)
     signal.signal(signal.SIGTERM, _sig_handler)
 
+    trial = ("--trial" in sys.argv)
+    query_cmd = ("--status" in sys.argv or "--quit" in sys.argv)
+
+    # Check feature gate early before Gtk.Application initialisation
+    if not trial and not query_cmd and not is_feature_enabled():
+        sys.stderr.write(
+            "Control Center is disabled in ~/.config/sequoia/features.json "
+            "(enable with: sequoia-ctl feature enable control-center)\n"
+        )
+        sys.stderr.flush()
+        return 0
+
     try:
-        app = ControlCenterApp()
+        app = ControlCenterApp(trial_mode=trial)
         return app.run(sys.argv)
     except Exception as e:
         sys.stderr.write(f"Control Center Exception: {e}\n")
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.stderr.flush()
+        remove_pid_file()
         return 1
 
 

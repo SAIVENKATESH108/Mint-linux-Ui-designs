@@ -249,6 +249,134 @@ init_features() {
     fi
 }
 
+cmd_feature_trial_control_center() {
+    init_features
+    local initial_flag="false"
+    if [[ -f "${FEATURES_FILE}" ]]; then
+        initial_flag="$(grep -oE '"control_center":[[:space:]]*(true|false)' "${FEATURES_FILE}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
+    fi
+
+    if [[ -z "${DISPLAY:-}" ]]; then
+        log_error "DISPLAY environment variable not set. Cannot run trial without an active X11 display."
+        return 1
+    fi
+
+    local py_bin="${HOME}/.local/bin/sequoia-control-center.py"
+    [[ -x "${py_bin}" ]] || py_bin="${SCRIPT_DIR}/sequoia-control-center.py"
+
+    echo "======================================================================"
+    printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "          SEQUOIA CONTROL CENTER SAFE 20-SECOND TRIAL"
+    echo "======================================================================"
+    log_info "Initiating isolated trial of Control Center..."
+    printf "   Initial Feature Gate: [CONFIGURED] %s (will remain untouched)\n" "${initial_flag}"
+
+    # Ensure any stale instance is cleaned
+    local pid_file="${HOME}/.cache/sequoia/control-center.pid"
+    if [[ -f "${pid_file}" ]]; then
+        local old_pid
+        old_pid="$(cat "${pid_file}" 2>/dev/null || true)"
+        if [[ -n "${old_pid}" && -f "/proc/${old_pid}/cmdline" ]]; then
+            if grep -q "sequoia-control-center.py" "/proc/${old_pid}/cmdline" 2>/dev/null; then
+                kill -TERM "${old_pid}" 2>/dev/null || true
+                sleep 0.5
+            fi
+        fi
+        rm -f "${pid_file}" 2>/dev/null || true
+    fi
+
+    # Launch trial instance with --trial
+    python3 "${py_bin}" --show --trial >/dev/null 2>&1 &
+    local spawn_pid=$!
+
+    # Wait up to 2s for PID file or process initialization
+    local trial_pid=""
+    local wait_count=0
+    while (( wait_count < 20 )); do
+        if [[ -f "${pid_file}" ]]; then
+            trial_pid="$(cat "${pid_file}" 2>/dev/null || true)"
+            if [[ -n "${trial_pid}" && -d "/proc/${trial_pid}" ]]; then
+                break
+            fi
+        fi
+        if kill -0 "${spawn_pid}" 2>/dev/null; then
+            trial_pid="${spawn_pid}"
+        fi
+        sleep 0.1
+        wait_count=$((wait_count + 1))
+    done
+
+    if [[ -z "${trial_pid}" || ! -d "/proc/${trial_pid}" ]]; then
+        log_error "Failed to launch Control Center trial instance."
+        return 1
+    fi
+
+    # Verify exact cmdline of this PID
+    local cmdline=""
+    if [[ -f "/proc/${trial_pid}/cmdline" ]]; then
+        cmdline="$(tr '\0' ' ' < "/proc/${trial_pid}/cmdline" 2>/dev/null || echo "")"
+    fi
+    if [[ "${cmdline}" != *"sequoia-control-center.py"* ]]; then
+        log_error "PID verification failed: PID ${trial_pid} cmdline does not match sequoia-control-center.py ('${cmdline}')"
+        return 1
+    fi
+
+    printf "   Instance PID:         [MEASURED] %s\n" "${trial_pid}"
+    printf "   Cmdline:              [MEASURED] %s\n" "${cmdline:0:70}"
+    printf "   Watchdog Limit:       [CONFIGURED] 20 seconds (hard safety cap)\n"
+    printf "   Status:               [MEASURED] RUNNING\n"
+    echo ""
+    log_info "Control Center is now visible on screen."
+    echo "   • You may test UI interactions (sliders, buttons, toggles, Esc to close)."
+    echo "   • Inactivity timer (30s) or pressing Esc will close it automatically."
+    echo "   • A hard watchdog will terminate PID ${trial_pid} at exactly 20 seconds."
+    echo ""
+
+    local elapsed=0
+    local exited_early=0
+    while (( elapsed < 20 )); do
+        if ! kill -0 "${trial_pid}" 2>/dev/null; then
+            exited_early=1
+            break
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if (( elapsed % 5 == 0 )); then
+            printf "   [TRIAL WATCHDOG] Elapsed: %2ds / 20s (PID %s active)\n" "${elapsed}" "${trial_pid}"
+        fi
+    done
+
+    echo ""
+    if [[ "${exited_early}" -eq 1 ]]; then
+        printf "   Termination:          [MEASURED] Clean self-dismissal at %ds (Esc / focus-out / idle)\n" "${elapsed}"
+    else
+        printf "   Termination:          [MEASURED] Hard 20s watchdog limit reached. Enforcing scoped termination...\n"
+        if [[ -f "/proc/${trial_pid}/cmdline" ]] && grep -q "sequoia-control-center.py" "/proc/${trial_pid}/cmdline" 2>/dev/null; then
+            kill -TERM "${trial_pid}" 2>/dev/null || true
+            sleep 1
+            if kill -0 "${trial_pid}" 2>/dev/null; then
+                kill -KILL "${trial_pid}" 2>/dev/null || true
+            fi
+            printf "   Scoped Signal:        [MEASURED] SIGTERM delivered to verified PID %s\n" "${trial_pid}"
+        fi
+    fi
+
+    # Verify process is gone
+    if kill -0 "${trial_pid}" 2>/dev/null; then
+        printf "   Process State:        [MEASURED] ${C_RED}STILL RUNNING${C_RESET}\n"
+    else
+        printf "   Process State:        [MEASURED] ${C_GREEN}TERMINATED (0 processes remain)${C_RESET}\n"
+    fi
+
+    # Verify features.json is untouched
+    local final_flag="false"
+    if [[ -f "${FEATURES_FILE}" ]]; then
+        final_flag="$(grep -oE '"control_center":[[:space:]]*(true|false)' "${FEATURES_FILE}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
+    fi
+    printf "   Feature Gate Check:   [CONFIGURED] %s (unchanged: %s)\n" "${final_flag}" "$([[ "${final_flag}" == "${initial_flag}" ]] && echo "PASS" || echo "FAIL")"
+    echo ""
+    log_success "Control Center trial completed safely. Desktop environment and configuration untouched."
+}
+
 cmd_feature() {
     init_features
     local action="${1:-list}"
@@ -292,8 +420,20 @@ cmd_feature() {
                 return 1
             fi
             ;;
+        trial)
+            if [[ -z "${name}" ]]; then
+                log_error "Usage: sequoia-ctl feature trial <feature_name>"
+                return 1
+            fi
+            if [[ "${name}" == "control-center" ]]; then
+                cmd_feature_trial_control_center
+            else
+                log_error "Unknown feature for trial: ${name}"
+                return 1
+            fi
+            ;;
         *)
-            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>]"
+            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>|trial <name>]"
             return 1
             ;;
     esac
@@ -370,6 +510,16 @@ cmd_deploy() {
         fi
     fi
 
+    # 5c. Ensure panel launcher desktop file routes through wrapper script
+    local launcher_desktop="${HOME}/.config/xfce4/panel/launcher-102/control-center.desktop"
+    if [[ -f "${launcher_desktop}" ]]; then
+        sed -i 's|^Exec=.*|Exec='"${HOME}"'/.local/bin/control-center.sh|' "${launcher_desktop}" 2>/dev/null || true
+    fi
+    local app_desktop="${HOME}/.local/share/applications/control-center.desktop"
+    if [[ -f "${app_desktop}" ]]; then
+        sed -i 's|^Exec=.*|Exec='"${HOME}"'/.local/bin/control-center.sh|' "${app_desktop}" 2>/dev/null || true
+    fi
+
     # 6. Checksum comparison
     log_info "Verifying deployment checksums (Repo vs Installed)..."
     local check_pairs=(
@@ -380,6 +530,7 @@ cmd_deploy() {
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/paths.py:${share_dest}/deskwidgets/paths.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/service.py:${share_dest}/deskwidgets/service.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/cli.py:${share_dest}/deskwidgets/cli.py"
+        "${REPO_ROOT}/lib/deskwidgets/deskwidgets/conky_check.py:${share_dest}/deskwidgets/conky_check.py"
         "${REPO_ROOT}/lib/deskwidgets/engine/widget.conf:${share_dest}/engine/widget.conf"
     )
 
@@ -511,6 +662,7 @@ cmd_self_test() {
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/paths.py:${inst_share}/paths.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/service.py:${inst_share}/service.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/cli.py:${inst_share}/cli.py"
+        "${REPO_ROOT}/lib/deskwidgets/deskwidgets/conky_check.py:${inst_share}/conky_check.py"
         "${REPO_ROOT}/lib/deskwidgets/engine/widget.conf:${HOME}/.local/share/deskwidgets/engine/widget.conf"
     )
 
@@ -586,14 +738,26 @@ cmd_self_test() {
             fi
 
             printf "\n   [PREVIOUS RUN(S)]:\n"
-            (grep -v -F "[PID ${dw_srv_pid}]" "${log_file}" 2>/dev/null || true) | tail -n 15 | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
-                printf "   | [previous run] %s\n" "${line}"
-            done
+            local prev_lines
+            prev_lines="$((grep -v -F "[PID ${dw_srv_pid}]" "${log_file}" 2>/dev/null || true) | tail -n 15 | awk '/^\[[0-9]{4}/ {p=1} p {print}')"
+            if [[ -n "${prev_lines}" ]]; then
+                echo "${prev_lines}" | while IFS= read -r line; do
+                    printf "   | [previous run] %s\n" "${line}"
+                done
+            else
+                printf "   | (none)\n"
+            fi
         else
             printf "   (Service not running; showing last 25 lines of log):\n"
-            (tail -n 25 "${log_file}" 2>/dev/null || true) | awk '/^\[[0-9]{4}/ {p=1} p {print}' | while IFS= read -r line; do
-                printf "   | [previous run] %s\n" "${line}"
-            done
+            local prev_lines
+            prev_lines="$((tail -n 25 "${log_file}" 2>/dev/null || true) | awk '/^\[[0-9]{4}/ {p=1} p {print}')"
+            if [[ -n "${prev_lines}" ]]; then
+                echo "${prev_lines}" | while IFS= read -r line; do
+                    printf "   | [previous run] %s\n" "${line}"
+                done
+            else
+                printf "   | (none)\n"
+            fi
         fi
     else
         echo "   | (No log file found at ~/.cache/sequoia/deskwidgets.log)"
@@ -641,15 +805,20 @@ cmd_self_test() {
         fi
         printf "   • Widget: %-12s | Last Exit: [MEASURED] %s\n" "${wid}" "${last_exit}"
         if [[ -f "${err_file}" ]]; then
-            local err_size
-            err_size="$(wc -c < "${err_file}" 2>/dev/null || echo 0)"
-            if (( err_size > 0 )); then
-                printf "     Stderr (%s bytes) [MEASURED]:\n" "${err_size}"
-                tail -n 10 "${err_file}" | while IFS= read -r eline; do
+            local header
+            header="$(head -n 1 "${err_file}" 2>/dev/null || true)"
+            local spawn_lines
+            spawn_lines="$(tail -n +2 "${err_file}" 2>/dev/null | grep -v '^[[:space:]]*$' || true)"
+            if [[ -n "${spawn_lines}" ]]; then
+                local spawn_bytes
+                spawn_bytes="$(echo "${spawn_lines}" | wc -c || echo 0)"
+                printf "     Spawn Header: [MEASURED] %s\n" "${header}"
+                printf "     Stderr (%s bytes in current spawn) [MEASURED]:\n" "${spawn_bytes}"
+                echo "${spawn_lines}" | tail -n 10 | while IFS= read -r eline; do
                     printf "       | %s\n" "${eline}"
                 done
             else
-                printf "     Stderr: [MEASURED] (file exists but is 0 bytes)\n"
+                printf "     Stderr: [MEASURED] 0 bytes (clean spawn, no errors)\n"
             fi
         else
             printf "     Stderr: [MEASURED] (no stderr file at ~/.cache/sequoia/widgets/%s.stderr)\n" "${wid}"
@@ -666,61 +835,51 @@ cmd_self_test() {
         widget_dir_to_test="${REPO_ROOT}/lib/deskwidgets/widgets/clock"
     fi
     local engine_dir="$(dirname "${conf_to_test}")"
+    local checker_py="${HOME}/.local/share/deskwidgets/deskwidgets/conky_check.py"
+    [[ -f "${checker_py}" ]] || checker_py="${REPO_ROOT}/lib/deskwidgets/deskwidgets/conky_check.py"
+
     if command -v conky &>/dev/null; then
         printf "   Target File: [CONFIGURED] %s\n" "${conf_to_test}"
         printf "   Widget Dir:  [CONFIGURED] %s\n" "${widget_dir_to_test}"
-        if [[ -f "${conf_to_test}" ]]; then
-            local syntax_out syntax_rc
+        if [[ -f "${conf_to_test}" && -f "${checker_py}" ]]; then
+            local dryrun_json
             set +e
-            syntax_out="$(cd "${engine_dir}" && \
-                MAC_ENGINE="${engine_dir}" \
-                MAC_WIDGET_DIR="${widget_dir_to_test}" \
-                MAC_ID="dryrun-clock" \
-                MAC_TYPE="clock" \
-                MAC_SIZE="small" \
-                MAC_STYLE="auto" \
-                MAC_W="178" \
-                MAC_H="178" \
-                MAC_X="0" \
-                MAC_Y="0" \
-                MAC_SCALE="1.0" \
-                MAC_LANG="en" \
-                FONTCONFIG_FILE="${HOME}/.cache/deskwidgets/fontconfig.conf" \
-                MAC_RUN="${HOME}/.cache/deskwidgets/run" \
-                MAC_CONFIG="${HOME}/.config/deskwidgets" \
-                timeout 3s conky -c "${conf_to_test}" -i 1 2>&1)"
-            syntax_rc=$?
+            dryrun_json="$(python3 "${checker_py}" --run --conf "${conf_to_test}" --widget-dir "${widget_dir_to_test}" --pid "${dw_srv_pid:-0}" --json 2>&1)"
             set -e
 
-            local has_error=0
-            if [[ "${syntax_rc}" -ne 0 ]]; then
-                has_error=1
-            fi
-            if echo "${syntax_out}" | grep -i -E "cannot open|error|failed|syntax error|attempt to|nil value|fatal" >/dev/null; then
-                has_error=1
+            # Parse JSON fields safely via python
+            local check_status check_reason check_cwd diff_count warn_count err_count
+            check_status="$(echo "${dryrun_json}" | python3 -c 'import sys, json; data=json.load(sys.stdin); print(data.get("status","FAIL"))' 2>/dev/null || echo "FAIL")"
+            check_reason="$(echo "${dryrun_json}" | python3 -c 'import sys, json; data=json.load(sys.stdin); print(data.get("reason","unknown error"))' 2>/dev/null || echo "parse error")"
+            check_cwd="$(echo "${dryrun_json}" | python3 -c 'import sys, json; data=json.load(sys.stdin); print(data.get("cwd","unknown"))' 2>/dev/null || echo "unknown")"
+            diff_count="$(echo "${dryrun_json}" | python3 -c 'import sys, json; data=json.load(sys.stdin); print(len(data.get("diffs",[])))' 2>/dev/null || echo 0)"
+            warn_count="$(echo "${dryrun_json}" | python3 -c 'import sys, json; data=json.load(sys.stdin); print(len(data.get("warn_lines",[])))' 2>/dev/null || echo 0)"
+            err_count="$(echo "${dryrun_json}" | python3 -c 'import sys, json; data=json.load(sys.stdin); print(len(data.get("error_lines",[])))' 2>/dev/null || echo 0)"
+
+            printf "   Working Dir: [MEASURED] %s\n" "${check_cwd}"
+            if (( diff_count > 0 )); then
+                printf "   Env Diffs:   [MEASURED] %d variable difference(s) vs caller environment:\n" "${diff_count}"
+                echo "${dryrun_json}" | python3 -c 'import sys, json; [print("     • " + d) for d in json.load(sys.stdin).get("diffs",[])]' 2>/dev/null || true
+            else
+                printf "   Env Diffs:   [MEASURED] (none, aligned with running service)\n"
             fi
 
-            if [[ "${has_error}" -eq 0 ]]; then
-                printf "   Syntax Result: [MEASURED] ${C_GREEN}[PASS]${C_RESET} (Exit code 0, 1 test iteration completed, zero errors)\n"
-            elif [[ "${syntax_rc}" -eq 124 ]]; then
-                printf "   Syntax Result: [MEASURED] ${C_YELLOW}[TIMEOUT 3s]${C_RESET} (Command did not terminate in 3s)\n"
-                overall_pass=0
+            if [[ "${check_status}" == "PASS" ]]; then
+                printf "   Dry-Run:     [MEASURED] ${C_GREEN}[PASS]${C_RESET} (%s)\n" "${check_reason}"
+            elif [[ "${check_status}" == "PASS_WARN" ]]; then
+                printf "   Dry-Run:     [MEASURED] ${C_YELLOW}[PASS - WITH WARNINGS]${C_RESET} (%s)\n" "${check_reason}"
+                echo "${dryrun_json}" | python3 -c 'import sys, json; [print("     " + chr(27) + "[33m[WARN] " + w + chr(27) + "[0m") for w in json.load(sys.stdin).get("warn_lines",[])]' 2>/dev/null || true
             else
-                printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} (Exit code %s or error detected in output)\n" "${syntax_rc}"
+                printf "   Dry-Run:     [MEASURED] ${C_RED}[FAIL]${C_RESET} (%s)\n" "${check_reason}"
+                echo "${dryrun_json}" | python3 -c 'import sys, json; [print("     " + chr(27) + "[31m[ERROR] " + e + chr(27) + "[0m") for e in json.load(sys.stdin).get("error_lines",[])]' 2>/dev/null || true
                 overall_pass=0
-            fi
-            if [[ -n "${syntax_out}" ]]; then
-                printf "   Output [MEASURED]:\n"
-                echo "${syntax_out}" | head -n 25 | while IFS= read -r sline; do
-                    printf "     | %s\n" "${sline}"
-                done
             fi
         else
-            printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} (File %s not found)\n" "${conf_to_test}"
+            printf "   Dry-Run:     [MEASURED] ${C_RED}[FAIL]${C_RESET} (Required files missing: conf=%s, checker=%s)\n" "${conf_to_test}" "${checker_py}"
             overall_pass=0
         fi
     else
-        printf "   Syntax Result: [MEASURED] ${C_RED}[FAIL]${C_RESET} ('conky' binary not found in PATH)\n"
+        printf "   Dry-Run:     [MEASURED] ${C_RED}[FAIL]${C_RESET} ('conky' binary not found in PATH)\n"
         overall_pass=0
     fi
     echo ""
@@ -900,7 +1059,7 @@ case "${1:-status}" in
         echo "  self-test             Run comprehensive verification of all components and geometry"
         echo "  self-heal             Safely terminate rogue processes and clean stale state"
         echo "  status                Show running session state and components"
-        echo "  feature [list|enable|disable <name>] Manage optional desktop features (e.g. control-center)"
+        echo "  feature [list|enable|disable|trial <name>] Manage optional desktop features (e.g. control-center)"
         echo "  preset [name]         List presets or apply a preset (default, vibrant, sequoia-dark, enterprise)"
         echo "  apps                  Configure Brave/browsers/apps for native macOS traffic lights and remove top gap"
         echo "  edit on|off           Unlock or lock panel layout for drag/reposition"

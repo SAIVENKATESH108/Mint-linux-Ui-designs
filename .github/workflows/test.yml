@@ -64,3 +64,8 @@ jobs:
             sleep 1
             python3 -m unittest tests/test_deskwidgets_integration.py -v
           "
+
+      - name: Run Conky Check Classifier & Evaluator Unit Tests
+        run: |
+          python3 -m unittest tests/test_conky_check.py -v
+

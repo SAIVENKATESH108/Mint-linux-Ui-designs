@@ -37,15 +37,31 @@ OLD_LAYOUT = os.path.join(paths.HOME, '.config', 'conky', 'mac', 'layout.json') 
 
 
 class StderrManager:
-    """Caps per-widget stderr at 64 KB with rotation and de-duplicates repeated lines."""
-    def __init__(self, inst_id):
+    """Caps per-widget stderr at 64 KB with rotation, spawn header, and line de-duplication."""
+    def __init__(self, inst_id, pid=None):
         self.inst_id = inst_id
+        self.pid = pid or os.getpid()
         widget_err_dir = os.path.expanduser("~/.cache/sequoia/widgets")
         os.makedirs(widget_err_dir, exist_ok=True)
         self.err_path = os.path.join(widget_err_dir, f"{inst_id}.stderr")
         self.last_line = None
         self.repeat_count = 0
         self.max_bytes = 64 * 1024
+
+        # Truncate and rotate on spawn: previous run moved to .stderr.1
+        try:
+            if os.path.exists(self.err_path) and os.path.getsize(self.err_path) > 0:
+                rot_path = self.err_path + ".1"
+                try:
+                    os.replace(self.err_path, rot_path)
+                except OSError:
+                    pass
+            now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+            header = f"=== [{now_str}] SPAWN {self.inst_id} (PID {self.pid}) ===\n"
+            with open(self.err_path, "wb") as f:
+                f.write(header.encode("utf-8"))
+        except Exception:
+            pass
 
     def handle_line(self, line):
         line = line.strip()
@@ -76,6 +92,9 @@ class StderrManager:
                     os.replace(self.err_path, rot_path)
                 except OSError:
                     pass
+                now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                with open(self.err_path, "wb") as f:
+                    f.write(f"=== [{now_str}] ROTATED (>64KB) {self.inst_id} (PID {self.pid}) ===\n".encode("utf-8"))
             with open(self.err_path, "ab") as f:
                 f.write(data)
         except Exception:
@@ -217,7 +236,7 @@ class Runner:
             # Stream stderr into 64KB capped, rotating, deduplicating StderrManager
             pipe = self.proc.get_stderr_pipe()
             if pipe:
-                self.stderr_mgr = StderrManager(self.id)
+                self.stderr_mgr = StderrManager(self.id, self.pid)
                 t_th = threading.Thread(target=_pipe_reader, args=(pipe, self.stderr_mgr), daemon=True)
                 t_th.start()
 
