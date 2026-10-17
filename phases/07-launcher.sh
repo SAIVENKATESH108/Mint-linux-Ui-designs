@@ -84,17 +84,15 @@ safe_copy "${SCRIPTS_DIR}/launchpad.sh" "${LOCAL_BIN}/launchpad.sh"
 run chmod +x "${LOCAL_BIN}/spotlight.sh" "${LOCAL_BIN}/launchpad.sh"
 
 # ------------------------------------------------------------------------------
-# 5. Bind macOS Shortcuts via xfconf
+# 5. Apply Desktop Shortcuts via Central Shortcuts Manager
 # ------------------------------------------------------------------------------
-log_info "Binding Super+Space (Spotlight) and Super+A / F4 (Launchpad)..."
+log_info "Applying desktop keyboard shortcuts via sequoia-ctl keys..."
+if [[ -x "${LOCAL_BIN}/sequoia-ctl" ]]; then
+    "${LOCAL_BIN}/sequoia-ctl" keys apply || true
+elif [[ -x "${SCRIPTS_DIR}/sequoia-ctl" ]]; then
+    "${SCRIPTS_DIR}/sequoia-ctl" keys apply || true
+fi
 
-# Spotlight: Super+Space
-set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>space" "string" "${LOCAL_BIN}/spotlight.sh"
-
-# Launchpad: Super+A and F4
-set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>a" "string" "${LOCAL_BIN}/launchpad.sh"
-set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/F4" "string" "${LOCAL_BIN}/launchpad.sh"
-
-log_success "Phase 7 Complete: Spotlight (Super+Space) & Launchpad (Super+A / F4) active."
+log_success "Phase 7 Complete: Spotlight & Launchpad installed."
 log_info "Test directly with: ~/.local/bin/spotlight.sh or ~/.local/bin/launchpad.sh"
 log_info "Undo this phase anytime with: ./phases/07-launcher.sh --undo (or ./uninstall.sh -p 7)"

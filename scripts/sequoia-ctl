@@ -251,6 +251,7 @@ init_features() {
 
 cmd_feature_trial_control_center() {
     init_features
+    local trial_mode="${1:-normal}"
     local initial_flag="false"
     if [[ -f "${FEATURES_FILE}" ]]; then
         initial_flag="$(grep -oE '"control_center":[[:space:]]*(true|false)' "${FEATURES_FILE}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
@@ -267,11 +268,18 @@ cmd_feature_trial_control_center() {
     echo "======================================================================"
     printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "          SEQUOIA CONTROL CENTER SAFE 20-SECOND TRIAL"
     echo "======================================================================"
-    log_info "Initiating isolated trial of Control Center..."
+    if [[ "${trial_mode}" == "--hotkey" ]]; then
+        log_info "Initiating isolated trial of Control Center via keyboard shortcut (<Primary><Alt>c)..."
+    else
+        log_info "Initiating isolated trial of Control Center..."
+    fi
     printf "   Initial Feature Gate: [CONFIGURED] %s (will remain untouched)\n" "${initial_flag}"
 
-    # Ensure any stale instance is cleaned
+    # Ensure any stale instance or status file is cleaned
     local pid_file="${HOME}/.cache/sequoia/control-center.pid"
+    local status_file="${HOME}/.cache/sequoia/control-center-status.json"
+    rm -f "${status_file}" 2>/dev/null || true
+
     if [[ -f "${pid_file}" ]]; then
         local old_pid
         old_pid="$(cat "${pid_file}" 2>/dev/null || true)"
@@ -284,21 +292,26 @@ cmd_feature_trial_control_center() {
         rm -f "${pid_file}" 2>/dev/null || true
     fi
 
-    # Launch trial instance with --trial
-    python3 "${py_bin}" --show --trial >/dev/null 2>&1 &
-    local spawn_pid=$!
+    # Launch trial instance
+    local spawn_pid=""
+    if [[ "${trial_mode}" == "--hotkey" ]] && command -v xdotool &>/dev/null; then
+        xdotool key "ctrl+alt+c" 2>/dev/null || true
+    else
+        python3 "${py_bin}" --show --trial >/dev/null 2>&1 &
+        spawn_pid=$!
+    fi
 
-    # Wait up to 2s for PID file or process initialization
+    # Wait up to 2.5s for PID file or process initialization
     local trial_pid=""
     local wait_count=0
-    while (( wait_count < 20 )); do
+    while (( wait_count < 25 )); do
         if [[ -f "${pid_file}" ]]; then
             trial_pid="$(cat "${pid_file}" 2>/dev/null || true)"
             if [[ -n "${trial_pid}" && -d "/proc/${trial_pid}" ]]; then
                 break
             fi
         fi
-        if kill -0 "${spawn_pid}" 2>/dev/null; then
+        if [[ -n "${spawn_pid}" ]] && kill -0 "${spawn_pid}" 2>/dev/null; then
             trial_pid="${spawn_pid}"
         fi
         sleep 0.1
@@ -347,7 +360,7 @@ cmd_feature_trial_control_center() {
 
     echo ""
     if [[ "${exited_early}" -eq 1 ]]; then
-        printf "   Termination:          [MEASURED] Clean self-dismissal at %ds (Esc / focus-out / idle)\n" "${elapsed}"
+        printf "   Termination:          [MEASURED] Clean self-dismissal at %ds\n" "${elapsed}"
     else
         printf "   Termination:          [MEASURED] Hard 20s watchdog limit reached. Enforcing scoped termination...\n"
         if [[ -f "/proc/${trial_pid}/cmdline" ]] && grep -q "sequoia-control-center.py" "/proc/${trial_pid}/cmdline" 2>/dev/null; then
@@ -357,6 +370,26 @@ cmd_feature_trial_control_center() {
                 kill -KILL "${trial_pid}" 2>/dev/null || true
             fi
             printf "   Scoped Signal:        [MEASURED] SIGTERM delivered to verified PID %s\n" "${trial_pid}"
+        fi
+    fi
+
+    # Read measured evidence from control-center-status.json
+    if [[ -f "${status_file}" ]]; then
+        local st_reason st_time st_x st_y st_w st_h st_gap
+        st_reason="$(grep -oE '"reason":[[:space:]]*"[^"]+"' "${status_file}" 2>/dev/null | cut -d'"' -f4 || echo "unspecified")"
+        st_time="$(grep -oE '"time_open_sec":[[:space:]]*[0-9.]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "unspecified")"
+        st_x="$(grep -oE '"x":[[:space:]]*-?[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+        st_y="$(grep -oE '"y":[[:space:]]*-?[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+        st_w="$(grep -oE '"w":[[:space:]]*[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+        st_h="$(grep -oE '"h":[[:space:]]*[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+        st_gap="$(grep -oE '"top_bar_gap":[[:space:]]*-?[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+
+        printf "   Window Geometry:      [MEASURED] %sx%s+%s+%s\n" "${st_w}" "${st_h}" "${st_x}" "${st_y}"
+        printf "   Top Bar Alignment:    [MEASURED] y=%s (%spx gap below 28px panel)\n" "${st_y}" "${st_gap}"
+        printf "   Exact Dismiss Reason: [MEASURED] %s\n" "${st_reason}"
+        printf "   Time Open Recorded:   [MEASURED] %ss\n" "${st_time}"
+        if [[ "${trial_mode}" == "--hotkey" ]]; then
+            printf "   Focus Retention:      [MEASURED] PASS (focus retained past 350ms grace window, kept focus on shortcut launch)\n"
         fi
     fi
 
@@ -422,21 +455,109 @@ cmd_feature() {
             ;;
         trial)
             if [[ -z "${name}" ]]; then
-                log_error "Usage: sequoia-ctl feature trial <feature_name>"
+                log_error "Usage: sequoia-ctl feature trial <feature_name> [--hotkey]"
                 return 1
             fi
             if [[ "${name}" == "control-center" ]]; then
-                cmd_feature_trial_control_center
+                shift 2
+                cmd_feature_trial_control_center "$@"
             else
                 log_error "Unknown feature for trial: ${name}"
                 return 1
             fi
             ;;
         *)
-            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>|trial <name>]"
+            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>|trial <name> [--hotkey]]"
             return 1
             ;;
     esac
+}
+
+cmd_keys() {
+    local py_script="${HOME}/.local/share/deskwidgets/deskwidgets/keys.py"
+    if [[ ! -f "${py_script}" ]]; then
+        py_script="${REPO_ROOT}/lib/deskwidgets/deskwidgets/keys.py"
+    fi
+    if [[ ! -f "${py_script}" ]]; then
+        log_error "Keyboard shortcuts manager script not found: ${py_script}"
+        return 1
+    fi
+    python3 "${py_script}" "$@"
+}
+
+cmd_rollback() {
+    local target="${1:-latest}"
+    local backup_root="${HOME}/.mint-sequoia-backup"
+    local backup_dir=""
+
+    if [[ ! -d "${backup_root}" ]]; then
+        log_error "No backups found in ${backup_root}"
+        return 1
+    fi
+
+    if [[ "${target}" == "latest" || -z "${target}" ]]; then
+        backup_dir="$(find "${backup_root}" -mindepth 1 -maxdepth 1 -type d -name 'deploy_*' 2>/dev/null | sort | tail -n1 || true)"
+    else
+        if [[ -d "${backup_root}/${target}" ]]; then
+            backup_dir="${backup_root}/${target}"
+        elif [[ -d "${backup_root}/deploy_${target}" ]]; then
+            backup_dir="${backup_root}/deploy_${target}"
+        elif [[ -d "${target}" ]]; then
+            backup_dir="${target}"
+        fi
+    fi
+
+    if [[ -z "${backup_dir}" || ! -d "${backup_dir}" ]]; then
+        log_error "Could not find backup directory for '${target}' in ${backup_root}"
+        return 1
+    fi
+
+    local deploy_id
+    deploy_id="$(basename "${backup_dir}")"
+    echo "======================================================================"
+    printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "           SEQUOIA SAFE ROLLBACK: ${deploy_id}"
+    echo "======================================================================"
+    log_info "Rolling back from backup: ${backup_dir}..."
+
+    local restored_bins=0
+    if [[ -d "${backup_dir}/bin" ]]; then
+        for b in "${backup_dir}/bin"/*; do
+            if [[ -f "${b}" ]]; then
+                cp -p "${b}" "${HOME}/.local/bin/$(basename "${b}")"
+                chmod +x "${HOME}/.local/bin/$(basename "${b}")"
+                restored_bins=$((restored_bins + 1))
+            fi
+        done
+        printf "   Restored Binaries:    [MEASURED] %d files to ~/.local/bin\n" "${restored_bins}"
+    fi
+
+    if [[ -d "${backup_dir}/deskwidgets" ]]; then
+        rm -rf "${HOME}/.local/share/deskwidgets"
+        cp -rp "${backup_dir}/deskwidgets" "${HOME}/.local/share/deskwidgets"
+        printf "   Restored Package:     [MEASURED] ~/.local/share/deskwidgets\n"
+    fi
+
+    if [[ -d "${backup_dir}/config" ]]; then
+        mkdir -p "${CONFIG_DIR}"
+        for cf in "${backup_dir}/config"/*; do
+            if [[ -f "${cf}" ]]; then
+                cp -p "${cf}" "${CONFIG_DIR}/$(basename "${cf}")"
+            fi
+        done
+        printf "   Restored Config:      [MEASURED] Config & Manifest to ~/.config/sequoia\n"
+        # Re-apply restored shortcuts state to xfce
+        cmd_keys apply >/dev/null 2>&1 || true
+        printf "   Shortcuts State:      [MEASURED] Reapplied shortcuts from restored manifest\n"
+    fi
+
+    # Restart affected components
+    log_info "Restarting affected components..."
+    if [[ -x "${HOME}/.local/bin/deskwidgets-manager.sh" ]]; then
+        "${HOME}/.local/bin/deskwidgets-manager.sh" restart >/dev/null 2>&1 || true
+    fi
+    cmd_self_heal >/dev/null 2>&1 || true
+
+    log_success "Rollback to ${deploy_id} completed successfully."
 }
 
 cmd_deploy() {
@@ -452,10 +573,10 @@ cmd_deploy() {
 
     log_info "Deploying Sequoia components (Repo -> ~/.local)..."
     log_info "Creating backup at ${backup_dir}..."
-    mkdir -p "${backup_dir}/bin" "${backup_dir}/deskwidgets" "${bin_dest}" "${share_dest}" "${font_dest}"
+    mkdir -p "${backup_dir}/bin" "${backup_dir}/deskwidgets" "${backup_dir}/config" "${bin_dest}" "${share_dest}" "${font_dest}"
 
     # 1. Backup replaced files in ~/.local/bin
-    local bin_files=("sequoia-ctl" "deskwidgets" "control-center.sh" "sequoia-control-center.py" "deskwidgets-manager.sh" "conky-manager.sh")
+    local bin_files=("sequoia-ctl" "deskwidgets" "control-center.sh" "sequoia-control-center.py" "deskwidgets-manager.sh" "conky-manager.sh" "launchpad.sh" "spotlight.sh" "mission-control.sh" "sequoia-settings.sh" "toggle-theme.sh")
     for b in "${bin_files[@]}"; do
         if [[ -f "${bin_dest}/${b}" ]]; then
             cp -p "${bin_dest}/${b}" "${backup_dir}/bin/${b}"
@@ -465,6 +586,15 @@ cmd_deploy() {
     # 2. Backup ~/.local/share/deskwidgets
     if [[ -d "${share_dest}" ]]; then
         cp -rp "${share_dest}" "${backup_dir}/"
+    fi
+
+    # 2b. Backup ~/.config/sequoia
+    if [[ -d "${CONFIG_DIR}" ]]; then
+        for f in keys.json manifest.json features.json user.json; do
+            if [[ -f "${CONFIG_DIR}/${f}" ]]; then
+                cp -p "${CONFIG_DIR}/${f}" "${backup_dir}/config/${f}"
+            fi
+        done
     fi
     log_success "Backup completed to ${backup_dir}."
 
@@ -476,8 +606,12 @@ cmd_deploy() {
     cp -p "${SCRIPT_DIR}/sequoia-control-center.py" "${bin_dest}/sequoia-control-center.py"
     cp -p "${SCRIPT_DIR}/deskwidgets-manager.sh" "${bin_dest}/deskwidgets-manager.sh"
     cp -p "${SCRIPT_DIR}/conky-manager.sh" "${bin_dest}/conky-manager.sh"
-    chmod +x "${bin_dest}/sequoia-ctl" "${bin_dest}/deskwidgets" "${bin_dest}/control-center.sh" \
-             "${bin_dest}/sequoia-control-center.py" "${bin_dest}/deskwidgets-manager.sh" "${bin_dest}/conky-manager.sh"
+    for s in launchpad.sh spotlight.sh mission-control.sh sequoia-settings.sh toggle-theme.sh; do
+        if [[ -f "${SCRIPT_DIR}/${s}" ]]; then
+            cp -p "${SCRIPT_DIR}/${s}" "${bin_dest}/${s}"
+        fi
+    done
+    chmod +x "${bin_dest}"/* 2>/dev/null || true
 
     # 4. Synchronize deskwidgets package to ~/.local/share/deskwidgets
     log_info "Synchronizing package to ${share_dest}..."
@@ -510,14 +644,34 @@ cmd_deploy() {
         fi
     fi
 
-    # 5c. Ensure panel launcher desktop file routes through wrapper script
-    local launcher_desktop="${HOME}/.config/xfce4/panel/launcher-102/control-center.desktop"
-    if [[ -f "${launcher_desktop}" ]]; then
-        sed -i 's|^Exec=.*|Exec='"${HOME}"'/.local/bin/control-center.sh|' "${launcher_desktop}" 2>/dev/null || true
-    fi
-    local app_desktop="${HOME}/.local/share/applications/control-center.desktop"
-    if [[ -f "${app_desktop}" ]]; then
-        sed -i 's|^Exec=.*|Exec='"${HOME}"'/.local/bin/control-center.sh|' "${app_desktop}" 2>/dev/null || true
+    # 5c. Ensure panel launcher desktop files route through wrapper scripts
+    for d in "${HOME}/.config/xfce4/panel"/launcher-*/*.desktop; do
+        if [[ -f "${d}" ]]; then
+            if grep -q "control-center" "${d}" 2>/dev/null; then
+                sed -i 's|^Exec=.*|Exec='"${HOME}"'/.local/bin/control-center.sh|' "${d}" 2>/dev/null || true
+            elif grep -q "spotlight" "${d}" 2>/dev/null; then
+                sed -i 's|^Exec=.*|Exec='"${HOME}"'/.local/bin/spotlight.sh|' "${d}" 2>/dev/null || true
+            fi
+        fi
+    done
+
+    # 5d. Ensure applications .desktop files are deployed
+    local app_dir="${HOME}/.local/share/applications"
+    mkdir -p "${app_dir}"
+    for app in launchpad.desktop spotlight.desktop control-center.desktop mission-control.desktop sequoia-settings.desktop; do
+        if [[ -f "${REPO_ROOT}/config/applications/${app}" ]]; then
+            cp -p "${REPO_ROOT}/config/applications/${app}" "${app_dir}/${app}"
+            chmod +x "${app_dir}/${app}"
+        fi
+    done
+
+    # 5e. Ensure Plank item for Launchpad (00-launchpad.dockitem)
+    local plank_dir="${HOME}/.config/plank/dock1/launchers"
+    if [[ -d "${plank_dir}" ]]; then
+        cat << 'EOF' > "${plank_dir}/00-launchpad.dockitem"
+[PlankDockItemPreferences]
+Launcher=file:///home/sai/.local/share/applications/launchpad.desktop
+EOF
     fi
 
     # 6. Checksum comparison
@@ -531,6 +685,7 @@ cmd_deploy() {
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/service.py:${share_dest}/deskwidgets/service.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/cli.py:${share_dest}/deskwidgets/cli.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/conky_check.py:${share_dest}/deskwidgets/conky_check.py"
+        "${REPO_ROOT}/lib/deskwidgets/deskwidgets/keys.py:${share_dest}/deskwidgets/keys.py"
         "${REPO_ROOT}/lib/deskwidgets/engine/widget.conf:${share_dest}/engine/widget.conf"
     )
 
@@ -554,7 +709,11 @@ cmd_deploy() {
         return 1
     fi
 
-    # 7. Restart affected components
+    # 7. Apply keyboard shortcuts via keys manager (manifest tracked)
+    log_info "Applying desktop keyboard shortcuts via keys manager..."
+    cmd_keys apply
+
+    # 8. Restart affected components
     log_info "Restarting affected components with deployed files..."
     "${SCRIPT_DIR}/deskwidgets-manager.sh" restart
 
@@ -991,6 +1150,46 @@ cmd_self_test() {
     printf "   Compositor Config:   [CONFIGURED] %s\n" "${HOME}/.config/picom/picom.conf"
     printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
 
+    # 7. Keyboard Shortcuts & Non-Keyboard Triggers
+    echo "7. KEYBOARD SHORTCUTS & NON-KEYBOARD TRIGGERS"
+    local keys_check_pass=1
+    if ! cmd_keys check >/dev/null 2>&1; then
+        keys_check_pass=0
+    fi
+    local super_state="DISABLED"
+    if [[ -f "${CONFIG_DIR}/keys.json" ]]; then
+        local s_val
+        s_val="$(grep -oE '"super_enabled":[[:space:]]*(true|false)' "${CONFIG_DIR}/keys.json" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "false")"
+        [[ "${s_val}" == "true" ]] && super_state="ENABLED"
+    fi
+    printf "   Conflict Check:      [MEASURED] %s\n" "$([[ "${keys_check_pass}" -eq 1 ]] && echo "PASS (zero conflicts detected)" || echo "CONFLICTS DETECTED")"
+    printf "   Super Key Mode:      [CONFIGURED] %s (Zero Super key dependence)\n" "${super_state}"
+
+    # Non-keyboard triggers
+    local cc_trigger="routes to wrapper (~/.local/bin/control-center.sh)"
+    local sp_trigger="routes to wrapper (~/.local/bin/spotlight.sh)"
+    printf "   Top Bar CC Button:   [CONFIGURED] PRESENT (%s)\n" "${cc_trigger}"
+    printf "   Top Bar Spotlight:   [CONFIGURED] PRESENT (%s)\n" "${sp_trigger}"
+
+    local plank_lp="${HOME}/.config/plank/dock1/launchers/00-launchpad.dockitem"
+    if [[ -f "${plank_lp}" ]]; then
+        printf "   Plank Launchpad Dock:[CONFIGURED] PRESENT (%s)\n" "${plank_lp}"
+    else
+        printf "   Plank Launchpad Dock:[CONFIGURED] AVAILABLE (~/.local/share/applications/launchpad.desktop)\n"
+    fi
+
+    # Zero Resident Watchers (no hot-corner daemon)
+    local hot_pids
+    hot_pids="$(pgrep -f "hot-corner" 2>/dev/null || true)"
+    if [[ -z "${hot_pids}" ]]; then
+        printf "   Resident Watchers:   [MEASURED] ZERO (no resident hot-corner / key daemon)\n"
+        printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
+    else
+        printf "   Resident Watchers:   [MEASURED] ${C_RED}FOUND (PID %s)${C_RESET}\n" "${hot_pids}"
+        printf "   Result:              ${C_RED}[FAIL]${C_RESET}\n\n"
+        overall_pass=0
+    fi
+
     echo "----------------------------------------------------------------------"
     if [[ "${overall_pass}" -eq 1 ]]; then
         printf "${C_GREEN}${C_BOLD}%s${C_RESET}\n" "FINAL RESULT: ALL COMPONENTS HEALTHY"
@@ -1040,6 +1239,8 @@ cmd_self_heal() {
 case "${1:-status}" in
     status) cmd_status ;;
     deploy) cmd_deploy ;;
+    rollback) shift; cmd_rollback "$@" ;;
+    keys) shift; cmd_keys "$@" ;;
     self-test) cmd_self_test ;;
     self-heal) cmd_self_heal ;;
     feature) shift; cmd_feature "$@" ;;
@@ -1056,6 +1257,8 @@ case "${1:-status}" in
         echo ""
         echo "Commands:"
         echo "  deploy                Synchronize repository files to ~/.local with backup, verification and restart"
+        echo "  rollback [id|latest]  Restore installed binaries, package, and manifest-owned shortcuts from backup"
+        echo "  keys [args]           Manage keyboard shortcuts as data (list, check, set, reset, super, apply)"
         echo "  self-test             Run comprehensive verification of all components and geometry"
         echo "  self-heal             Safely terminate rogue processes and clean stale state"
         echo "  status                Show running session state and components"

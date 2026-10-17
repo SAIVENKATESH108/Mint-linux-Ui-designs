@@ -69,3 +69,7 @@ jobs:
         run: |
           python3 -m unittest tests/test_conky_check.py -v
 
+      - name: Run Keyboard Shortcuts Manager Unit Tests
+        run: |
+          python3 -m unittest tests/test_keys.py -v
+

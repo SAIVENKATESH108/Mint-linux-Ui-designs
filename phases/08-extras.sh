@@ -89,27 +89,14 @@ if [[ -d "${CONFIG_DIR}/xfdashboard" ]]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Bind macOS-Style System Hotkeys
+# 5. Apply Desktop Hotkeys via Central Shortcuts Manager
 # ------------------------------------------------------------------------------
-log_info "Configuring macOS-style hotkeys via xfconf..."
-
-# Mission Control: Super+Up and F3
-set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>Up" "string" "${LOCAL_BIN}/mission-control.sh"
-set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/F3" "string" "${LOCAL_BIN}/mission-control.sh"
-
-# Control Center: Super+C
-set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>c" "string" "${LOCAL_BIN}/control-center.sh"
-
-# Window Control Hotkeys:
-# Super+Q: Close active window (mapped to Alt+F4 equivalent via xdotool or xfwm4)
-if command -v xdotool &>/dev/null; then
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>q" "string" "xdotool getactivewindow windowclose"
+log_info "Applying desktop keyboard shortcuts via sequoia-ctl keys..."
+if [[ -x "${LOCAL_BIN}/sequoia-ctl" ]]; then
+    "${LOCAL_BIN}/sequoia-ctl" keys apply || true
+elif [[ -x "${SCRIPTS_DIR}/sequoia-ctl" ]]; then
+    "${SCRIPTS_DIR}/sequoia-ctl" keys apply || true
 fi
 
-# Set xfwm4 window manager keys
-set_xfconf_prop "xfwm4" "/general/cycle_windows_key" "string" "<Super>Tab"
-set_xfconf_prop "xfwm4" "/general/hide_window_key" "string" "<Super>m"
-set_xfconf_prop "xfwm4" "/general/fullscreen_key" "string" "<Super>f"
-
-log_success "Phase 8 Complete: Mission Control, Control Center, and hotkeys active."
+log_success "Phase 8 Complete: Mission Control and Control Center installed."
 log_info "Undo this phase anytime with: ./phases/08-extras.sh --undo (or ./uninstall.sh -p 8)"

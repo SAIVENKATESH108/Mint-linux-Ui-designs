@@ -751,34 +751,71 @@ class SequoiaControlCenter(Gtk.Window):
         self.move(pos_x, pos_y)
 
     def on_map_event(self, *_):
+        self._map_time = time.time()
         self.position_window()
         self.start_polling()
         self.reset_inactivity()
+        self.present()
+        self.grab_focus()
+        self._record_status(mapped=True, reason="open")
 
     def on_unmap_event(self, *_):
         self.stop_polling()
         self.stop_inactivity()
 
     def on_delete_event(self, _widget, _event):
-        self.hide_to_dismiss()
+        self.hide_to_dismiss(reason="window-close")
         return True
 
     def on_focus_out(self, _widget, _event):
-        self.hide_to_dismiss()
+        elapsed = time.time() - getattr(self, "_map_time", 0)
+        if elapsed < 0.35:
+            # Ignore transient focus loss in first 350ms during map/grab setup
+            return False
+        self.hide_to_dismiss(reason="focus-out")
         return False
 
     def on_key_press(self, _widget, event):
         self.reset_inactivity()
         if event.keyval == Gdk.KEY_Escape:
-            self.hide_to_dismiss()
+            self.hide_to_dismiss(reason="Escape")
             return True
         return False
 
-    def hide_to_dismiss(self):
+    def hide_to_dismiss(self, reason="idle"):
+        self._record_status(mapped=False, reason=reason)
         if self.app:
             self.app.hide_window()
         else:
             self.hide()
+
+    def _record_status(self, mapped: bool, reason: str):
+        try:
+            status_file = os.path.expanduser("~/.cache/sequoia/control-center-status.json")
+            os.makedirs(os.path.dirname(status_file), exist_ok=True)
+            screen = self.get_screen()
+            screen_w = screen.get_width()
+            pos_x, pos_y = self.get_position()
+            size_w, size_h = self.get_size()
+            open_dur = 0.0
+            if hasattr(self, "_map_time"):
+                open_dur = round(time.time() - self._map_time, 2)
+            data = {
+                "pid": os.getpid(),
+                "mapped": mapped,
+                "reason": reason,
+                "time_open_sec": open_dur,
+                "x": pos_x,
+                "y": pos_y,
+                "w": size_w,
+                "h": size_h,
+                "top_bar_gap": pos_y - 28,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            with open(status_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
 
     def reset_inactivity(self):
         """Resets the 30-second inactivity auto-close timer."""
@@ -792,7 +829,7 @@ class SequoiaControlCenter(Gtk.Window):
 
     def _on_inactivity_timeout(self):
         self._inactivity_timer_id = None
-        self.hide_to_dismiss()
+        self.hide_to_dismiss(reason="inactivity")
         return False
 
     def start_polling(self):

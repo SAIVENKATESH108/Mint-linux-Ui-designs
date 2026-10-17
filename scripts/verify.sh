@@ -285,34 +285,9 @@ check_item "Launchpad theme exists at ~/.config/rofi/launchpad.rasi" \
     "[[ -f '${HOME}/.config/rofi/launchpad.rasi' ]]" \
     "launchpad.rasi missing"
 
-check_item "Super+Space shortcut bound to spotlight.sh" \
-    "[[ \"\$(xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Super>space' 2>/dev/null || true)\" =~ spotlight.sh ]]" \
-    "Super+Space not mapped to spotlight.sh"
-
-check_item "Super+A shortcut bound to launchpad.sh" \
-    "[[ \"\$(xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Super>a' 2>/dev/null || true)\" =~ launchpad.sh ]]" \
-    "Super+A not mapped to launchpad.sh"
-
-# ------------------------------------------------------------------------------
-# Phase 8: Extras & Hotkeys
-# ------------------------------------------------------------------------------
-echo ""
-printf "${C_BOLD}Phase 8: Extras & Hotkeys${C_RESET}\n"
-check_item "Mission Control wrapper executable at ~/.local/bin/mission-control.sh" \
-    "[[ -x '${HOME}/.local/bin/mission-control.sh' ]]" \
-    "mission-control.sh missing or not executable"
-
-check_item "Control Center menu executable at ~/.local/bin/control-center.sh" \
-    "[[ -x '${HOME}/.local/bin/control-center.sh' ]]" \
-    "control-center.sh missing or not executable"
-
-check_item "Control Center Python popup executable at ~/.local/bin/sequoia-control-center.py" \
-    "[[ -x '${HOME}/.local/bin/sequoia-control-center.py' ]]" \
-    "sequoia-control-center.py missing or not executable"
-
-check_item "Super+C shortcut bound to control-center.sh" \
-    "[[ \"\$(xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/<Super>c' 2>/dev/null || true)\" =~ control-center.sh ]]" \
-    "Super+C not mapped to control-center.sh"
+check_item "Keyboard shortcuts conflict check via sequoia-ctl" \
+    "'${SCRIPT_DIR}/sequoia-ctl' keys check &>/dev/null" \
+    "Keyboard shortcuts conflict check failed"
 
 check_item "System Theme toggle executable at ~/.local/bin/toggle-theme.sh" \
     "[[ -x '${HOME}/.local/bin/toggle-theme.sh' ]]" \

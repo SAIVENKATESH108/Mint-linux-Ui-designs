@@ -197,28 +197,11 @@ log_success "Desktop applications installed (Launchpad, Spotlight, Control Cente
 
 # ------------------------------------------------------------------------------
 # 9. Bind macOS-Style Global Keyboard Shortcuts
-# ------------------------------------------------------------------------------
-log_info "Step 9: Binding macOS-style global keyboard shortcuts..."
-KB_CHANNEL="xfce4-keyboard-shortcuts"
-
-if command -v xfconf-query &>/dev/null; then
-    # Spotlight: Super+Space
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>space" "string" "${HOME}/.local/bin/spotlight.sh"
-
-    # Launchpad: Super+A and F4
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>a" "string" "${HOME}/.local/bin/launchpad.sh"
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/F4" "string" "${HOME}/.local/bin/launchpad.sh"
-
-    # Control Center: Super+C
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>c" "string" "${HOME}/.local/bin/control-center.sh"
-
-    # Mission Control: Super+Up and F3
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>Up" "string" "${HOME}/.local/bin/mission-control.sh"
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/F3" "string" "${HOME}/.local/bin/mission-control.sh"
-
-    # Sequoia Settings: Super+comma (Cmd+, macOS standard)
-    set_xfconf_prop "${KB_CHANNEL}" "/commands/custom/<Super>comma" "string" "${HOME}/.local/bin/sequoia-settings.sh"
-    log_success "Keyboard shortcuts active: Super+Space (Spotlight), Super+A (Launchpad), Super+C (Control Center), Super+Up (Mission Control)."
+log_info "Step 9: Applying desktop keyboard shortcuts via sequoia-ctl keys..."
+if [[ -x "${SCRIPT_DIR}/sequoia-ctl" ]]; then
+    "${SCRIPT_DIR}/sequoia-ctl" keys apply || true
+elif [[ -x "${HOME}/.local/bin/sequoia-ctl" ]]; then
+    "${HOME}/.local/bin/sequoia-ctl" keys apply || true
 fi
 
 # ------------------------------------------------------------------------------

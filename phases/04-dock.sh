@@ -217,6 +217,10 @@ if [[ "${DRY_RUN}" -eq 0 ]]; then
     rm -f "${PLANK_LAUNCHERS_DIR}/"*.dockitem
 fi
 
+# 00. Launchpad (macOS-style first dock item)
+deploy_dockitem "00" "launchpad" \
+    "launchpad.desktop"
+
 # 01. Files: Thunar / Nemo / Nautilus
 deploy_dockitem "01" "files" \
     "thunar.desktop" \
