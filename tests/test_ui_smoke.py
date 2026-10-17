@@ -171,10 +171,11 @@ class TestUISmoke(unittest.TestCase):
         # Assert process terminates within 2.5s
         proc_exited = False
         try:
-            proc.wait(timeout=2.5)
+            proc.communicate(timeout=2.5)
             proc_exited = True
         except subprocess.TimeoutExpired:
             proc.kill()
+            proc.communicate()
 
         self.assertTrue(proc_exited, "Control Center process did not exit within 2.5s of Escape key")
 

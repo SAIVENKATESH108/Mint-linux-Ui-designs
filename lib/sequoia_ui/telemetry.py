@@ -69,11 +69,13 @@ def record_telemetry(
         "reason": reason,
         "time_open_sec": open_dur,
         "time_to_first_paint_ms": first_paint_ms,
+        "first_paint_ms": first_paint_ms,
         "rss_mb": get_process_rss_mb(),
         "x": pos_x,
         "y": pos_y,
         "w": size_w,
         "h": size_h,
+        "geometry": {"x": pos_x, "y": pos_y, "w": size_w, "h": size_h},
         "top_bar_gap": top_bar_gap,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -87,3 +89,36 @@ def record_telemetry(
         pass
 
     return data
+
+
+class TelemetryRecorder:
+    """Helper class to record lifecycle telemetry for an on-demand overlay window."""
+
+    def __init__(self, app_name: str):
+        self.app_name = app_name
+        self.map_time = time.time()
+        self.paint_time = time.time()
+        self.pos = (0, 0)
+        self.size = (0, 0)
+        self.reason = "open"
+
+    def record_paint(self):
+        self.paint_time = time.time()
+
+    def set_geometry(self, pos: Tuple[int, int], size: Tuple[int, int]):
+        self.pos = pos
+        self.size = size
+
+    def finish(self, reason: str = "close", extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        self.reason = reason
+        return record_telemetry(
+            app_name=self.app_name,
+            mapped=False,
+            reason=reason,
+            map_time=self.map_time,
+            paint_time=self.paint_time,
+            pos=self.pos,
+            size=self.size,
+            extra=extra,
+        )
+

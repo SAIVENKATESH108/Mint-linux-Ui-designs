@@ -10,7 +10,7 @@ Features:
 """
 
 import time
-from typing import Optional
+from typing import Optional, Any
 
 try:
     import gi
@@ -27,14 +27,25 @@ from .telemetry import record_telemetry
 
 
 class BaseOverlayWindow(Gtk.Window if HAS_GTK else object):
-    def __init__(self, app_name: str, app=None, title: str = "Sequoia Overlay"):
+    def __init__(
+        self,
+        app_name: str = "sequoia-overlay",
+        app=None,
+        title: str = "Sequoia Overlay",
+        width: int = 400,
+        height: int = 300,
+        telemetry: Optional[Any] = None,
+        **kwargs
+    ):
         if not HAS_GTK:
             raise RuntimeError("GTK 3.0 is required to instantiate BaseOverlayWindow")
 
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.app_name = app_name
         self.app = app
+        self.telemetry = telemetry
         self.set_title(title)
+        self.set_default_size(width, height)
 
         # macOS style overlay properties
         self.set_decorated(False)
@@ -115,9 +126,16 @@ class BaseOverlayWindow(Gtk.Window if HAS_GTK else object):
         self.dismiss(reason="inactivity")
         return False
 
+    def on_dismissed(self, reason: str):
+        pass
+
     def dismiss(self, reason: str = "idle"):
         self.stop_inactivity()
         self._emit_telemetry(mapped=False, reason=reason)
+        try:
+            self.on_dismissed(reason)
+        except Exception:
+            pass
 
         def _after_fade():
             if self.app:
@@ -146,6 +164,10 @@ class BaseOverlayWindow(Gtk.Window if HAS_GTK else object):
         try:
             pos = self.get_position()
             size = self.get_size()
+            if self.telemetry:
+                self.telemetry.set_geometry(pos, size)
+                if mapped:
+                    self.telemetry.record_paint()
             record_telemetry(
                 app_name=self.app_name,
                 mapped=mapped,

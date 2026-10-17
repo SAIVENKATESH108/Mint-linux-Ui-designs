@@ -13,7 +13,7 @@ Provides:
 
 from .tokens import get_design_tokens, DesignTokens
 from .css import validate_gtk3_css, load_css, MINIMAL_FALLBACK_CSS
-from .telemetry import record_telemetry, get_process_rss_mb
+from .telemetry import record_telemetry, get_process_rss_mb, TelemetryRecorder
 from .icons import IconCache
 from .animation import animate_window_fade_in, animate_window_fade_out
 from .threads import WorkerPool, CancellationToken
@@ -28,6 +28,7 @@ __all__ = [
     "MINIMAL_FALLBACK_CSS",
     "record_telemetry",
     "get_process_rss_mb",
+    "TelemetryRecorder",
     "IconCache",
     "animate_window_fade_in",
     "animate_window_fade_out",
