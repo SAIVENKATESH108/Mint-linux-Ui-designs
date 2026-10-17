@@ -66,7 +66,10 @@ class WorkerPool:
     def _post_to_gtk(self, fn: Callable, arg: Any):
         try:
             from gi.repository import GLib
-            GLib.idle_add(fn, arg)
+            def _idle_cb():
+                fn(arg)
+                return False
+            GLib.idle_add(_idle_cb)
         except Exception:
             fn(arg)
 

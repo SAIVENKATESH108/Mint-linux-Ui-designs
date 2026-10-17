@@ -82,7 +82,18 @@ class TestSequoiaUI(unittest.TestCase):
 
         # Run with strict 0.05s timeout
         pool.submit(slow_task, timeout=0.05, callback=on_done, on_error=on_err)
-        time.sleep(0.2)
+        start_wait = time.time()
+        while time.time() - start_wait < 0.6:
+            try:
+                from gi.repository import GLib
+                ctx = GLib.MainContext.default()
+                while ctx.pending():
+                    ctx.iteration(False)
+            except Exception:
+                pass
+            if error_event[0] is not None:
+                break
+            time.sleep(0.02)
 
         self.assertFalse(done_event[0])
         self.assertIsNotNone(error_event[0])
@@ -102,7 +113,16 @@ class TestSequoiaUI(unittest.TestCase):
             done_event[0] = True
 
         pool.submit(dummy_task, callback=on_done, cancel_token=token)
-        time.sleep(0.1)
+        start_wait = time.time()
+        while time.time() - start_wait < 0.3:
+            try:
+                from gi.repository import GLib
+                ctx = GLib.MainContext.default()
+                while ctx.pending():
+                    ctx.iteration(False)
+            except Exception:
+                pass
+            time.sleep(0.02)
 
         self.assertFalse(done_event[0])
         pool.shutdown(wait=False)
