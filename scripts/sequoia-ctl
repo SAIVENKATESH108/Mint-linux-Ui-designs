@@ -344,6 +344,14 @@ cmd_feature_trial_control_center() {
     echo "   • A hard watchdog will terminate PID ${trial_pid} at exactly 20 seconds."
     echo ""
 
+    if [[ "${trial_mode}" == "--automated" ]]; then
+        log_info "Automated trial mode active: waiting 2.0s for first paint, then testing Escape dismissal..."
+        sleep 2
+        if command -v xdotool &>/dev/null; then
+            xdotool key Escape 2>/dev/null || true
+        fi
+    fi
+
     local elapsed=0
     local exited_early=0
     while (( elapsed < 20 )); do
@@ -374,6 +382,7 @@ cmd_feature_trial_control_center() {
     fi
 
     # Read measured evidence from control-center-status.json
+    local trial_success=1
     if [[ -f "${status_file}" ]]; then
         local st_reason st_time st_x st_y st_w st_h st_gap
         st_reason="$(grep -oE '"reason":[[:space:]]*"[^"]+"' "${status_file}" 2>/dev/null | cut -d'"' -f4 || echo "unspecified")"
@@ -391,11 +400,17 @@ cmd_feature_trial_control_center() {
         if [[ "${trial_mode}" == "--hotkey" ]]; then
             printf "   Focus Retention:      [MEASURED] PASS (focus retained past 350ms grace window, kept focus on shortcut launch)\n"
         fi
+        if (( st_w < 100 || st_h < 100 )); then
+            trial_success=0
+        fi
+    else
+        trial_success=0
     fi
 
     # Verify process is gone
     if kill -0 "${trial_pid}" 2>/dev/null; then
         printf "   Process State:        [MEASURED] ${C_RED}STILL RUNNING${C_RESET}\n"
+        trial_success=0
     else
         printf "   Process State:        [MEASURED] ${C_GREEN}TERMINATED (0 processes remain)${C_RESET}\n"
     fi
@@ -407,7 +422,70 @@ cmd_feature_trial_control_center() {
     fi
     printf "   Feature Gate Check:   [CONFIGURED] %s (unchanged: %s)\n" "${final_flag}" "$([[ "${final_flag}" == "${initial_flag}" ]] && echo "PASS" || echo "FAIL")"
     echo ""
-    log_success "Control Center trial completed safely. Desktop environment and configuration untouched."
+    if [[ "${trial_success}" -eq 1 ]]; then
+        log_success "Control Center trial completed safely. Desktop environment and configuration untouched."
+        return 0
+    else
+        log_error "Control Center trial detected anomalies."
+        return 1
+    fi
+}
+
+cmd_feature_promote() {
+    init_features
+    local feature="${1:-control-center}"
+    echo "======================================================================"
+    printf "${C_CYAN}${C_BOLD}%s${C_RESET}\n" "          SEQUOIA FEATURE PROMOTION PIPELINE: ${feature}"
+    echo "======================================================================"
+    log_info "Initiating automated trial and validation for feature '${feature}'..."
+
+    if [[ "${feature}" != "control-center" ]]; then
+        log_error "Unknown feature for promotion: ${feature}"
+        return 1
+    fi
+
+    # Step 1: Run automated trial
+    log_info "Step 1: Running isolated trial with measured telemetry..."
+    if ! cmd_feature_trial_control_center --automated; then
+        log_error "Trial failed or abnormal geometry detected. Promotion aborted."
+        return 1
+    fi
+
+    local status_file="${HOME}/.cache/sequoia/control-center-status.json"
+    local st_reason st_time st_w st_h st_gap
+    st_reason="$(grep -oE '"reason":[[:space:]]*"[^"]+"' "${status_file}" 2>/dev/null | cut -d'"' -f4 || echo "unspecified")"
+    st_time="$(grep -oE '"time_open_sec":[[:space:]]*[0-9.]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+    st_w="$(grep -oE '"w":[[:space:]]*[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+    st_h="$(grep -oE '"h":[[:space:]]*[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+    st_gap="$(grep -oE '"top_bar_gap":[[:space:]]*-?[0-9]+' "${status_file}" 2>/dev/null | awk -F: '{print $2}' | tr -d ' ' || echo "0")"
+
+    # Step 2: Temporarily enable feature gate
+    log_info "Step 2: Activating feature gate in ${FEATURES_FILE}..."
+    echo '{"control_center": true}' > "${FEATURES_FILE}"
+
+    # Step 3: Run comprehensive post-enable self-test
+    log_info "Step 3: Running post-enable system self-test..."
+    local post_test_log="/tmp/sequoia_post_enable_test.log"
+    if cmd_self_test >"${post_test_log}" 2>&1; then
+        echo "======================================================================"
+        printf "${C_GREEN}${C_BOLD}%s${C_RESET}\n" "   ✔ FEATURE PROMOTED: '${feature}' is now ENABLED"
+        echo "======================================================================"
+        printf "   Trial Evidence:       [MEASURED] Geometry %sx%s, Gap %spx, Dismissed on '%s' after %ss\n" \
+               "${st_w}" "${st_h}" "${st_gap}" "${st_reason}" "${st_time}"
+        printf "   Self-Test Result:     [MEASURED] All components healthy post-enable\n"
+        printf "   Feature Gate State:   [CONFIGURED] {\"control_center\": true}\n\n"
+        log_success "Promotion complete. Feature active and verified safe."
+        return 0
+    else
+        echo "======================================================================"
+        printf "${C_RED}${C_BOLD}%s${C_RESET}\n" "   ✖ PROMOTION FAILED: Post-enable self-test detected failures"
+        echo "======================================================================"
+        log_warn "Reverting feature gate back to false..."
+        echo '{"control_center": false}' > "${FEATURES_FILE}"
+        printf "   Feature Gate State:   [CONFIGURED] Reverted to {\"control_center\": false}\n"
+        printf "   Self-Test Failure:    [MEASURED] See %s for failure details\n\n" "${post_test_log}"
+        return 1
+    fi
 }
 
 cmd_feature() {
@@ -455,7 +533,7 @@ cmd_feature() {
             ;;
         trial)
             if [[ -z "${name}" ]]; then
-                log_error "Usage: sequoia-ctl feature trial <feature_name> [--hotkey]"
+                log_error "Usage: sequoia-ctl feature trial <feature_name> [--hotkey|--automated]"
                 return 1
             fi
             if [[ "${name}" == "control-center" ]]; then
@@ -466,8 +544,12 @@ cmd_feature() {
                 return 1
             fi
             ;;
+        promote)
+            shift
+            cmd_feature_promote "$@"
+            ;;
         *)
-            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>|trial <name> [--hotkey]]"
+            echo "Usage: sequoia-ctl feature [list|enable <name>|disable <name>|trial <name> [--hotkey|--automated]|promote [name]]"
             return 1
             ;;
     esac
@@ -615,12 +697,15 @@ cmd_deploy() {
 
     # 4. Synchronize deskwidgets package to ~/.local/share/deskwidgets
     log_info "Synchronizing package to ${share_dest}..."
-    rm -rf "${share_dest}/deskwidgets" "${share_dest}/engine" "${share_dest}/widgets" "${share_dest}/fonts" "${share_dest}/data"
+    rm -rf "${share_dest}/deskwidgets" "${share_dest}/engine" "${share_dest}/widgets" "${share_dest}/fonts" "${share_dest}/data" "${share_dest}/sequoia_ui"
     cp -r "${REPO_ROOT}/lib/deskwidgets/deskwidgets" "${share_dest}/"
     cp -r "${REPO_ROOT}/lib/deskwidgets/engine" "${share_dest}/"
     cp -r "${REPO_ROOT}/lib/deskwidgets/widgets" "${share_dest}/"
     cp -r "${REPO_ROOT}/lib/deskwidgets/fonts" "${share_dest}/"
     cp -r "${REPO_ROOT}/lib/deskwidgets/data" "${share_dest}/"
+    if [[ -d "${REPO_ROOT}/lib/sequoia_ui" ]]; then
+        cp -r "${REPO_ROOT}/lib/sequoia_ui" "${share_dest}/"
+    fi
     find "${share_dest}" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
 
     # 5. Fonts
@@ -665,13 +750,32 @@ cmd_deploy() {
         fi
     done
 
-    # 5e. Ensure Plank item for Launchpad (00-launchpad.dockitem)
+    # 5e. Ensure Plank item for Launchpad (00-launchpad.dockitem and dconf)
     local plank_dir="${HOME}/.config/plank/dock1/launchers"
     if [[ -d "${plank_dir}" ]]; then
         cat << 'EOF' > "${plank_dir}/00-launchpad.dockitem"
 [PlankDockItemPreferences]
 Launcher=file:///home/sai/.local/share/applications/launchpad.desktop
 EOF
+    fi
+    if command -v dconf &>/dev/null; then
+        local current_items
+        current_items="$(dconf read /net/launchpad/plank/docks/dock1/dock-items 2>/dev/null || echo "")"
+        if [[ -n "${current_items}" ]]; then
+            if [[ "${current_items}" != *"00-launchpad.dockitem"* ]]; then
+                local new_items
+                if [[ "${current_items}" == "['"* ]]; then
+                    new_items="['00-launchpad.dockitem', ${current_items:2}"
+                elif [[ "${current_items}" == "[]" ]]; then
+                    new_items="['00-launchpad.dockitem']"
+                else
+                    new_items="['00-launchpad.dockitem']"
+                fi
+                dconf write /net/launchpad/plank/docks/dock1/dock-items "${new_items}" 2>/dev/null || true
+            fi
+        else
+            dconf write /net/launchpad/plank/docks/dock1/dock-items "['00-launchpad.dockitem']" 2>/dev/null || true
+        fi
     fi
 
     # 6. Checksum comparison
@@ -687,6 +791,11 @@ EOF
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/conky_check.py:${share_dest}/deskwidgets/conky_check.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/keys.py:${share_dest}/deskwidgets/keys.py"
         "${REPO_ROOT}/lib/deskwidgets/engine/widget.conf:${share_dest}/engine/widget.conf"
+        "${REPO_ROOT}/lib/sequoia_ui/__init__.py:${share_dest}/sequoia_ui/__init__.py"
+        "${REPO_ROOT}/lib/sequoia_ui/css.py:${share_dest}/sequoia_ui/css.py"
+        "${REPO_ROOT}/lib/sequoia_ui/tokens.py:${share_dest}/sequoia_ui/tokens.py"
+        "${REPO_ROOT}/lib/sequoia_ui/window.py:${share_dest}/sequoia_ui/window.py"
+        "${REPO_ROOT}/lib/sequoia_ui/telemetry.py:${share_dest}/sequoia_ui/telemetry.py"
     )
 
     local mismatches=0
@@ -770,6 +879,21 @@ cmd_self_test() {
         else
             printf "   Window Mapped:       [MEASURED] UNKNOWN\n"
         fi
+
+        if command -v dconf &>/dev/null; then
+            local dconf_items
+            dconf_items="$(dconf read /net/launchpad/plank/docks/dock1/dock-items 2>/dev/null || echo "")"
+            if [[ -n "${dconf_items}" ]]; then
+                printf "   Dconf Dock Items:    [MEASURED] %s\n" "${dconf_items}"
+                if [[ "${dconf_items}" == *"00-launchpad.dockitem"* ]]; then
+                    printf "   Launchpad Pinned:    [MEASURED] ${C_GREEN}YES (00-launchpad.dockitem listed in dconf)${C_RESET}\n"
+                else
+                    printf "   Launchpad Pinned:    [MEASURED] ${C_YELLOW}NO (missing from dconf dock-items)${C_RESET}\n"
+                fi
+            else
+                printf "   Dconf Dock Items:    [MEASURED] NONE / UNCONFIGURED\n"
+            fi
+        fi
         printf "   Result:              ${C_GREEN}[PASS]${C_RESET}\n\n"
     else
         printf "   Process:             [MEASURED] ${C_RED}NOT RUNNING${C_RESET}\n"
@@ -823,6 +947,9 @@ cmd_self_test() {
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/cli.py:${inst_share}/cli.py"
         "${REPO_ROOT}/lib/deskwidgets/deskwidgets/conky_check.py:${inst_share}/conky_check.py"
         "${REPO_ROOT}/lib/deskwidgets/engine/widget.conf:${HOME}/.local/share/deskwidgets/engine/widget.conf"
+        "${REPO_ROOT}/lib/sequoia_ui/__init__.py:${HOME}/.local/share/deskwidgets/sequoia_ui/__init__.py"
+        "${REPO_ROOT}/lib/sequoia_ui/css.py:${HOME}/.local/share/deskwidgets/sequoia_ui/css.py"
+        "${REPO_ROOT}/lib/sequoia_ui/tokens.py:${HOME}/.local/share/deskwidgets/sequoia_ui/tokens.py"
     )
 
     for cf in "${check_files[@]}"; do
@@ -1164,6 +1291,19 @@ cmd_self_test() {
     fi
     printf "   Conflict Check:      [MEASURED] %s\n" "$([[ "${keys_check_pass}" -eq 1 ]] && echo "PASS (zero conflicts detected)" || echo "CONFLICTS DETECTED")"
     printf "   Super Key Mode:      [CONFIGURED] %s (Zero Super key dependence)\n" "${super_state}"
+
+    # Legacy bindings scan
+    local legacy_out
+    legacy_out="$(cmd_keys scan-legacy 2>/dev/null || echo "")"
+    if [[ -n "${legacy_out}" ]]; then
+        local leg_count
+        leg_count="$(echo "${legacy_out}" | grep -c "\[LEGACY\]" || echo 0)"
+        if (( leg_count > 0 )); then
+            printf "   Legacy Shortcuts:    [MEASURED] ${C_YELLOW}%d unmanaged binding(s) detected (run 'sequoia-ctl keys adopt-legacy')${C_RESET}\n" "${leg_count}"
+        else
+            printf "   Legacy Shortcuts:    [MEASURED] ${C_GREEN}0 unmanaged legacy bindings${C_RESET}\n"
+        fi
+    fi
 
     # Non-keyboard triggers
     local cc_trigger="routes to wrapper (~/.local/bin/control-center.sh)"

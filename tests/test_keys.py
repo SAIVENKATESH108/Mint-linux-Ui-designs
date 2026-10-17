@@ -37,6 +37,18 @@ class TestKeysManager(unittest.TestCase):
             if secondary:
                 self.assertNotIn("<Super>", secondary, f"Action '{action}' secondary shortcut uses Super: {secondary}")
         self.assertFalse(DEFAULT_KEYS.get("super_enabled", False))
+        self.assertFalse(DEFAULT_KEYS.get("fn_enabled", False))
+
+        # Assert no F1 in any default binding
+        for action, info in bindings.items():
+            self.assertNotEqual(info.get("primary"), "F1", f"Action {action} uses F1")
+            self.assertNotEqual(info.get("secondary"), "F1", f"Action {action} uses F1")
+
+        # Assert F3 and F4 are optional (fn field) and primary is Ctrl+Alt
+        self.assertEqual(bindings["launchpad"]["primary"], "<Primary><Alt>a")
+        self.assertEqual(bindings["launchpad"]["fn"], "F4")
+        self.assertEqual(bindings["mission_control"]["primary"], "<Primary><Alt>m")
+        self.assertEqual(bindings["mission_control"]["fn"], "F3")
 
     def test_accelerator_syntax_validation(self):
         # Valid accelerators

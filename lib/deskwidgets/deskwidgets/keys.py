@@ -25,15 +25,17 @@ KEYS_FILE = os.path.join(CONFIG_DIR, "keys.json")
 MANIFEST_FILE = os.path.join(CONFIG_DIR, "manifest.json")
 BACKUP_DIR = os.path.expanduser("~/.mint-sequoia-backup")
 
-# Default action configuration (Zero Super key dependence)
+# Default action configuration (Zero Super key dependence, no app-key collisions)
 DEFAULT_KEYS = {
     "super_enabled": False,
+    "fn_enabled": False,
     "bindings": {
         "control_center": {
             "name": "Control Center",
             "command": os.path.expanduser("~/.local/bin/control-center.sh"),
             "primary": "<Primary><Alt>c",
             "secondary": None,
+            "fn": None,
             "super": "<Super>c",
             "description": "Quick settings, brightness, volume, media",
         },
@@ -42,22 +44,25 @@ DEFAULT_KEYS = {
             "command": os.path.expanduser("~/.local/bin/spotlight.sh"),
             "primary": "<Primary><Alt>space",
             "secondary": None,
+            "fn": None,
             "super": "<Super>space",
             "description": "Global application & document search",
         },
         "launchpad": {
             "name": "Launchpad",
             "command": os.path.expanduser("~/.local/bin/launchpad.sh"),
-            "primary": "F4",
-            "secondary": "<Primary><Alt>a",
+            "primary": "<Primary><Alt>a",
+            "secondary": None,
+            "fn": "F4",
             "super": "<Super>a",
             "description": "Full-screen app grid launcher",
         },
         "mission_control": {
             "name": "Mission Control",
             "command": os.path.expanduser("~/.local/bin/mission-control.sh"),
-            "primary": "F3",
-            "secondary": "<Primary><Alt>m",
+            "primary": "<Primary><Alt>m",
+            "secondary": None,
+            "fn": "F3",
             "super": "<Super>Up",
             "description": "Window overview & workspaces",
         },
@@ -66,6 +71,7 @@ DEFAULT_KEYS = {
             "command": os.path.expanduser("~/.local/bin/sequoia-settings.sh"),
             "primary": "<Primary><Alt>s",
             "secondary": "<Primary><Alt>comma",
+            "fn": None,
             "super": "<Super>comma",
             "description": "Sequoia desktop preferences",
         },
@@ -74,6 +80,7 @@ DEFAULT_KEYS = {
             "command": os.path.expanduser("~/.local/bin/toggle-theme.sh"),
             "primary": "<Primary><Alt>n",
             "secondary": None,
+            "fn": None,
             "super": "<Super>t",
             "description": "Switch between Dark Obsidian & Light Frosted",
         },
@@ -81,7 +88,8 @@ DEFAULT_KEYS = {
             "name": "Shortcuts Help",
             "command": os.path.expanduser("~/.local/bin/sequoia-ctl keys help"),
             "primary": "<Primary><Alt>h",
-            "secondary": "F1",
+            "secondary": None,
+            "fn": None,
             "super": "<Super>h",
             "description": "Display keyboard shortcuts cheat sheet",
         },
@@ -275,6 +283,7 @@ def detect_conflicts(cfg: dict, xfconf_map: dict = None) -> list:
     records = []
     bindings = cfg.get("bindings", {})
     super_enabled = cfg.get("super_enabled", False)
+    fn_enabled = cfg.get("fn_enabled", False)
 
     for action_key, info in bindings.items():
         candidates = []
@@ -282,6 +291,8 @@ def detect_conflicts(cfg: dict, xfconf_map: dict = None) -> list:
             candidates.append((info["primary"], "primary"))
         if info.get("secondary"):
             candidates.append((info["secondary"], "secondary"))
+        if fn_enabled and info.get("fn"):
+            candidates.append((info["fn"], "fn"))
         if super_enabled and info.get("super"):
             candidates.append((info["super"], "super"))
 
@@ -319,6 +330,133 @@ def detect_conflicts(cfg: dict, xfconf_map: dict = None) -> list:
     return records
 
 
+OUR_SCRIPTS = [
+    "control-center.sh",
+    "spotlight.sh",
+    "launchpad.sh",
+    "mission-control.sh",
+    "sequoia-settings.sh",
+    "toggle-theme.sh",
+    "sequoia-control-center.py",
+]
+
+
+def scan_script_bindings() -> list:
+    """
+    MEASURED scan of xfce4-keyboard-shortcuts for every binding whose command
+    points at one of our scripts. Reports each as OWNED (in manifest) or LEGACY.
+    """
+    manifest = load_manifest()
+    owned_props = set(manifest.get("installed_shortcuts", []))
+    results = []
+
+    if not shutil.which("xfconf-query"):
+        return results
+
+    try:
+        res = subprocess.run(
+            ["xfconf-query", "-c", "xfce4-keyboard-shortcuts", "-l"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+            timeout=3.0,
+        )
+        for prop in res.stdout.splitlines():
+            prop = prop.strip()
+            if not prop or not (prop.startswith("/commands/custom/") or prop.startswith("/xfwm4/custom/")):
+                continue
+            cmd_res = subprocess.run(
+                ["xfconf-query", "-c", "xfce4-keyboard-shortcuts", "-p", prop],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                check=False,
+                timeout=2.0,
+            )
+            cmd = cmd_res.stdout.strip()
+            # Check if cmd targets any of our scripts
+            matches_our_script = any(s in cmd for s in OUR_SCRIPTS)
+            if matches_our_script:
+                accel = prop.split("/")[-1]
+                status = "OWNED" if prop in owned_props else "LEGACY"
+                results.append({
+                    "property": prop,
+                    "accel": accel,
+                    "command": cmd,
+                    "status": status,
+                })
+    except Exception:
+        pass
+    return results
+
+
+def cmd_scan_legacy():
+    records = scan_script_bindings()
+    print("======================================================================")
+    print("      MEASURED SCAN OF SEQUOIA SHORTCUTS IN XFCONF CHANNELS")
+    print("======================================================================")
+    if not records:
+        print("Result: [MEASURED] Zero shortcuts found pointing to Sequoia scripts.")
+        return 0
+
+    fmt = " %-10s | %-20s | %-40s"
+    print(fmt % ("STATUS", "ACCELERATOR", "COMMAND"))
+    print("-" * 75)
+    legacy_count = 0
+    for r in records:
+        tag = f"[\033[32mOWNED\033[0m]" if r["status"] == "OWNED" else f"[\033[33mLEGACY\033[0m]"
+        print(f" {tag:<19} | {r['accel']:<20} | {r['command']}")
+        if r["status"] == "LEGACY":
+            legacy_count += 1
+    print("-" * 75)
+    print(f"Result: [MEASURED] Total: {len(records)} found ({legacy_count} LEGACY, {len(records) - legacy_count} OWNED).")
+    if legacy_count > 0:
+        print("Note: Run 'sequoia-ctl keys adopt-legacy' to safely adopt and remove stale legacy shortcuts.")
+    return 0
+
+
+def cmd_adopt_legacy():
+    records = scan_script_bindings()
+    legacy = [r for r in records if r["status"] == "LEGACY"]
+    print("======================================================================")
+    print("                  ADOPTING LEGACY KEYBOARD SHORTCUTS")
+    print("======================================================================")
+    if not legacy:
+        print("Result: [MEASURED] Zero legacy bindings detected. Nothing to adopt.")
+        return 0
+
+    manifest = load_manifest()
+    adopted_list = manifest.get("adopted_legacy", [])
+
+    # Backup before deletion
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    backup_file = os.path.join(BACKUP_DIR, f"legacy_keys_{ts}.json")
+    with open(backup_file, "w", encoding="utf-8") as bf:
+        json.dump(legacy, bf, indent=2)
+    print(f"Backed up {len(legacy)} legacy binding(s) to {backup_file}")
+
+    removed_count = 0
+    for r in legacy:
+        prop = r["property"]
+        res = subprocess.run(
+            ["xfconf-query", "-c", "xfce4-keyboard-shortcuts", "-p", prop, "-r", "-R"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if res.returncode == 0:
+            adopted_list.append(r)
+            removed_count += 1
+            print(f" [ADOPTED & REMOVED] {r['accel']} -> {r['command']}")
+
+    manifest["adopted_legacy"] = adopted_list
+    save_manifest(manifest)
+    print(f"Result: [MEASURED] Successfully adopted and removed {removed_count} legacy shortcut(s).")
+    return 0
+
+
 def apply_keys(cfg: dict, force: bool = False) -> tuple[bool, str]:
     """
     Applies keys from cfg to xfce4-keyboard-shortcuts.
@@ -338,6 +476,10 @@ def apply_keys(cfg: dict, force: bool = False) -> tuple[bool, str]:
                 ok, err = validate_accelerator(v)
                 if not ok:
                     return False, f"Syntax error in {act} ({field}): {err}"
+        if cfg.get("fn_enabled", False) and info.get("fn"):
+            ok, err = validate_accelerator(info["fn"])
+            if not ok:
+                return False, f"Syntax error in {act} (fn): {err}"
         if cfg.get("super_enabled", False) and info.get("super"):
             ok, err = validate_accelerator(info["super"])
             if not ok:
@@ -365,6 +507,7 @@ def apply_keys(cfg: dict, force: bool = False) -> tuple[bool, str]:
     new_installed = []
     bindings = cfg.get("bindings", {})
     super_enabled = cfg.get("super_enabled", False)
+    fn_enabled = cfg.get("fn_enabled", False)
 
     for act, info in bindings.items():
         cmd = info["command"]
@@ -373,6 +516,8 @@ def apply_keys(cfg: dict, force: bool = False) -> tuple[bool, str]:
             accels.append(info["primary"])
         if info.get("secondary"):
             accels.append(info["secondary"])
+        if fn_enabled and info.get("fn"):
+            accels.append(info["fn"])
         if super_enabled and info.get("super"):
             accels.append(info["super"])
 
@@ -398,18 +543,19 @@ def cmd_list(cfg: dict):
     print("======================================================================")
     print("                  SEQUOIA DESKTOP KEYBOARD SHORTCUTS")
     print("======================================================================")
-    print(f"Super Key Mode: [CONFIGURED] {'ENABLED (optional)' if cfg.get('super_enabled') else 'DISABLED (Default: No Super key required)'}")
-    print(f"Keys File:      [CONFIGURED] {KEYS_FILE}")
-    print(f"Manifest:       [CONFIGURED] {MANIFEST_FILE}")
+    print(f"Super Key Mode:   [CONFIGURED] {'ENABLED (optional)' if cfg.get('super_enabled') else 'DISABLED (Default: No Super key required)'}")
+    print(f"Function Key Mode:[CONFIGURED] {'ENABLED (optional F3/F4)' if cfg.get('fn_enabled') else 'DISABLED (Default: No F3/F4 collision)'}")
+    print(f"Keys File:        [CONFIGURED] {KEYS_FILE}")
+    print(f"Manifest:         [CONFIGURED] {MANIFEST_FILE}")
     print("----------------------------------------------------------------------")
-    printf_fmt = "%-18s | %-16s | %-16s | %-10s | %s\n"
-    print(printf_fmt % ("ACTION", "PRIMARY KEY", "SECONDARY KEY", "SUPER KEY", "DESCRIPTION"))
-    print("-" * 70)
+    printf_fmt = "%-18s | %-16s | %-10s | %-10s | %s\n"
+    print(printf_fmt % ("ACTION", "PRIMARY KEY", "FN KEY", "SUPER KEY", "DESCRIPTION"))
+    print("-" * 75)
     for act, info in cfg.get("bindings", {}).items():
         p = info.get("primary") or "(none)"
-        s = info.get("secondary") or "(none)"
+        fn = info.get("fn") if cfg.get("fn_enabled") else f"({info.get('fn')}) [off]"
         sup = info.get("super") if cfg.get("super_enabled") else f"({info.get('super')}) [off]"
-        print(printf_fmt % (act, p, s, sup, info.get("description", "")))
+        print(printf_fmt % (act, p, fn, sup, info.get("description", "")))
     print("======================================================================")
 
 
@@ -466,7 +612,7 @@ def cmd_set(cfg: dict, action: str, accel: str, force: bool = False):
 def cmd_reset(cfg: dict, target: str):
     if target == "all":
         cfg = DEFAULT_KEYS.copy()
-        print("Reset all shortcuts to defaults (Zero Super key dependence).")
+        print("Reset all shortcuts to defaults (Zero Super key dependence, no app collisions).")
     elif target in cfg.get("bindings", {}):
         cfg["bindings"][target] = DEFAULT_KEYS["bindings"][target].copy()
         print(f"Reset '{target}' shortcut to default ({cfg['bindings'][target]['primary']}).")
@@ -490,6 +636,47 @@ def cmd_super(cfg: dict, state: str):
     save_keys_config(cfg)
     ok, msg = apply_keys(cfg, force=True)
     print(f"[SUCCESS] Super key bindings {'ENABLED' if new_state else 'DISABLED'}. {msg}")
+    return 0
+
+
+def cmd_fn(cfg: dict, state: str):
+    new_state = (state.lower() in ("on", "true", "1", "enable"))
+    cfg["fn_enabled"] = new_state
+    save_keys_config(cfg)
+    ok, msg = apply_keys(cfg, force=True)
+    print(f"[SUCCESS] Function key bindings (F3, F4) {'ENABLED' if new_state else 'DISABLED'}. {msg}")
+    return 0
+
+
+def cmd_test_fire(cfg: dict):
+    print("======================================================================")
+    print("              KEYBOARD SHORTCUT TEST-FIRE VERIFICATION")
+    print("======================================================================")
+    if not os.environ.get("DISPLAY"):
+        print("Result: [UNVERIFIED] (DISPLAY environment variable not set; cannot inject X11 key events)")
+        return 0
+
+    if not shutil.which("xdotool"):
+        print("Result: [UNVERIFIED] ('xdotool' not found in PATH; cannot inject XTEST key events)")
+        return 0
+
+    bindings = cfg.get("bindings", {})
+    all_tested = 0
+    for act, info in bindings.items():
+        key = info.get("primary")
+        if not key:
+            continue
+        all_tested += 1
+        xdo_key = key.replace("<Primary>", "ctrl+").replace("<Alt>", "alt+").replace("<Shift>", "shift+").replace("<Super>", "super+")
+        xdo_key = xdo_key.rstrip("+")
+
+        res = subprocess.run(["xdotool", "key", "--clearmodifiers", xdo_key], capture_output=True, text=True, timeout=2.0)
+        if res.returncode == 0:
+            print(f" [PASS] {info['name']:<20} ({key}): XTEST key sent successfully")
+        else:
+            print(f" [UNVERIFIED] {info['name']:<20} ({key}): XTEST grab did not trigger ({res.stderr.strip()})")
+
+    print(f"Completed test-fire probe for {all_tested} bindings.")
     return 0
 
 
@@ -531,7 +718,10 @@ def main():
 
     sub.add_parser("list", help="List all configured actions and shortcuts")
     sub.add_parser("check", help="Detect conflicts with system shortcuts")
+    sub.add_parser("scan-legacy", help="Scan xfconf channels for unmanaged legacy bindings")
+    sub.add_parser("adopt-legacy", help="Adopt and remove unmanaged legacy bindings")
     sub.add_parser("apply", help="Apply configured shortcuts to XFCE")
+    sub.add_parser("test-fire", help="Test-fire configured keybindings using xdotool")
 
     set_p = sub.add_parser("set", help="Set shortcut accelerator for an action")
     set_p.add_argument("action", help="Action name (e.g. control_center, spotlight)")
@@ -544,6 +734,9 @@ def main():
     super_p = sub.add_parser("super", help="Toggle optional Super key bindings")
     super_p.add_argument("state", choices=["on", "off"], help="on or off")
 
+    fn_p = sub.add_parser("fn", help="Toggle optional Function key bindings (F3, F4)")
+    fn_p.add_argument("state", choices=["on", "off"], help="on or off")
+
     sub.add_parser("help", help="Display shortcuts cheat sheet")
 
     args = parser.parse_args()
@@ -554,6 +747,12 @@ def main():
         return 0
     elif args.command == "check":
         return cmd_check(cfg)
+    elif args.command == "scan-legacy":
+        return cmd_scan_legacy()
+    elif args.command == "adopt-legacy":
+        return cmd_adopt_legacy()
+    elif args.command == "test-fire":
+        return cmd_test_fire(cfg)
     elif args.command == "apply":
         ok, msg = apply_keys(cfg)
         if ok:
@@ -568,6 +767,8 @@ def main():
         return cmd_reset(cfg, args.target)
     elif args.command == "super":
         return cmd_super(cfg, args.state)
+    elif args.command == "fn":
+        return cmd_fn(cfg, args.state)
     elif args.command == "help":
         return cmd_help_modal(cfg)
 

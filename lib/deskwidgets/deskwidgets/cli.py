@@ -362,16 +362,69 @@ def cmd_status(_a):
 
     # 2. X11 Window and Geometry Checks
     s = settings_mod.load()
-    screen_w, screen_h = 1280, 1024
+    instances = _layout()
+    if not instances:
+        print("  No widgets configured in layout.json")
+        return 1
+
+    screen_w, screen_h, _ = get_live_widget_windows()
     from .grid import Grid
     grid = Grid(screen_w, screen_h, s)
 
+    print(f"Screen Geometry: {screen_w}x{screen_h}\n")
+    print("Widget Instances (Waiting up to 10s for geometry to settle):")
+
+    all_ok, passed_count, total_count, details = settle_and_check_geometry(grid, instances, timeout=10.0, poll_interval=0.25)
+
+    for item in details:
+        wid = item['id']
+        wtype = item['type']
+        size = item['size']
+        calc_x, calc_y, calc_w, calc_h = item['calc']
+        cpid = item['pid'] or 'unknown'
+
+        if item['status'] == 'PASS':
+            rx, ry, rw, rh = item['real']
+            print(f"[PASS] {wid} ({wtype}:{size}): conky PID {cpid}")
+            print(f"       Real geometry:       x={rx:<4} y={ry:<4} w={rw:<4} h={rh:<4}")
+            print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+        else:
+            if item['real'] is None:
+                print(f"[FAIL] {wid} ({wtype}:{size}): {item['reason']}")
+                print(f"       Real geometry:       NONE")
+                print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+                err_file = os.path.expanduser(f"~/.cache/sequoia/widgets/{wid}.stderr")
+                if os.path.isfile(err_file) and os.path.getsize(err_file) > 0:
+                    try:
+                        with open(err_file, 'r', encoding='utf-8', errors='ignore') as ef:
+                            lines = [ln.strip() for ln in ef.readlines() if ln.strip()]
+                            if lines:
+                                print(f"       Captured stderr:     {lines[-1]}")
+                    except Exception:
+                        pass
+            else:
+                rx, ry, rw, rh = item['real']
+                print(f"[FAIL] {wid} ({wtype}:{size}): {item['reason']}")
+                print(f"       Real geometry:       x={rx:<4} y={ry:<4} w={rw:<4} h={rh:<4}")
+                print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
+
+    print(f"\nSummary: {passed_count}/{total_count} widgets passing geometry and process checks.")
+    if not all_ok:
+        print("RESULT: FAILURES DETECTED")
+        return 1
+    else:
+        print("RESULT: ALL CHECKS PASSED")
+        return 0
+
+
+def get_live_widget_windows():
+    """Queries live X11 / wmctrl windows for deskwidgets."""
     live_windows = {}
+    screen_w, screen_h = 1280, 1024
     try:
         from .x11 import X11
         x = X11()
         screen_w, screen_h = x.screen_size()
-        grid = Grid(screen_w, screen_h, s)
         widget_wins = x.widget_windows()
         for wid, win_handle in widget_wins.items():
             geom = x.geometry(win_handle)
@@ -382,33 +435,65 @@ def cmd_status(_a):
                     'w': geom[2], 'h': geom[3],
                     'pid': pid
                 }
-    except Exception as e:
-        try:
-            wm_res = subprocess.run(['wmctrl', '-lpG'], capture_output=True, text=True)
-            for line in wm_res.stdout.splitlines():
-                parts = line.split()
-                if len(parts) >= 8 and 'deskwidget:' in line:
-                    for token in parts:
-                        if token.startswith('deskwidget:'):
-                            wid = token[len('deskwidget:'):]
-                            live_windows[wid] = {
-                                'x': int(parts[3]), 'y': int(parts[4]),
-                                'w': int(parts[5]), 'h': int(parts[6]),
-                                'pid': int(parts[2]) if parts[2].isdigit() else None
-                            }
-        except Exception:
-            pass
+        return screen_w, screen_h, live_windows
+    except Exception:
+        pass
 
-    print(f"Screen Geometry: {screen_w}x{screen_h}\n")
-    print("Widget Instances:")
+    try:
+        wm_res = subprocess.run(['wmctrl', '-lpG'], capture_output=True, text=True, timeout=2.0)
+        for line in wm_res.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 8 and 'deskwidget:' in line:
+                for token in parts:
+                    if token.startswith('deskwidget:'):
+                        wid = token[len('deskwidget:'):]
+                        live_windows[wid] = {
+                            'x': int(parts[3]), 'y': int(parts[4]),
+                            'w': int(parts[5]), 'h': int(parts[6]),
+                            'pid': int(parts[2]) if parts[2].isdigit() else None
+                        }
+    except Exception:
+        pass
+    return screen_w, screen_h, live_windows
 
-    instances = _layout()
-    if not instances:
-        print("  No widgets configured in layout.json")
-        return 1
+
+def settle_and_check_geometry(grid, instances, timeout=10.0, poll_interval=0.25):
+    """
+    Polls up to `timeout` seconds waiting for all widget windows to map and settle
+    to their calculated geometry (x, y, w, h). Compares sizes and positions.
+    Returns (ok, passed_count, total_count, details_list).
+    """
+    start_t = time.time()
+    last_live = {}
+
+    while True:
+        _, _, live = get_live_widget_windows()
+        last_live = live
+        all_settled = True
+        for inst in instances:
+            wid = inst.get('id', 'unknown')
+            size = inst.get('size', 'small')
+            col, row = inst.get('col', 0), inst.get('row', 0)
+            calc_x, calc_y, calc_w, calc_h = grid.window_rect(col, row, size)
+            real = live.get(wid)
+            if not real:
+                all_settled = False
+                break
+            rx, ry, rw, rh = real['x'], real['y'], real['w'], real['h']
+            if abs(rx - calc_x) > 4 or abs(ry - calc_y) > 4 or abs(rw - calc_w) > 4 or abs(rh - calc_h) > 4:
+                all_settled = False
+                break
+
+        if all_settled and len(instances) > 0:
+            break
+        if time.time() - start_t >= timeout:
+            break
+        time.sleep(poll_interval)
 
     passed_count = 0
     total_count = len(instances)
+    details = []
+    all_ok = True
 
     for inst in instances:
         wid = inst.get('id', 'unknown')
@@ -416,22 +501,17 @@ def cmd_status(_a):
         size = inst.get('size', 'small')
         col, row = inst.get('col', 0), inst.get('row', 0)
         calc_x, calc_y, calc_w, calc_h = grid.window_rect(col, row, size)
+        real = last_live.get(wid)
 
-        real = live_windows.get(wid)
         if not real:
-            print(f"[FAIL] {wid} ({wtype}:{size}): NO RUNNING PROCESS / NO WINDOW")
-            print(f"       Real geometry:       NONE")
-            print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
-            err_file = os.path.expanduser(f"~/.cache/sequoia/widgets/{wid}.stderr")
-            if os.path.isfile(err_file) and os.path.getsize(err_file) > 0:
-                try:
-                    with open(err_file, 'r', encoding='utf-8', errors='ignore') as ef:
-                        lines = [ln.strip() for ln in ef.readlines() if ln.strip()]
-                        if lines:
-                            print(f"       Captured stderr:     {lines[-1]}")
-                except Exception:
-                    pass
-            ok = False
+            all_ok = False
+            details.append({
+                'id': wid, 'type': wtype, 'size': size, 'status': 'FAIL',
+                'reason': 'NO RUNNING PROCESS / NO WINDOW',
+                'real': None,
+                'calc': (calc_x, calc_y, calc_w, calc_h),
+                'pid': None
+            })
         else:
             rx, ry, rw, rh = real['x'], real['y'], real['w'], real['h']
             cpid = real.get('pid')
@@ -447,41 +527,38 @@ def cmd_status(_a):
                                 cpid = candidate
                     except Exception:
                         pass
-            if not cpid:
-                try:
-                    for p in os.listdir('/proc'):
-                        if p.isdigit():
-                            try:
-                                with open(f'/proc/{p}/environ', 'rb') as ef:
-                                    env_data = ef.read().split(b'\0')
-                                if f'MAC_ID={wid}'.encode() in env_data:
-                                    cpid = int(p)
-                                    break
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
             cpid = cpid or 'unknown'
+
             dx = abs(rx - calc_x)
             dy = abs(ry - calc_y)
-            if dx <= 4 and dy <= 4:
-                print(f"[PASS] {wid} ({wtype}:{size}): conky PID {cpid}")
-                print(f"       Real geometry:       x={rx:<4} y={ry:<4} w={rw:<4} h={rh:<4}")
-                print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
-                passed_count += 1
-            else:
-                print(f"[FAIL] {wid} ({wtype}:{size}): GEOMETRY MISPLACED (dx={rx-calc_x}, dy={ry-calc_y})")
-                print(f"       Real geometry:       x={rx:<4} y={ry:<4} w={rw:<4} h={rh:<4}")
-                print(f"       Calculated geometry: x={calc_x:<4} y={calc_y:<4} w={calc_w:<4} h={calc_h:<4}")
-                ok = False
+            dw = abs(rw - calc_w)
+            dh = abs(rh - calc_h)
 
-    print(f"\nSummary: {passed_count}/{total_count} widgets passing geometry and process checks.")
-    if not ok:
-        print("RESULT: FAILURES DETECTED")
-        return 1
-    else:
-        print("RESULT: ALL CHECKS PASSED")
-        return 0
+            if dx <= 4 and dy <= 4 and dw <= 4 and dh <= 4:
+                passed_count += 1
+                details.append({
+                    'id': wid, 'type': wtype, 'size': size, 'status': 'PASS',
+                    'reason': 'OK',
+                    'real': (rx, ry, rw, rh),
+                    'calc': (calc_x, calc_y, calc_w, calc_h),
+                    'pid': cpid
+                })
+            else:
+                all_ok = False
+                mismatches = []
+                if dx > 4 or dy > 4:
+                    mismatches.append(f"dx={rx - calc_x}, dy={ry - calc_y}")
+                if dw > 4 or dh > 4:
+                    mismatches.append(f"dw={rw - calc_w}, dh={rh - calc_h}")
+                details.append({
+                    'id': wid, 'type': wtype, 'size': size, 'status': 'FAIL',
+                    'reason': f"GEOMETRY MISMATCH ({', '.join(mismatches)})",
+                    'real': (rx, ry, rw, rh),
+                    'calc': (calc_x, calc_y, calc_w, calc_h),
+                    'pid': cpid
+                })
+
+    return all_ok, passed_count, total_count, details
 
 
 def main(argv=None):
